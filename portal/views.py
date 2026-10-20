@@ -1,341 +1,521 @@
 import csv
-import os
-from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.contrib import messages
+from django.http import JsonResponse, HttpResponse
+from django.db.models import Count, Avg
 from .models import (
-    UserProfile, PastProjectArchive, ProjectGroup,
-    ProjectProposal, WeeklyLog, VivaEvaluation, Notification
+    University, College, Department, UserProfile,
+    ProjectGroup, ProjectProposal, WeeklyLog,
+    VivaEvaluation, PastProjectArchive, Notification
 )
-from .similarity import calculate_abstract_similarity
+from .similarity import check_abstract_similarity, FALLBACK_CORPUS
 
-ALLOWED_EXTENSIONS = {'.pdf', '.png', '.jpg', '.jpeg'}
+def notify_users(users, message):
+    for u in users:
+        if u:
+            Notification.objects.create(user=u, message=message)
 
-def notify_group_members(group, msg, level='info'):
-    for member in group.members.all():
-        Notification.objects.create(recipient=member, message=msg, level=level)
+def api_hierarchy(request):
+    """Returns dynamic University -> College -> Department tree for cascading dropdowns."""
+    universities = list(University.objects.values('id', 'name'))
+    colleges = list(College.objects.values('id', 'university_id', 'name'))
+    departments = list(Department.objects.values('id', 'college_id', 'name', 'academic_year'))
+    return JsonResponse({
+        'universities': universities,
+        'colleges': colleges,
+        'departments': departments,
+    })
 
-def notify_user(user, msg, level='info'):
-    if user:
-        Notification.objects.create(recipient=user, message=msg, level=level)
-
-def user_login(request):
+def login_view(request):
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect('dashboard_router')
     if request.method == 'POST':
-        u = request.POST.get('username')
-        p = request.POST.get('password')
+        u = request.POST.get('username', '').strip()
+        p = request.POST.get('password', '').strip()
         user = authenticate(request, username=u, password=p)
         if user:
             login(request, user)
-            messages.success(request, f"Welcome back, {user.first_name or user.username}!")
-            return redirect('dashboard')
-        messages.error(request, 'Invalid username or password. Please try again.')
-    return render(request, 'login.html')
+            messages.success(request, f"Welcome back, {user.get_full_name() or user.username}!")
+            return redirect('dashboard_router')
+        else:
+            messages.error(request, "Invalid username or password. Need an account? Click 'Create Account' below.")
+    return render(request, 'login.html', {
+        'total_universities': University.objects.count(),
+        'total_departments': Department.objects.count(),
+        'total_users': UserProfile.objects.count(),
+    })
 
-def user_logout(request):
+def signup_view(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard_router')
+
+    if request.method == 'POST':
+        full_name = request.POST.get('full_name', '').strip()
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '').strip()
+        role = request.POST.get('role', 'STUDENT').strip()
+        identifier = request.POST.get('identifier', '').strip()
+        class_division = request.POST.get('class_division', 'TY-A').strip()
+
+        # Hierarchy resolution (supports selecting existing OR creating new inline)
+        uni_id = request.POST.get('university_id', '')
+        new_uni_name = request.POST.get('new_university', '').strip()
+
+        col_id = request.POST.get('college_id', '')
+        new_col_name = request.POST.get('new_college', '').strip()
+
+        dept_id = request.POST.get('department_id', '')
+        new_dept_name = request.POST.get('new_department', '').strip()
+
+        if not full_name or not username or not password:
+            messages.error(request, "Please fill in your full name, username, and password.")
+            return redirect('signup')
+
+        if User.objects.filter(username__iexact=username).exists():
+            messages.error(request, f"Username '{username}' is already taken. Please choose another.")
+            return redirect('signup')
+
+        # 1. Resolve University
+        if new_uni_name:
+            university, _ = University.objects.get_or_create(name=new_uni_name)
+        elif uni_id and uni_id.isdigit():
+            university = University.objects.filter(id=int(uni_id)).first()
+        else:
+            university = None
+
+        if not university:
+            messages.error(request, "Please select or enter a University.")
+            return redirect('signup')
+
+        # 2. Resolve College
+        if new_col_name:
+            college, _ = College.objects.get_or_create(university=university, name=new_col_name)
+        elif col_id and col_id.isdigit():
+            college = College.objects.filter(id=int(col_id), university=university).first()
+        else:
+            college = None
+
+        if not college:
+            messages.error(request, "Please select or enter a College under that University.")
+            return redirect('signup')
+
+        # 3. Resolve Department
+        if new_dept_name:
+            department, _ = Department.objects.get_or_create(college=college, name=new_dept_name)
+        elif dept_id and dept_id.isdigit():
+            department = Department.objects.filter(id=int(dept_id), college=college).first()
+        else:
+            department = None
+
+        if not department:
+            messages.error(request, "Please select or enter a Department.")
+            return redirect('signup')
+
+        # Split full name
+        parts = full_name.split(' ', 1)
+        first_name = parts[0]
+        last_name = parts[1] if len(parts) > 1 else ''
+
+        user = User.objects.create_user(
+            username=username,
+            password=password,
+            first_name=first_name,
+            last_name=last_name
+        )
+        UserProfile.objects.create(
+            user=user,
+            role=role,
+            university=university,
+            college=college,
+            department=department,
+            identifier=identifier or f"{role[:3]}-{user.id:02d}",
+            class_division=class_division
+        )
+
+        # Notify department coordinators of new registration
+        coordinators = User.objects.filter(profile__department=department, profile__role='COORDINATOR').exclude(id=user.id)
+        notify_users(coordinators, f"New {role.title()} registered in {department.name}: {full_name}")
+
+        login(request, user)
+        messages.success(request, f"Account created! Welcome to {department.name}, {full_name}.")
+        return redirect('dashboard_router')
+
+    return render(request, 'signup.html', {
+        'universities': University.objects.all(),
+        'colleges': College.objects.all(),
+        'departments': Department.objects.all(),
+    })
+
+def logout_view(request):
     logout(request)
+    messages.info(request, "You have been signed out safely.")
     return redirect('login')
 
 @login_required
-def dashboard(request):
+def dashboard_router(request):
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
-    role = profile.role
-    notifications = request.user.notifications.all()[:8]
-    unread_count = request.user.notifications.filter(is_read=False).count()
+    if profile.role == 'GUIDE':
+        return redirect('guide_dashboard')
+    elif profile.role == 'COORDINATOR':
+        return redirect('coordinator_dashboard')
+    elif profile.role == 'EXAMINER':
+        return redirect('examiner_dashboard')
+    return redirect('student_dashboard')
 
-    base_ctx = {'notifications': notifications, 'unread_count': unread_count}
+@login_required
+def mark_notifications_read(request):
+    request.user.notifications.filter(is_read=False).update(is_read=True)
+    return redirect(request.META.get('HTTP_REFERER', 'dashboard_router'))
 
-    if role == 'STUDENT':
-        group = request.user.student_groups.first()
-        proposal = getattr(group, 'proposal', None) if group else None
-        logs = group.weekly_logs.all() if group else []
-        viva = getattr(group, 'viva_evaluation', None) if group else None
-        next_week = (logs.last().week_number + 1) if logs.exists() else 1
-        base_ctx.update({
-            'group': group, 'proposal': proposal,
-            'logs': logs, 'viva': viva, 'next_week': min(next_week, 16)
-        })
-        return render(request, 'student_dashboard.html', base_ctx)
+# ==============================================================================
+# STUDENT WORKSPACE & DYNAMIC GROUP WIZARD
+# ==============================================================================
+@login_required
+def student_dashboard(request):
+    profile = request.user.profile
+    dept = profile.department
+    group = request.user.student_groups.first()
 
-    elif role == 'GUIDE':
-        groups = ProjectGroup.objects.filter(guide=request.user)
-        base_ctx.update({'groups': groups})
-        return render(request, 'guide_dashboard.html', base_ctx)
+    # Available guides & unassigned students in the exact same department
+    dept_guides = User.objects.filter(profile__department=dept, profile__role='GUIDE').select_related('profile')
+    dept_students = User.objects.filter(
+        profile__department=dept,
+        profile__role='STUDENT',
+        student_groups__isnull=True
+    ).exclude(id=request.user.id).select_related('profile')
+    open_groups = ProjectGroup.objects.filter(department=dept).prefetch_related('students', 'guide')
 
-    elif role == 'EXAMINER':
-        groups = ProjectGroup.objects.all()
-        base_ctx.update({'groups': groups})
-        return render(request, 'examiner_viva.html', base_ctx)
+    if request.method == 'POST':
+        action = request.POST.get('action')
 
-    else:  # COORDINATOR
-        groups = ProjectGroup.objects.all()
-        archives = PastProjectArchive.objects.all()
-        stage_counts = {
-            'pending': groups.filter(current_stage='TOPIC_PENDING').count(),
-            'progress': groups.filter(current_stage='IN_PROGRESS').count(),
-            'ready': groups.filter(current_stage='READY_FOR_VIVA').count(),
-            'evaluated': groups.filter(current_stage='EVALUATED').count(),
-        }
-        base_ctx.update({'groups': groups, 'archives': archives, 'stage_counts': stage_counts})
-        return render(request, 'coordinator_dashboard.html', base_ctx)
+        # 1. Create a New Project Group from Scratch
+        if action == 'create_group' and not group:
+            group_name = request.POST.get('group_name', '').strip()
+            guide_id = request.POST.get('guide_id', '')
+            teammate_ids = request.POST.getlist('teammate_ids')
+
+            if not group_name:
+                messages.error(request, "Please provide a name for your project group.")
+                return redirect('student_dashboard')
+
+            guide_user = User.objects.filter(id=guide_id, profile__department=dept, profile__role='GUIDE').first() if guide_id.isdigit() else None
+            new_group = ProjectGroup.objects.create(
+                name=group_name,
+                department=dept,
+                guide=guide_user
+            )
+            new_group.students.add(request.user)
+            for tid in teammate_ids:
+                if tid.isdigit():
+                    tm = User.objects.filter(id=int(tid), profile__department=dept, profile__role='STUDENT').first()
+                    if tm and not tm.student_groups.exists():
+                        new_group.students.add(tm)
+                        notify_users([tm], f"{request.user.get_full_name()} added you to project group '{new_group.name}'.")
+
+            if guide_user:
+                notify_users([guide_user], f"New group '{new_group.name}' selected you as their Faculty Guide.")
+            messages.success(request, f"Group '{new_group.name}' created! Share join code {new_group.join_code} with teammates.")
+            return redirect('student_dashboard')
+
+        # 2. Join an Existing Group by Code or ID
+        elif action == 'join_group' and not group:
+            join_code = request.POST.get('join_code', '').strip().upper()
+            target_group = ProjectGroup.objects.filter(join_code__iexact=join_code, department=dept).first()
+            if not target_group:
+                messages.error(request, f"No group found in {dept.name} with join code '{join_code}'.")
+            else:
+                target_group.students.add(request.user)
+                notify_users(target_group.students.exclude(id=request.user.id), f"{request.user.get_full_name()} joined {target_group.name}!")
+                messages.success(request, f"You have joined '{target_group.name}'!")
+            return redirect('student_dashboard')
+
+        # 3. Assign or Change Guide (if group has no guide yet)
+        elif action == 'assign_guide' and group:
+            guide_id = request.POST.get('guide_id', '')
+            guide_user = User.objects.filter(id=guide_id, profile__department=dept, profile__role='GUIDE').first() if guide_id.isdigit() else None
+            if guide_user:
+                group.guide = guide_user
+                group.save()
+                notify_users([guide_user], f"Group '{group.name}' assigned you as their Faculty Guide.")
+                messages.success(request, f"Assigned {guide_user.get_full_name()} as your Faculty Guide.")
+            return redirect('student_dashboard')
+
+        # 4. Submit / Update Project Proposal
+        elif action == 'submit_proposal' and group:
+            title = request.POST.get('title', '').strip()
+            domain = request.POST.get('domain', '').strip()
+            abstract = request.POST.get('abstract', '').strip()
+            report_file = request.FILES.get('report_file')
+
+            if not title or not abstract:
+                messages.error(request, "Project title and abstract are required.")
+                return redirect('student_dashboard')
+
+            sim_res = check_abstract_similarity(title, abstract, department=dept, exclude_group_id=group.id)
+            proposal, created = ProjectProposal.objects.get_or_create(group=group)
+            proposal.title = title
+            proposal.domain = domain or "Software Engineering"
+            proposal.abstract = abstract
+            proposal.similarity_score = sim_res['score']
+            proposal.closest_match_title = sim_res['closest_match']
+            proposal.status = 'PENDING'
+            if report_file:
+                proposal.report_file = report_file
+            proposal.save()
+
+            if group.guide:
+                notify_users([group.guide], f"{group.name} submitted proposal '{title}' (Similarity: {sim_res['score']}%).")
+            messages.success(request, f"Proposal submitted! AI Similarity Score: {sim_res['score']}%.")
+            return redirect('student_dashboard')
+
+        # 5. Submit Weekly Progress Log
+        elif action == 'submit_log' and group:
+            week_num = request.POST.get('week_number', '1')
+            tasks = request.POST.get('tasks_completed', '').strip()
+            plan = request.POST.get('next_week_plan', '').strip()
+            if tasks and plan:
+                WeeklyLog.objects.create(
+                    group=group,
+                    week_number=int(week_num) if week_num.isdigit() else 1,
+                    tasks_completed=tasks,
+                    next_week_plan=plan
+                )
+                if group.guide:
+                    notify_users([group.guide], f"{group.name} logged Week {week_num} progress for your verification.")
+                messages.success(request, f"Week {week_num} progress log recorded.")
+            return redirect('student_dashboard')
+
+    proposal = getattr(group, 'proposal', None) if group else None
+    logs = group.logs.all() if group else []
+    viva = getattr(group, 'viva', None) if group else None
+    next_week = (logs.count() + 1) if group else 1
+
+    return render(request, 'student_dashboard.html', {
+        'group': group,
+        'proposal': proposal,
+        'logs': logs,
+        'viva': viva,
+        'next_week': next_week,
+        'dept_guides': dept_guides,
+        'dept_students': dept_students,
+        'open_groups': open_groups,
+        'notifications': request.user.notifications.filter(is_read=False)[:6],
+    })
 
 @login_required
 def api_check_similarity(request):
     if request.method == 'POST':
+        title = request.POST.get('title', '')
+        abstract = request.POST.get('abstract', '')
+        dept = request.user.profile.department
         group = request.user.student_groups.first()
-        title = request.POST.get('proposed_title', '')
-        abstract = request.POST.get('abstract_text', '')
-        exclude_id = group.id if group else None
+        res = check_abstract_similarity(title, abstract, department=dept, exclude_group_id=group.id if group else None)
+        return JsonResponse(res)
+    return JsonResponse({'error': 'POST required'}, status=400)
 
-        score, match_title, match_src, keywords = calculate_abstract_similarity(title, abstract, exclude_group_id=exclude_id)
-        level = 'warning' if score >= 50 else 'info'
-        msg = (
-            f"High overlap ({score}%) detected with '{match_title}'."
-            if score >= 50 else
-            f"Similarity verified at {score}%. Topic is distinct."
-        )
-        return JsonResponse({
-            'ok': True,
-            'score': score,
-            'match_title': match_title,
-            'match_source': match_src,
-            'keywords': keywords,
-            'level': level,
-            'message': msg
-        })
-    return JsonResponse({'ok': False, 'message': 'Invalid request'}, status=400)
-
+# ==============================================================================
+# FACULTY GUIDE WORKSPACE
+# ==============================================================================
 @login_required
-def submit_proposal(request):
+def guide_dashboard(request):
+    profile = request.user.profile
+    dept = profile.department
+
     if request.method == 'POST':
-        group = request.user.student_groups.first()
-        proposal_existing = getattr(group, 'proposal', None)
+        action = request.POST.get('action')
 
-        title = request.POST.get('proposed_title', '').strip() or (proposal_existing.proposed_title if proposal_existing else '')
-        abstract = request.POST.get('abstract_text', '').strip() or (proposal_existing.abstract_text if proposal_existing else '')
-        stack = request.POST.get('tech_stack', '').strip() or (proposal_existing.tech_stack if proposal_existing else '')
+        if action == 'claim_group':
+            gid = request.POST.get('group_id')
+            grp = get_object_or_404(ProjectGroup, id=gid, department=dept)
+            grp.guide = request.user
+            grp.save()
+            notify_users(grp.students.all(), f"Prof. {request.user.get_full_name()} is now mentoring {grp.name}.")
+            messages.success(request, f"You are now guiding '{grp.name}'.")
 
-        score, match_title, match_src, keywords = calculate_abstract_similarity(title, abstract, exclude_group_id=group.id)
-        proposal, _ = ProjectProposal.objects.update_or_create(
-            group=group,
-            defaults={
-                'proposed_title': title,
-                'abstract_text': abstract,
-                'tech_stack': stack,
-                'similarity_score': score,
-                'closest_match_title': match_title,
-                'closest_match_source': match_src,
-                'status': 'PENDING',
-            }
-        )
-        notify_user(group.guide, f"{group.group_name} updated proposal '{title}' (Similarity: {score}%).", 'info')
+        elif action == 'review_proposal':
+            pid = request.POST.get('proposal_id')
+            decision = request.POST.get('decision')
+            remarks = request.POST.get('guide_remarks', '').strip()
+            prop = get_object_or_404(ProjectProposal, id=pid, group__guide=request.user)
+            prop.status = decision
+            prop.guide_remarks = remarks
+            prop.save()
+            status_label = "Approved" if decision == 'APPROVED' else "requested changes on"
+            notify_users(prop.group.students.all(), f"Guide {request.user.get_full_name()} {status_label} your proposal '{prop.title}'.")
+            messages.success(request, f"Updated proposal status for {prop.group.name}.")
 
-        level = 'warning' if score >= 50 else 'success'
-        msg = (
-            f"Proposal saved, but flagged at {score}% similarity with '{match_title}'."
-            if score >= 50 else
-            f"Proposal saved & sent to {group.guide.first_name}! Smart Similarity: {score}%."
-        )
-        return JsonResponse({
-            'ok': True,
-            'level': level,
-            'message': msg,
-            'score': score,
-            'match_title': match_title,
-            'match_source': match_src,
-            'keywords': keywords,
-            'status_display': proposal.get_status_display()
-        })
-    return JsonResponse({'ok': False, 'message': 'Invalid request'}, status=400)
+        elif action == 'verify_log':
+            lid = request.POST.get('log_id')
+            feedback = request.POST.get('guide_feedback', '').strip()
+            log_item = get_object_or_404(WeeklyLog, id=lid, group__guide=request.user)
+            log_item.is_verified = True
+            log_item.guide_feedback = feedback or "Verified & signed off by Faculty Guide."
+            log_item.save()
+            notify_users(log_item.group.students.all(), f"Week {log_item.week_number} log verified by Prof. {request.user.get_full_name()}.")
+            messages.success(request, f"Verified Week {log_item.week_number} for {log_item.group.name}.")
 
+        return redirect('guide_dashboard')
+
+    my_groups = ProjectGroup.objects.filter(guide=request.user).prefetch_related('students', 'logs')
+    unassigned_groups = ProjectGroup.objects.filter(department=dept, guide__isnull=True).prefetch_related('students')
+
+    pending_proposals = ProjectProposal.objects.filter(group__guide=request.user, status='PENDING').count()
+    approved_proposals = ProjectProposal.objects.filter(group__guide=request.user, status='APPROVED').count()
+    unverified_logs = WeeklyLog.objects.filter(group__guide=request.user, is_verified=False).count()
+
+    return render(request, 'guide_dashboard.html', {
+        'my_groups': my_groups,
+        'unassigned_groups': unassigned_groups,
+        'pending_proposals': pending_proposals,
+        'approved_proposals': approved_proposals,
+        'unverified_logs': unverified_logs,
+        'notifications': request.user.notifications.filter(is_read=False)[:6],
+    })
+
+# ==============================================================================
+# DEPARTMENT COORDINATOR WORKSPACE & HIERARCHY ADMIN
+# ==============================================================================
 @login_required
-def add_weekly_log(request):
+def coordinator_dashboard(request):
+    profile = request.user.profile
+    dept = profile.department
+
     if request.method == 'POST':
-        group = request.user.student_groups.first()
-        week = int(request.POST.get('week_number', 1))
-        existing_log = WeeklyLog.objects.filter(group=group, week_number=week).first()
+        action = request.POST.get('action')
 
-        tasks = request.POST.get('tasks_completed', '').strip() or (existing_log.tasks_completed if existing_log else '')
-        link = request.POST.get('commit_or_doc_link', '').strip()
-        if not link and existing_log:
-            link = existing_log.commit_or_doc_link or ''
+        # 1. Add Past Project Archive to Department TF-IDF Corpus
+        if action == 'add_archive':
+            title = request.POST.get('title', '').strip()
+            year = request.POST.get('year', '2025').strip()
+            domain = request.POST.get('domain', 'Computer Science').strip()
+            abstract = request.POST.get('abstract', '').strip()
+            if title and abstract:
+                PastProjectArchive.objects.create(department=dept, title=title, year=year, domain=domain, abstract=abstract)
+                messages.success(request, f"Added '{title}' to {dept.name} similarity corpus.")
 
-        log, created = WeeklyLog.objects.update_or_create(
-            group=group, week_number=week,
-            defaults={
-                'tasks_completed': tasks,
-                'commit_or_doc_link': link or None,
-                'approval_status': 'PENDING'
-            }
-        )
-        action_word = "logged" if created else "updated"
-        notify_user(group.guide, f"{group.group_name} {action_word} Week {week} progress.", 'info')
+        # 2. 1-Click Load Sample AI Corpus for the Department
+        elif action == 'seed_corpus':
+            added = 0
+            for item in FALLBACK_CORPUS:
+                _, created = PastProjectArchive.objects.get_or_create(
+                    department=dept,
+                    title=item["title"],
+                    defaults={"year": "2025", "domain": "AI & Systems", "abstract": item["abstract"]}
+                )
+                if created:
+                    added += 1
+            messages.success(request, f"Loaded {added} benchmark academic abstracts into {dept.name}'s TF-IDF archive.")
 
-        return JsonResponse({
-            'ok': True,
-            'level': 'success',
-            'message': f"Week {week} progress {action_word} & synced!",
-            'log': {
-                'id': log.id,
-                'week_number': log.week_number,
-                'tasks_completed': log.tasks_completed,
-                'commit_or_doc_link': log.commit_or_doc_link or '',
-                'guide_remarks': log.guide_remarks or 'Awaiting guide review',
-                'approval_status': log.approval_status,
-                'status_display': log.get_approval_status_display(),
-            }
-        })
-    return JsonResponse({'ok': False, 'message': 'Invalid request'}, status=400)
+        # 3. Create New Department under Current College (Descending Hierarchy Expansion)
+        elif action == 'add_department':
+            new_dept_name = request.POST.get('new_dept_name', '').strip()
+            acad_year = request.POST.get('academic_year', '2026-2027').strip()
+            if new_dept_name and profile.college:
+                Department.objects.get_or_create(
+                    college=profile.college,
+                    name=new_dept_name,
+                    defaults={'academic_year': acad_year}
+                )
+                messages.success(request, f"Department '{new_dept_name}' added under {profile.college.name}! Now live for student & faculty sign-ups.")
 
-@login_required
-def upload_final_submission(request):
-    if request.method == 'POST':
-        group = request.user.student_groups.first()
-        repo = request.POST.get('github_repo_link', '').strip()
-        if repo:
-            group.github_repo_link = repo
+        # 4. Reassign Guide to Any Group in Department
+        elif action == 'assign_guide':
+            gid = request.POST.get('group_id')
+            guide_id = request.POST.get('guide_id')
+            grp = get_object_or_404(ProjectGroup, id=gid, department=dept)
+            guide_user = get_object_or_404(User, id=guide_id, profile__department=dept, profile__role='GUIDE')
+            grp.guide = guide_user
+            grp.save()
+            notify_users(grp.students.all(), f"Coordinator assigned Prof. {guide_user.get_full_name()} as your Faculty Guide.")
+            messages.success(request, f"Assigned {guide_user.get_full_name()} to {grp.name}.")
 
-        if 'final_report_pdf' in request.FILES:
-            uploaded_file = request.FILES['final_report_pdf']
-            ext = os.path.splitext(uploaded_file.name)[1].lower()
-            if ext not in ALLOWED_EXTENSIONS:
-                return JsonResponse({
-                    'ok': False,
-                    'level': 'error',
-                    'message': f'Unsupported file format ({ext}). Please upload PDF, PNG, JPG, or JPEG.'
-                }, status=400)
-            group.final_report_pdf = uploaded_file
+        return redirect('coordinator_dashboard')
 
-        group.current_stage = 'READY_FOR_VIVA'
-        group.save()
+    groups = ProjectGroup.objects.filter(department=dept).prefetch_related('students', 'logs')
+    dept_guides = User.objects.filter(profile__department=dept, profile__role='GUIDE')
+    dept_students = User.objects.filter(profile__department=dept, profile__role='STUDENT')
+    archives = PastProjectArchive.objects.filter(department=dept)
 
-        notify_user(group.guide, f"{group.group_name} uploaded final deliverables and is Ready for Viva!", 'success')
+    approved_count = ProjectProposal.objects.filter(group__department=dept, status='APPROVED').count()
+    pending_count = ProjectProposal.objects.filter(group__department=dept, status='PENDING').count()
+    changes_count = ProjectProposal.objects.filter(group__department=dept, status='CHANGES').count()
+    evaluated_count = VivaEvaluation.objects.filter(group__department=dept).count()
 
-        file_url = group.final_report_pdf.url if group.final_report_pdf else ''
-        file_name = os.path.basename(group.final_report_pdf.name) if group.final_report_pdf else ''
-
-        return JsonResponse({
-            'ok': True,
-            'level': 'success',
-            'message': 'Deliverables locked in! Group status updated to Ready for Viva.',
-            'stage_display': group.get_current_stage_display(),
-            'github_repo_link': group.github_repo_link or '',
-            'file_url': file_url,
-            'file_name': file_name
-        })
-    return JsonResponse({'ok': False, 'message': 'Invalid request'}, status=400)
-
-@login_required
-def review_proposal(request, proposal_id):
-    if request.method == 'POST':
-        proposal = get_object_or_404(ProjectProposal, id=proposal_id)
-        action = request.POST.get('status')
-        remarks = request.POST.get('reviewer_remarks', '').strip()
-        proposal.status = action
-        proposal.reviewer_remarks = remarks
-        proposal.save()
-
-        if action == 'APPROVED':
-            proposal.group.current_stage = 'IN_PROGRESS'
-            proposal.group.save()
-            notify_group_members(proposal.group, f"Proposal '{proposal.proposed_title}' was APPROVED by {request.user.first_name}!", 'success')
-            level = 'success'
-        else:
-            notify_group_members(proposal.group, f"Revision requested by {request.user.first_name}: {remarks or 'Please update.'}", 'warning')
-            level = 'warning'
-
-        return JsonResponse({
-            'ok': True,
-            'level': level,
-            'message': f"{proposal.group.group_name} proposal marked as {proposal.get_status_display()}.",
-            'status': proposal.status,
-            'status_display': proposal.get_status_display(),
-            'stage_display': proposal.group.get_current_stage_display(),
-            'remarks': remarks
-        })
-    return JsonResponse({'ok': False, 'message': 'Invalid request'}, status=400)
+    return render(request, 'coordinator_dashboard.html', {
+        'groups': groups,
+        'dept_guides': dept_guides,
+        'dept_students_count': dept_students.count(),
+        'archives': archives,
+        'approved_count': approved_count,
+        'pending_count': pending_count,
+        'changes_count': changes_count,
+        'evaluated_count': evaluated_count,
+        'college_departments': Department.objects.filter(college=profile.college) if profile.college else [],
+        'notifications': request.user.notifications.filter(is_read=False)[:6],
+    })
 
 @login_required
-def review_log(request, log_id):
-    if request.method == 'POST':
-        log = get_object_or_404(WeeklyLog, id=log_id)
-        status = request.POST.get('approval_status')
-        remarks = request.POST.get('guide_remarks', '').strip()
-        log.approval_status = status
-        log.guide_remarks = remarks
-        log.save()
-
-        lvl = 'success' if status == 'APPROVED' else 'warning'
-        notify_group_members(
-            log.group,
-            f"Week {log.week_number} logbook {log.get_approval_status_display()} by {request.user.first_name}.",
-            lvl
-        )
-        return JsonResponse({
-            'ok': True,
-            'level': lvl,
-            'message': f"Week {log.week_number} status updated for {log.group.group_name}.",
-            'status_display': log.get_approval_status_display(),
-            'approval_status': log.approval_status
-        })
-    return JsonResponse({'ok': False, 'message': 'Invalid request'}, status=400)
-
-@login_required
-def submit_viva_marks(request, group_id):
-    if request.method == 'POST':
-        group = get_object_or_404(ProjectGroup, id=group_id)
-        viva, _ = VivaEvaluation.objects.update_or_create(
-            group=group,
-            defaults={
-                'examiner': request.user,
-                'problem_definition_marks': int(request.POST.get('m1', 0)),
-                'implementation_marks': int(request.POST.get('m2', 0)),
-                'presentation_marks': int(request.POST.get('m3', 0)),
-                'qa_defense_marks': int(request.POST.get('m4', 0)),
-                'documentation_marks': int(request.POST.get('m5', 0)),
-                'examiner_comments': request.POST.get('examiner_comments', '').strip(),
-            }
-        )
-        group.current_stage = 'EVALUATED'
-        group.save()
-
-        notify_group_members(
-            group,
-            f"Viva Evaluated by {request.user.first_name}! Score: {viva.total_marks}/100 (Grade: {viva.grade}).",
-            'success'
-        )
-        return JsonResponse({
-            'ok': True,
-            'level': 'success',
-            'message': f"Viva grade locked for {group.group_name}: {viva.total_marks}/100 (Grade {viva.grade}).",
-            'total_marks': viva.total_marks,
-            'grade': viva.grade
-        })
-    return JsonResponse({'ok': False, 'message': 'Invalid request'}, status=400)
-
-@login_required
-def api_mark_notifications_read(request):
-    if request.method == 'POST':
-        request.user.notifications.filter(is_read=False).update(is_read=True)
-        return JsonResponse({'ok': True, 'level': 'info', 'message': 'Notifications marked as read.'})
-    return JsonResponse({'ok': False}, status=400)
-
-@login_required
-def export_marksheet_csv(request):
+def export_department_csv(request):
+    dept = request.user.profile.department
     response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="ProTrack_Official_Marksheet_2026.csv"'
+    response['Content-Disposition'] = f'attachment; filename="ProTrack_{dept.name}_Gradebook.csv"'
     writer = csv.writer(response)
-    writer.writerow(['Group Name', 'Students', 'Project Title', 'Smart Similarity %', 'Guide', 'Stage', 'Total Marks (100)', 'Grade'])
+    writer.writerow(['Group Name', 'Join Code', 'Students', 'Faculty Guide', 'Proposal Title', 'Proposal Status', 'AI Similarity (%)', 'Verified Logs', 'Viva Score (/100)', 'Grade'])
 
-    for g in ProjectGroup.objects.all():
-        members_str = ", ".join([m.first_name or m.username for m in g.members.all()])
-        title = g.proposal.proposed_title if hasattr(g, 'proposal') else 'Not Submitted'
-        sim = f"{g.proposal.similarity_score}%" if hasattr(g, 'proposal') else 'N/A'
-        guide = g.guide.first_name if g.guide else 'Unassigned'
-        marks = g.viva_evaluation.total_marks if hasattr(g, 'viva_evaluation') else 'Pending'
-        grade = g.viva_evaluation.grade if hasattr(g, 'viva_evaluation') else 'Pending'
-        writer.writerow([g.group_name, members_str, title, sim, guide, g.get_current_stage_display(), marks, grade])
+    for g in ProjectGroup.objects.filter(department=dept):
+        students_str = ", ".join([s.get_full_name() or s.username for s in g.students.all()])
+        guide_str = g.guide.get_full_name() if g.guide else "Unassigned"
+        prop = getattr(g, 'proposal', None)
+        viva = getattr(g, 'viva', None)
+        verified_logs = g.logs.filter(is_verified=True).count()
+        writer.writerow([
+            g.name,
+            g.join_code,
+            students_str,
+            guide_str,
+            prop.title if prop else "Not Submitted",
+            prop.get_status_display() if prop else "No Proposal",
+            f"{prop.similarity_score}%" if prop else "0%",
+            verified_logs,
+            viva.total_score if viva else "Pending",
+            viva.grade_badge if viva else "Pending"
+        ])
     return response
+
+# ==============================================================================
+# EXTERNAL EXAMINER RUBRIC WORKSPACE
+# ==============================================================================
+@login_required
+def examiner_dashboard(request):
+    dept = request.user.profile.department
+
+    if request.method == 'POST':
+        gid = request.POST.get('group_id')
+        grp = get_object_or_404(ProjectGroup, id=gid, department=dept)
+        p_score = min(max(int(request.POST.get('problem_clarity', 0) or 0), 0), 25)
+        i_score = min(max(int(request.POST.get('implementation', 0) or 0), 0), 25)
+        pr_score = min(max(int(request.POST.get('presentation', 0) or 0), 0), 25)
+        d_score = min(max(int(request.POST.get('documentation', 0) or 0), 0), 25)
+        comments = request.POST.get('examiner_comments', '').strip()
+
+        viva, _ = VivaEvaluation.objects.get_or_create(group=grp)
+        viva.examiner = request.user
+        viva.problem_clarity = p_score
+        viva.implementation = i_score
+        viva.presentation = pr_score
+        viva.documentation = d_score
+        viva.examiner_comments = comments
+        viva.save()
+
+        notify_users(grp.students.all(), f"ExternalViva Evaluation published for {grp.name}: {viva.total_score}/100 ({viva.grade_badge}).")
+        messages.success(request, f"Saved Viva Evaluation for {grp.name} ({viva.total_score}/100).")
+        return redirect('examiner_dashboard')
+
+    groups = ProjectGroup.objects.filter(department=dept).prefetch_related('students', 'logs')
+    return render(request, 'examiner_viva.html', {
+        'groups': groups,
+        'notifications': request.user.notifications.filter(is_read=False)[:6],
+    })

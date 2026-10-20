@@ -1,70 +1,52 @@
 import os
-import subprocess
 import sys
+import shutil
+import subprocess
 
-print("✨ Building ProTrack v3.0 (Masterpiece Edition)...")
+def write_file(path, content):
+    os.makedirs(os.path.dirname(path) if os.path.dirname(path) else '.', exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip() + '\n')
+    print(f"  [OK] Created {path}")
 
-folders = [
-    "protrack_config",
-    "portal",
-    "portal/migrations",
-    "portal/management",
-    "portal/management/commands",
-    "templates",
-    "media/reports",
-]
-for folder in folders:
-    os.makedirs(folder, exist_ok=True)
-
-files = {}
-
-# --- requirements.txt ---
-files["requirements.txt"] = """Django>=5.0,<5.2
-scikit-learn>=1.4.0
-pandas>=2.2.0
-Pillow>=10.2.0
-gunicorn>=21.2.0
-whitenoise>=6.6.0
+# ==============================================================================
+# 1. REQUIREMENTS.TXT & MANAGE.PY
+# ==============================================================================
+REQUIREMENTS_TXT = """
+Django>=4.2,<5.2
+scikit-learn>=1.3.0
+pandas>=2.0.0
+Pillow>=10.0.0
 """
 
-# --- manage.py ---
-files["manage.py"] = """#!/usr/bin/env python
+MANAGE_PY = """
+#!/usr/bin/env python
 import os
 import sys
 
 def main():
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'protrack_config.settings')
-    from django.core.management import execute_from_command_line
+    try:
+        from django.core.management import execute_from_command_line
+    except ImportError as exc:
+        raise ImportError("Couldn't import Django.") from exc
     execute_from_command_line(sys.argv)
 
 if __name__ == '__main__':
     main()
 """
 
-for init_path in [
-    "protrack_config/__init__.py",
-    "portal/__init__.py",
-    "portal/migrations/__init__.py",
-    "portal/management/__init__.py",
-    "portal/management/commands/__init__.py",
-]:
-    files[init_path] = ""
-
-# --- protrack_config/settings.py ---
-files["protrack_config/settings.py"] = """import os
+# ==============================================================================
+# 2. PROJECT CONFIGURATION (protrack_config)
+# ==============================================================================
+SETTINGS_PY = """
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = 'django-insecure-protrack-v3-masterpiece-2026'
+SECRET_KEY = 'django-insecure-protrack-v4-enterprise-edition-secret-key'
 DEBUG = True
 ALLOWED_HOSTS = ['*']
-
-CSRF_TRUSTED_ORIGINS = [
-    'https://*.app.github.dev',
-    'https://*.github.dev',
-    'https://*.pythonanywhere.com',
-    'https://*.onrender.com',
-]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -78,7 +60,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -115,8 +96,9 @@ DATABASES = {
 }
 
 AUTH_PASSWORD_VALIDATORS = []
+
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
 USE_TZ = True
 
@@ -125,21 +107,15 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'dashboard'
-LOGOUT_REDIRECT_URL = 'login'
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/login/'
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 """
 
-# --- protrack_config/wsgi.py ---
-files["protrack_config/wsgi.py"] = """import os
-from django.core.wsgi import get_wsgi_application
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'protrack_config.settings')
-application = get_wsgi_application()
-"""
-
-# --- protrack_config/urls.py ---
-files["protrack_config/urls.py"] = """from django.contrib import admin
+CONFIG_URLS_PY = """
+from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
@@ -147,129 +123,179 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('portal.urls')),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 """
 
-# --- portal/models.py ---
-files["portal/models.py"] = """from django.db import models
+WSGI_PY = """
+import os
+from django.core.wsgi import get_wsgi_application
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'protrack_config.settings')
+application = get_wsgi_application()
+"""
+
+# ==============================================================================
+# 3. DATABASE MODELS (portal/models.py)
+# ==============================================================================
+MODELS_PY = """
+import random
+import string
+from django.db import models
 from django.contrib.auth.models import User
-from django.core.validators import MinValueValidator, MaxValueValidator
 
-class UserProfile(models.Model):
-    ROLE_CHOICES = (
-        ('STUDENT', 'Student'),
-        ('GUIDE', 'Faculty Guide'),
-        ('COORDINATOR', 'Project Coordinator'),
-        ('EXAMINER', 'External Examiner'),
-    )
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='STUDENT')
-    department = models.CharField(max_length=100, default='Department of Computer Science')
-    roll_or_emp_id = models.CharField(max_length=30, blank=True, null=True)
+def generate_join_code():
+    return 'PT-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
 
-    def __str__(self):
-        return f"{self.user.first_name or self.user.username} ({self.get_role_display()})"
-
-class PastProjectArchive(models.Model):
-    title = models.CharField(max_length=255)
-    abstract = models.TextField()
-    batch_year = models.CharField(max_length=10, default='2024-25')
-    domain = models.CharField(max_length=100, default='Web / AI')
-
-    def __str__(self):
-        return f"{self.title} ({self.batch_year})"
-
-class ProjectGroup(models.Model):
-    STAGE_CHOICES = (
-        ('TOPIC_PENDING', 'Topic Approval Pending'),
-        ('IN_PROGRESS', 'Development In Progress'),
-        ('READY_FOR_VIVA', 'Submitted & Ready for Viva'),
-        ('EVALUATED', 'Viva Evaluated'),
-    )
-    group_name = models.CharField(max_length=100, unique=True)
-    members = models.ManyToManyField(User, related_name='student_groups', blank=True)
-    guide = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='guided_groups')
-    current_stage = models.CharField(max_length=30, choices=STAGE_CHOICES, default='TOPIC_PENDING')
-    github_repo_link = models.URLField(blank=True, null=True)
-    final_report_pdf = models.FileField(upload_to='reports/', blank=True, null=True)
+class University(models.Model):
+    name = models.CharField(max_length=200, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ['name']
+
     def __str__(self):
-        return self.group_name
+        return self.name
 
-class ProjectProposal(models.Model):
-    STATUS_CHOICES = (
-        ('PENDING', 'Pending Review'),
-        ('APPROVED', 'Approved'),
-        ('REJECTED', 'Changes Requested'),
-    )
-    group = models.OneToOneField(ProjectGroup, on_delete=models.CASCADE, related_name='proposal')
-    proposed_title = models.CharField(max_length=255)
-    abstract_text = models.TextField()
-    tech_stack = models.CharField(max_length=255)
-    similarity_score = models.FloatField(default=0.0)
-    closest_match_title = models.CharField(max_length=255, blank=True, null=True)
-    closest_match_source = models.CharField(max_length=100, blank=True, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
-    reviewer_remarks = models.TextField(blank=True, null=True)
-    submitted_at = models.DateTimeField(auto_now=True)
-
-class WeeklyLog(models.Model):
-    APPROVAL_CHOICES = (
-        ('PENDING', 'Pending Review'),
-        ('APPROVED', 'Signed Off'),
-        ('CHANGES_NEEDED', 'Needs Revision'),
-    )
-    group = models.ForeignKey(ProjectGroup, on_delete=models.CASCADE, related_name='weekly_logs')
-    week_number = models.PositiveIntegerField(validators=[MinValueValidator(1), MaxValueValidator(16)])
-    tasks_completed = models.TextField()
-    commit_or_doc_link = models.URLField(blank=True, null=True)
-    guide_remarks = models.TextField(blank=True, null=True)
-    approval_status = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='PENDING')
-    logged_date = models.DateField(auto_now=True)
+class College(models.Model):
+    university = models.ForeignKey(University, on_delete=models.CASCADE, related_name='colleges')
+    name = models.CharField(max_length=200)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['week_number']
+        unique_together = ('university', 'name')
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} ({self.university.name})"
+
+class Department(models.Model):
+    college = models.ForeignKey(College, on_delete=models.CASCADE, related_name='departments')
+    name = models.CharField(max_length=150)
+    academic_year = models.CharField(max_length=30, default='2026-2027')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('college', 'name')
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} - {self.college.name}"
+
+class UserProfile(models.Model):
+    ROLE_CHOICES = [
+        ('STUDENT', 'Student'),
+        ('GUIDE', 'Faculty Guide'),
+        ('COORDINATOR', 'Department Coordinator'),
+        ('EXAMINER', 'External Examiner'),
+    ]
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='STUDENT')
+    university = models.ForeignKey(University, on_delete=models.SET_NULL, null=True, blank=True)
+    college = models.ForeignKey(College, on_delete=models.SET_NULL, null=True, blank=True)
+    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True)
+    identifier = models.CharField(max_length=50, blank=True, help_text="Roll Number or Faculty ID")
+    class_division = models.CharField(max_length=50, blank=True, default="TY-A")
+
+    def __str__(self):
+        return f"{self.user.get_full_name() or self.user.username} ({self.get_role_display()})"
+
+class ProjectGroup(models.Model):
+    name = models.CharField(max_length=120)
+    join_code = models.CharField(max_length=12, unique=True, default=generate_join_code)
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='groups')
+    guide = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='guided_groups')
+    students = models.ManyToManyField(User, related_name='student_groups', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.join_code})"
+
+class ProjectProposal(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending Guide Review'),
+        ('APPROVED', 'Approved'),
+        ('CHANGES', 'Changes Requested'),
+    ]
+    group = models.OneToOneField(ProjectGroup, on_delete=models.CASCADE, related_name='proposal')
+    title = models.CharField(max_length=250)
+    domain = models.CharField(max_length=120)
+    abstract = models.TextField()
+    similarity_score = models.FloatField(default=0.0)
+    closest_match_title = models.CharField(max_length=250, blank=True, default='None')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    guide_remarks = models.TextField(blank=True)
+    report_file = models.FileField(upload_to='reports/', null=True, blank=True)
+    submitted_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.title} ({self.get_status_display()})"
+
+class WeeklyLog(models.Model):
+    group = models.ForeignKey(ProjectGroup, on_delete=models.CASCADE, related_name='logs')
+    week_number = models.PositiveIntegerField()
+    tasks_completed = models.TextField()
+    next_week_plan = models.TextField()
+    is_verified = models.BooleanField(default=False)
+    guide_feedback = models.CharField(max_length=255, blank=True)
+    logged_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-week_number', '-logged_at']
+
+    def __str__(self):
+        return f"{self.group.name} - Week {self.week_number}"
 
 class VivaEvaluation(models.Model):
-    group = models.OneToOneField(ProjectGroup, on_delete=models.CASCADE, related_name='viva_evaluation')
-    examiner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='evaluations_done')
-    problem_definition_marks = models.PositiveIntegerField(default=0)
-    implementation_marks = models.PositiveIntegerField(default=0)
-    presentation_marks = models.PositiveIntegerField(default=0)
-    qa_defense_marks = models.PositiveIntegerField(default=0)
-    documentation_marks = models.PositiveIntegerField(default=0)
-    total_marks = models.PositiveIntegerField(default=0)
-    grade = models.CharField(max_length=5, blank=True)
-    examiner_comments = models.TextField(blank=True, null=True)
+    group = models.OneToOneField(ProjectGroup, on_delete=models.CASCADE, related_name='viva')
+    examiner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='evaluations')
+    problem_clarity = models.PositiveIntegerField(default=0)
+    implementation = models.PositiveIntegerField(default=0)
+    presentation = models.PositiveIntegerField(default=0)
+    documentation = models.PositiveIntegerField(default=0)
+    total_score = models.PositiveIntegerField(default=0)
+    examiner_comments = models.TextField(blank=True)
     evaluated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
-        self.total_marks = (
-            int(self.problem_definition_marks) +
-            int(self.implementation_marks) +
-            int(self.presentation_marks) +
-            int(self.qa_defense_marks) +
-            int(self.documentation_marks)
+        self.total_score = (
+            int(self.problem_clarity) +
+            int(self.implementation) +
+            int(self.presentation) +
+            int(self.documentation)
         )
-        if self.total_marks >= 85: self.grade = 'O'
-        elif self.total_marks >= 75: self.grade = 'A+'
-        elif self.total_marks >= 65: self.grade = 'A'
-        elif self.total_marks >= 55: self.grade = 'B+'
-        elif self.total_marks >= 40: self.grade = 'B'
-        else: self.grade = 'F'
         super().save(*args, **kwargs)
 
+    @property
+    def grade_badge(self):
+        if self.total_score >= 85:
+            return 'O (Outstanding)'
+        elif self.total_score >= 75:
+            return 'A+ (Excellent)'
+        elif self.total_score >= 65:
+            return 'A (Very Good)'
+        elif self.total_score >= 55:
+            return 'B+ (Good)'
+        return 'B (Satisfactory)'
+
+class PastProjectArchive(models.Model):
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='archives', null=True, blank=True)
+    title = models.CharField(max_length=250)
+    year = models.CharField(max_length=10, default='2025')
+    domain = models.CharField(max_length=120, default='Computer Science')
+    abstract = models.TextField()
+
+    def __str__(self):
+        return f"{self.title} ({self.year})"
+
 class Notification(models.Model):
-    LEVEL_CHOICES = (
-        ('success', 'Success'),
-        ('warning', 'Warning'),
-        ('info', 'Info'),
-        ('error', 'Error'),
-    )
-    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
     message = models.CharField(max_length=255)
-    level = models.CharField(max_length=15, choices=LEVEL_CHOICES, default='info')
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -277,1882 +303,1918 @@ class Notification(models.Model):
         ordering = ['-created_at']
 """
 
-# --- portal/admin.py ---
-files["portal/admin.py"] = """from django.contrib import admin
-from .models import UserProfile, PastProjectArchive, ProjectGroup, ProjectProposal, WeeklyLog, VivaEvaluation, Notification
-
-admin.site.register(UserProfile)
-admin.site.register(PastProjectArchive)
-admin.site.register(ProjectGroup)
-admin.site.register(ProjectProposal)
-admin.site.register(WeeklyLog)
-admin.site.register(VivaEvaluation)
-admin.site.register(Notification)
-"""
-
-# --- portal/similarity.py ---
-files["portal/similarity.py"] = """import re
+# ==============================================================================
+# 4. HYBRID AI TF-IDF SIMILARITY ENGINE (portal/similarity.py)
+# ==============================================================================
+SIMILARITY_PY = """
+import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from .models import PastProjectArchive, ProjectProposal
 
-DOMAIN_STOPWORDS = {
-    'project', 'system', 'application', 'using', 'based', 'portal', 'web',
-    'develop', 'proposed', 'aims', 'manage', 'management', 'user', 'users',
-    'allow', 'allows', 'data', 'module', 'modules', 'platform', 'software'
-}
+FALLBACK_CORPUS = [
+    {
+        "title": "Automated Student Attendance System Using Facial Recognition (2024)",
+        "abstract": "An automated classroom attendance monitoring application built with OpenCV, Haar cascades, and deep metric face encodings to mark student attendance in real time via webcam feeds and export CSV sheets."
+    },
+    {
+        "title": "Smart Campus Placement & Alumni Recruitment Portal (2024)",
+        "abstract": "A centralized web platform connecting final-year students with corporate recruiters, featuring resume parsing, CGPA eligibility filtering, interview scheduling, and automated placement analytics."
+    },
+    {
+        "title": "Blockchain-Based Academic Certificate Verification System (2025)",
+        "abstract": "A decentralized tamper-proof credential verification portal using smart contracts and cryptographic SHA-256 hashes to eliminate fake university diplomas and enable instant employer validation."
+    },
+    {
+        "title": "Hospital Patient Queue & E-Prescription Management System (2025)",
+        "abstract": "A healthcare web application enabling patients to book OPD appointments online, track live doctor consultation queues, and generate digital prescriptions with pharmacy inventory alerts."
+    },
+    {
+        "title": "AI-Powered Crop Disease Detection and Farmer Advisory App (2025)",
+        "abstract": "A machine learning agricultural support portal where farmers upload leaf images to detect plant diseases using convolutional neural networks and receive localized fertilizer treatment recommendations."
+    }
+]
 
-def clean_and_normalize(text):
-    text = (text or '').lower()
+def clean_text(text):
+    if not text:
+        return ""
+    text = text.lower()
     text = re.sub(r'[^a-z0-9\\s]', ' ', text)
-    tokens = [w for w in text.split() if len(w) > 2 and w not in DOMAIN_STOPWORDS]
-    return " ".join(tokens)
+    return re.sub(r'\\s+', ' ', text).strip()
 
-def calculate_abstract_similarity(new_title, new_abstract, exclude_group_id=None):
-    corpus_docs = []
-    corpus_titles = []
-    corpus_meta = []
+def jaccard_token_overlap(t1, t2):
+    s1 = set(clean_text(t1).split())
+    s2 = set(clean_text(t2).split())
+    if not s1 or not s2:
+        return 0.0
+    return len(s1.intersection(s2)) / len(s1.union(s2))
 
-    for item in PastProjectArchive.objects.all():
-        combined = clean_and_normalize(f"{item.title} {item.title} {item.abstract}")
-        corpus_docs.append(combined)
-        corpus_titles.append(clean_and_normalize(item.title))
-        corpus_meta.append((item.title, f"Archive ({item.batch_year})"))
+def check_abstract_similarity(new_title, new_abstract, department=None, exclude_group_id=None):
+    query_combined = clean_text(f"{new_title} {new_title} {new_abstract}")
+    if len(query_combined.split()) < 4:
+        return {"score": 0.0, "closest_match": "Insufficient text length", "risk": "LOW"}
 
+    corpus_records = []
+
+    # 1. Department Past Archives
+    archives = PastProjectArchive.objects.filter(department=department) if department else PastProjectArchive.objects.all()
+    for a in archives:
+        corpus_records.append({
+            "title": f"{a.title} ({a.year} Archive)",
+            "text": clean_text(f"{a.title} {a.title} {a.abstract}"),
+            "raw_title": a.title
+        })
+
+    # 2. Existing Peer Proposals in the same Department
     proposals = ProjectProposal.objects.all()
+    if department:
+        proposals = proposals.filter(group__department=department)
     if exclude_group_id:
         proposals = proposals.exclude(group_id=exclude_group_id)
 
-    for prop in proposals:
-        combined = clean_and_normalize(f"{prop.proposed_title} {prop.proposed_title} {prop.abstract_text}")
-        corpus_docs.append(combined)
-        corpus_titles.append(clean_and_normalize(prop.proposed_title))
-        corpus_meta.append((prop.proposed_title, f"Active Batch ({prop.group.group_name})"))
+    for p in proposals:
+        corpus_records.append({
+            "title": f"{p.title} (Group: {p.group.name})",
+            "text": clean_text(f"{p.title} {p.title} {p.abstract}"),
+            "raw_title": p.title
+        })
 
-    if not corpus_docs:
-        return 0.0, "No archive records", "N/A", []
+    # 3. Fallback Baseline Benchmark Corpus so fresh departments still get instant AI analysis
+    for item in FALLBACK_CORPUS:
+        corpus_records.append({
+            "title": item["title"],
+            "text": clean_text(f"{item['title']} {item['title']} {item['abstract']}"),
+            "raw_title": item["title"]
+        })
 
-    query_doc = clean_and_normalize(f"{new_title} {new_title} {new_abstract}")
-    query_title = clean_and_normalize(new_title)
+    if not corpus_records:
+        return {"score": 0.0, "closest_match": "No matches found", "risk": "LOW"}
 
-    if not query_doc.strip():
-        return 0.0, "Insufficient text", "N/A", []
+    documents = [r["text"] for r in corpus_records] + [query_combined]
 
-    all_docs = corpus_docs + [query_doc]
+    try:
+        word_vec = TfidfVectorizer(stop_words='english', ngram_range=(1, 2))
+        word_matrix = word_vec.fit_transform(documents)
+        word_sims = cosine_similarity(word_matrix[-1], word_matrix[:-1]).flatten()
 
-    word_vec = TfidfVectorizer(stop_words='english', ngram_range=(1, 2), sublinear_tf=True)
-    word_mat = word_vec.fit_transform(all_docs)
-    word_sims = cosine_similarity(word_mat[-1], word_mat[:-1]).flatten()
+        char_vec = TfidfVectorizer(analyzer='char_wb', ngram_range=(3, 5))
+        char_matrix = char_vec.fit_transform(documents)
+        char_sims = cosine_similarity(char_matrix[-1], char_matrix[:-1]).flatten()
 
-    char_vec = TfidfVectorizer(analyzer='char_wb', ngram_range=(3, 5), sublinear_tf=True)
-    char_mat = char_vec.fit_transform(all_docs)
-    char_sims = cosine_similarity(char_mat[-1], char_mat[:-1]).flatten()
+        best_score = 0.0
+        best_match = "No close match detected"
 
-    q_words = set(query_doc.split())
-    q_title_words = set(query_title.split())
+        for idx, rec in enumerate(corpus_records):
+            w_score = float(word_sims[idx])
+            c_score = float(char_sims[idx])
+            t_overlap = jaccard_token_overlap(new_title, rec["raw_title"])
+            hybrid = (0.50 * w_score) + (0.30 * c_score) + (0.20 * t_overlap)
+            pct = round(min(hybrid * 100.0, 99.9), 1)
+            if pct > best_score:
+                best_score = pct
+                best_match = rec["title"]
 
-    final_scores = []
-    for idx in range(len(corpus_docs)):
-        doc_words = set(corpus_docs[idx].split())
-        title_words = set(corpus_titles[idx].split())
+        if best_score >= 60.0:
+            risk = "HIGH"
+        elif best_score >= 30.0:
+            risk = "MODERATE"
+        else:
+            risk = "LOW"
 
-        jaccard_doc = len(q_words & doc_words) / max(len(q_words | doc_words), 1)
-        jaccard_title = len(q_title_words & title_words) / max(len(q_title_words | title_words), 1)
-
-        raw_score = (0.45 * word_sims[idx]) + (0.30 * char_sims[idx]) + (0.15 * jaccard_title) + (0.10 * jaccard_doc)
-        calibrated = min(round(raw_score * 135, 1), 99.4)
-        final_scores.append(calibrated)
-
-    best_idx = int(max(range(len(final_scores)), key=lambda i: final_scores[i]))
-    best_score = final_scores[best_idx]
-    matched_title, matched_source = corpus_meta[best_idx]
-    matched_keywords = sorted(list(q_words & set(corpus_docs[best_idx].split())))[:6]
-
-    return best_score, matched_title, matched_source, matched_keywords
+        return {
+            "score": best_score,
+            "closest_match": best_match if best_score >= 8.0 else "Unique Concept (No significant overlap)",
+            "risk": risk
+        }
+    except Exception:
+        return {"score": 0.0, "closest_match": "Unique Concept", "risk": "LOW"}
 """
 
-# --- portal/views.py ---
-files["portal/views.py"] = """import csv
-import os
-from django.http import HttpResponse, JsonResponse
+# ==============================================================================
+# 5. VIEWS & CONTROLLERS (portal/views.py)
+# ==============================================================================
+VIEWS_PY = """
+import csv
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.contrib import messages
+from django.http import JsonResponse, HttpResponse
+from django.db.models import Count, Avg
 from .models import (
-    UserProfile, PastProjectArchive, ProjectGroup,
-    ProjectProposal, WeeklyLog, VivaEvaluation, Notification
+    University, College, Department, UserProfile,
+    ProjectGroup, ProjectProposal, WeeklyLog,
+    VivaEvaluation, PastProjectArchive, Notification
 )
-from .similarity import calculate_abstract_similarity
+from .similarity import check_abstract_similarity, FALLBACK_CORPUS
 
-ALLOWED_EXTENSIONS = {'.pdf', '.png', '.jpg', '.jpeg'}
+def notify_users(users, message):
+    for u in users:
+        if u:
+            Notification.objects.create(user=u, message=message)
 
-def notify_group_members(group, msg, level='info'):
-    for member in group.members.all():
-        Notification.objects.create(recipient=member, message=msg, level=level)
+def api_hierarchy(request):
+    \"\"\"Returns dynamic University -> College -> Department tree for cascading dropdowns.\"\"\"
+    universities = list(University.objects.values('id', 'name'))
+    colleges = list(College.objects.values('id', 'university_id', 'name'))
+    departments = list(Department.objects.values('id', 'college_id', 'name', 'academic_year'))
+    return JsonResponse({
+        'universities': universities,
+        'colleges': colleges,
+        'departments': departments,
+    })
 
-def notify_user(user, msg, level='info'):
-    if user:
-        Notification.objects.create(recipient=user, message=msg, level=level)
-
-def user_login(request):
+def login_view(request):
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect('dashboard_router')
     if request.method == 'POST':
-        u = request.POST.get('username')
-        p = request.POST.get('password')
+        u = request.POST.get('username', '').strip()
+        p = request.POST.get('password', '').strip()
         user = authenticate(request, username=u, password=p)
         if user:
             login(request, user)
-            messages.success(request, f"Welcome back, {user.first_name or user.username}!")
-            return redirect('dashboard')
-        messages.error(request, 'Invalid username or password. Please try again.')
-    return render(request, 'login.html')
+            messages.success(request, f"Welcome back, {user.get_full_name() or user.username}!")
+            return redirect('dashboard_router')
+        else:
+            messages.error(request, "Invalid username or password. Need an account? Click 'Create Account' below.")
+    return render(request, 'login.html', {
+        'total_universities': University.objects.count(),
+        'total_departments': Department.objects.count(),
+        'total_users': UserProfile.objects.count(),
+    })
 
-def user_logout(request):
+def signup_view(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard_router')
+
+    if request.method == 'POST':
+        full_name = request.POST.get('full_name', '').strip()
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '').strip()
+        role = request.POST.get('role', 'STUDENT').strip()
+        identifier = request.POST.get('identifier', '').strip()
+        class_division = request.POST.get('class_division', 'TY-A').strip()
+
+        # Hierarchy resolution (supports selecting existing OR creating new inline)
+        uni_id = request.POST.get('university_id', '')
+        new_uni_name = request.POST.get('new_university', '').strip()
+
+        col_id = request.POST.get('college_id', '')
+        new_col_name = request.POST.get('new_college', '').strip()
+
+        dept_id = request.POST.get('department_id', '')
+        new_dept_name = request.POST.get('new_department', '').strip()
+
+        if not full_name or not username or not password:
+            messages.error(request, "Please fill in your full name, username, and password.")
+            return redirect('signup')
+
+        if User.objects.filter(username__iexact=username).exists():
+            messages.error(request, f"Username '{username}' is already taken. Please choose another.")
+            return redirect('signup')
+
+        # 1. Resolve University
+        if new_uni_name:
+            university, _ = University.objects.get_or_create(name=new_uni_name)
+        elif uni_id and uni_id.isdigit():
+            university = University.objects.filter(id=int(uni_id)).first()
+        else:
+            university = None
+
+        if not university:
+            messages.error(request, "Please select or enter a University.")
+            return redirect('signup')
+
+        # 2. Resolve College
+        if new_col_name:
+            college, _ = College.objects.get_or_create(university=university, name=new_col_name)
+        elif col_id and col_id.isdigit():
+            college = College.objects.filter(id=int(col_id), university=university).first()
+        else:
+            college = None
+
+        if not college:
+            messages.error(request, "Please select or enter a College under that University.")
+            return redirect('signup')
+
+        # 3. Resolve Department
+        if new_dept_name:
+            department, _ = Department.objects.get_or_create(college=college, name=new_dept_name)
+        elif dept_id and dept_id.isdigit():
+            department = Department.objects.filter(id=int(dept_id), college=college).first()
+        else:
+            department = None
+
+        if not department:
+            messages.error(request, "Please select or enter a Department.")
+            return redirect('signup')
+
+        # Split full name
+        parts = full_name.split(' ', 1)
+        first_name = parts[0]
+        last_name = parts[1] if len(parts) > 1 else ''
+
+        user = User.objects.create_user(
+            username=username,
+            password=password,
+            first_name=first_name,
+            last_name=last_name
+        )
+        UserProfile.objects.create(
+            user=user,
+            role=role,
+            university=university,
+            college=college,
+            department=department,
+            identifier=identifier or f"{role[:3]}-{user.id:02d}",
+            class_division=class_division
+        )
+
+        # Notify department coordinators of new registration
+        coordinators = User.objects.filter(profile__department=department, profile__role='COORDINATOR').exclude(id=user.id)
+        notify_users(coordinators, f"New {role.title()} registered in {department.name}: {full_name}")
+
+        login(request, user)
+        messages.success(request, f"Account created! Welcome to {department.name}, {full_name}.")
+        return redirect('dashboard_router')
+
+    return render(request, 'signup.html', {
+        'universities': University.objects.all(),
+        'colleges': College.objects.all(),
+        'departments': Department.objects.all(),
+    })
+
+def logout_view(request):
     logout(request)
+    messages.info(request, "You have been signed out safely.")
     return redirect('login')
 
 @login_required
-def dashboard(request):
+def dashboard_router(request):
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
-    role = profile.role
-    notifications = request.user.notifications.all()[:8]
-    unread_count = request.user.notifications.filter(is_read=False).count()
+    if profile.role == 'GUIDE':
+        return redirect('guide_dashboard')
+    elif profile.role == 'COORDINATOR':
+        return redirect('coordinator_dashboard')
+    elif profile.role == 'EXAMINER':
+        return redirect('examiner_dashboard')
+    return redirect('student_dashboard')
 
-    base_ctx = {'notifications': notifications, 'unread_count': unread_count}
+@login_required
+def mark_notifications_read(request):
+    request.user.notifications.filter(is_read=False).update(is_read=True)
+    return redirect(request.META.get('HTTP_REFERER', 'dashboard_router'))
 
-    if role == 'STUDENT':
-        group = request.user.student_groups.first()
-        proposal = getattr(group, 'proposal', None) if group else None
-        logs = group.weekly_logs.all() if group else []
-        viva = getattr(group, 'viva_evaluation', None) if group else None
-        next_week = (logs.last().week_number + 1) if logs.exists() else 1
-        base_ctx.update({
-            'group': group, 'proposal': proposal,
-            'logs': logs, 'viva': viva, 'next_week': min(next_week, 16)
-        })
-        return render(request, 'student_dashboard.html', base_ctx)
+# ==============================================================================
+# STUDENT WORKSPACE & DYNAMIC GROUP WIZARD
+# ==============================================================================
+@login_required
+def student_dashboard(request):
+    profile = request.user.profile
+    dept = profile.department
+    group = request.user.student_groups.first()
 
-    elif role == 'GUIDE':
-        groups = ProjectGroup.objects.filter(guide=request.user)
-        base_ctx.update({'groups': groups})
-        return render(request, 'guide_dashboard.html', base_ctx)
+    # Available guides & unassigned students in the exact same department
+    dept_guides = User.objects.filter(profile__department=dept, profile__role='GUIDE').select_related('profile')
+    dept_students = User.objects.filter(
+        profile__department=dept,
+        profile__role='STUDENT',
+        student_groups__isnull=True
+    ).exclude(id=request.user.id).select_related('profile')
+    open_groups = ProjectGroup.objects.filter(department=dept).prefetch_related('students', 'guide')
 
-    elif role == 'EXAMINER':
-        groups = ProjectGroup.objects.all()
-        base_ctx.update({'groups': groups})
-        return render(request, 'examiner_viva.html', base_ctx)
+    if request.method == 'POST':
+        action = request.POST.get('action')
 
-    else:  # COORDINATOR
-        groups = ProjectGroup.objects.all()
-        archives = PastProjectArchive.objects.all()
-        stage_counts = {
-            'pending': groups.filter(current_stage='TOPIC_PENDING').count(),
-            'progress': groups.filter(current_stage='IN_PROGRESS').count(),
-            'ready': groups.filter(current_stage='READY_FOR_VIVA').count(),
-            'evaluated': groups.filter(current_stage='EVALUATED').count(),
-        }
-        base_ctx.update({'groups': groups, 'archives': archives, 'stage_counts': stage_counts})
-        return render(request, 'coordinator_dashboard.html', base_ctx)
+        # 1. Create a New Project Group from Scratch
+        if action == 'create_group' and not group:
+            group_name = request.POST.get('group_name', '').strip()
+            guide_id = request.POST.get('guide_id', '')
+            teammate_ids = request.POST.getlist('teammate_ids')
+
+            if not group_name:
+                messages.error(request, "Please provide a name for your project group.")
+                return redirect('student_dashboard')
+
+            guide_user = User.objects.filter(id=guide_id, profile__department=dept, profile__role='GUIDE').first() if guide_id.isdigit() else None
+            new_group = ProjectGroup.objects.create(
+                name=group_name,
+                department=dept,
+                guide=guide_user
+            )
+            new_group.students.add(request.user)
+            for tid in teammate_ids:
+                if tid.isdigit():
+                    tm = User.objects.filter(id=int(tid), profile__department=dept, profile__role='STUDENT').first()
+                    if tm and not tm.student_groups.exists():
+                        new_group.students.add(tm)
+                        notify_users([tm], f"{request.user.get_full_name()} added you to project group '{new_group.name}'.")
+
+            if guide_user:
+                notify_users([guide_user], f"New group '{new_group.name}' selected you as their Faculty Guide.")
+            messages.success(request, f"Group '{new_group.name}' created! Share join code {new_group.join_code} with teammates.")
+            return redirect('student_dashboard')
+
+        # 2. Join an Existing Group by Code or ID
+        elif action == 'join_group' and not group:
+            join_code = request.POST.get('join_code', '').strip().upper()
+            target_group = ProjectGroup.objects.filter(join_code__iexact=join_code, department=dept).first()
+            if not target_group:
+                messages.error(request, f"No group found in {dept.name} with join code '{join_code}'.")
+            else:
+                target_group.students.add(request.user)
+                notify_users(target_group.students.exclude(id=request.user.id), f"{request.user.get_full_name()} joined {target_group.name}!")
+                messages.success(request, f"You have joined '{target_group.name}'!")
+            return redirect('student_dashboard')
+
+        # 3. Assign or Change Guide (if group has no guide yet)
+        elif action == 'assign_guide' and group:
+            guide_id = request.POST.get('guide_id', '')
+            guide_user = User.objects.filter(id=guide_id, profile__department=dept, profile__role='GUIDE').first() if guide_id.isdigit() else None
+            if guide_user:
+                group.guide = guide_user
+                group.save()
+                notify_users([guide_user], f"Group '{group.name}' assigned you as their Faculty Guide.")
+                messages.success(request, f"Assigned {guide_user.get_full_name()} as your Faculty Guide.")
+            return redirect('student_dashboard')
+
+        # 4. Submit / Update Project Proposal
+        elif action == 'submit_proposal' and group:
+            title = request.POST.get('title', '').strip()
+            domain = request.POST.get('domain', '').strip()
+            abstract = request.POST.get('abstract', '').strip()
+            report_file = request.FILES.get('report_file')
+
+            if not title or not abstract:
+                messages.error(request, "Project title and abstract are required.")
+                return redirect('student_dashboard')
+
+            sim_res = check_abstract_similarity(title, abstract, department=dept, exclude_group_id=group.id)
+            proposal, created = ProjectProposal.objects.get_or_create(group=group)
+            proposal.title = title
+            proposal.domain = domain or "Software Engineering"
+            proposal.abstract = abstract
+            proposal.similarity_score = sim_res['score']
+            proposal.closest_match_title = sim_res['closest_match']
+            proposal.status = 'PENDING'
+            if report_file:
+                proposal.report_file = report_file
+            proposal.save()
+
+            if group.guide:
+                notify_users([group.guide], f"{group.name} submitted proposal '{title}' (Similarity: {sim_res['score']}%).")
+            messages.success(request, f"Proposal submitted! AI Similarity Score: {sim_res['score']}%.")
+            return redirect('student_dashboard')
+
+        # 5. Submit Weekly Progress Log
+        elif action == 'submit_log' and group:
+            week_num = request.POST.get('week_number', '1')
+            tasks = request.POST.get('tasks_completed', '').strip()
+            plan = request.POST.get('next_week_plan', '').strip()
+            if tasks and plan:
+                WeeklyLog.objects.create(
+                    group=group,
+                    week_number=int(week_num) if week_num.isdigit() else 1,
+                    tasks_completed=tasks,
+                    next_week_plan=plan
+                )
+                if group.guide:
+                    notify_users([group.guide], f"{group.name} logged Week {week_num} progress for your verification.")
+                messages.success(request, f"Week {week_num} progress log recorded.")
+            return redirect('student_dashboard')
+
+    proposal = getattr(group, 'proposal', None) if group else None
+    logs = group.logs.all() if group else []
+    viva = getattr(group, 'viva', None) if group else None
+    next_week = (logs.count() + 1) if group else 1
+
+    return render(request, 'student_dashboard.html', {
+        'group': group,
+        'proposal': proposal,
+        'logs': logs,
+        'viva': viva,
+        'next_week': next_week,
+        'dept_guides': dept_guides,
+        'dept_students': dept_students,
+        'open_groups': open_groups,
+        'notifications': request.user.notifications.filter(is_read=False)[:6],
+    })
 
 @login_required
 def api_check_similarity(request):
     if request.method == 'POST':
+        title = request.POST.get('title', '')
+        abstract = request.POST.get('abstract', '')
+        dept = request.user.profile.department
         group = request.user.student_groups.first()
-        title = request.POST.get('proposed_title', '')
-        abstract = request.POST.get('abstract_text', '')
-        exclude_id = group.id if group else None
+        res = check_abstract_similarity(title, abstract, department=dept, exclude_group_id=group.id if group else None)
+        return JsonResponse(res)
+    return JsonResponse({'error': 'POST required'}, status=400)
 
-        score, match_title, match_src, keywords = calculate_abstract_similarity(title, abstract, exclude_group_id=exclude_id)
-        level = 'warning' if score >= 50 else 'info'
-        msg = (
-            f"High overlap ({score}%) detected with '{match_title}'."
-            if score >= 50 else
-            f"Similarity verified at {score}%. Topic is distinct."
-        )
-        return JsonResponse({
-            'ok': True,
-            'score': score,
-            'match_title': match_title,
-            'match_source': match_src,
-            'keywords': keywords,
-            'level': level,
-            'message': msg
-        })
-    return JsonResponse({'ok': False, 'message': 'Invalid request'}, status=400)
-
+# ==============================================================================
+# FACULTY GUIDE WORKSPACE
+# ==============================================================================
 @login_required
-def submit_proposal(request):
+def guide_dashboard(request):
+    profile = request.user.profile
+    dept = profile.department
+
     if request.method == 'POST':
-        group = request.user.student_groups.first()
-        proposal_existing = getattr(group, 'proposal', None)
+        action = request.POST.get('action')
 
-        title = request.POST.get('proposed_title', '').strip() or (proposal_existing.proposed_title if proposal_existing else '')
-        abstract = request.POST.get('abstract_text', '').strip() or (proposal_existing.abstract_text if proposal_existing else '')
-        stack = request.POST.get('tech_stack', '').strip() or (proposal_existing.tech_stack if proposal_existing else '')
+        if action == 'claim_group':
+            gid = request.POST.get('group_id')
+            grp = get_object_or_404(ProjectGroup, id=gid, department=dept)
+            grp.guide = request.user
+            grp.save()
+            notify_users(grp.students.all(), f"Prof. {request.user.get_full_name()} is now mentoring {grp.name}.")
+            messages.success(request, f"You are now guiding '{grp.name}'.")
 
-        score, match_title, match_src, keywords = calculate_abstract_similarity(title, abstract, exclude_group_id=group.id)
-        proposal, _ = ProjectProposal.objects.update_or_create(
-            group=group,
-            defaults={
-                'proposed_title': title,
-                'abstract_text': abstract,
-                'tech_stack': stack,
-                'similarity_score': score,
-                'closest_match_title': match_title,
-                'closest_match_source': match_src,
-                'status': 'PENDING',
-            }
-        )
-        notify_user(group.guide, f"{group.group_name} updated proposal '{title}' (Similarity: {score}%).", 'info')
+        elif action == 'review_proposal':
+            pid = request.POST.get('proposal_id')
+            decision = request.POST.get('decision')
+            remarks = request.POST.get('guide_remarks', '').strip()
+            prop = get_object_or_404(ProjectProposal, id=pid, group__guide=request.user)
+            prop.status = decision
+            prop.guide_remarks = remarks
+            prop.save()
+            status_label = "Approved" if decision == 'APPROVED' else "requested changes on"
+            notify_users(prop.group.students.all(), f"Guide {request.user.get_full_name()} {status_label} your proposal '{prop.title}'.")
+            messages.success(request, f"Updated proposal status for {prop.group.name}.")
 
-        level = 'warning' if score >= 50 else 'success'
-        msg = (
-            f"Proposal saved, but flagged at {score}% similarity with '{match_title}'."
-            if score >= 50 else
-            f"Proposal saved & sent to {group.guide.first_name}! Smart Similarity: {score}%."
-        )
-        return JsonResponse({
-            'ok': True,
-            'level': level,
-            'message': msg,
-            'score': score,
-            'match_title': match_title,
-            'match_source': match_src,
-            'keywords': keywords,
-            'status_display': proposal.get_status_display()
-        })
-    return JsonResponse({'ok': False, 'message': 'Invalid request'}, status=400)
+        elif action == 'verify_log':
+            lid = request.POST.get('log_id')
+            feedback = request.POST.get('guide_feedback', '').strip()
+            log_item = get_object_or_404(WeeklyLog, id=lid, group__guide=request.user)
+            log_item.is_verified = True
+            log_item.guide_feedback = feedback or "Verified & signed off by Faculty Guide."
+            log_item.save()
+            notify_users(log_item.group.students.all(), f"Week {log_item.week_number} log verified by Prof. {request.user.get_full_name()}.")
+            messages.success(request, f"Verified Week {log_item.week_number} for {log_item.group.name}.")
 
+        return redirect('guide_dashboard')
+
+    my_groups = ProjectGroup.objects.filter(guide=request.user).prefetch_related('students', 'logs')
+    unassigned_groups = ProjectGroup.objects.filter(department=dept, guide__isnull=True).prefetch_related('students')
+
+    pending_proposals = ProjectProposal.objects.filter(group__guide=request.user, status='PENDING').count()
+    approved_proposals = ProjectProposal.objects.filter(group__guide=request.user, status='APPROVED').count()
+    unverified_logs = WeeklyLog.objects.filter(group__guide=request.user, is_verified=False).count()
+
+    return render(request, 'guide_dashboard.html', {
+        'my_groups': my_groups,
+        'unassigned_groups': unassigned_groups,
+        'pending_proposals': pending_proposals,
+        'approved_proposals': approved_proposals,
+        'unverified_logs': unverified_logs,
+        'notifications': request.user.notifications.filter(is_read=False)[:6],
+    })
+
+# ==============================================================================
+# DEPARTMENT COORDINATOR WORKSPACE & HIERARCHY ADMIN
+# ==============================================================================
 @login_required
-def add_weekly_log(request):
+def coordinator_dashboard(request):
+    profile = request.user.profile
+    dept = profile.department
+
     if request.method == 'POST':
-        group = request.user.student_groups.first()
-        week = int(request.POST.get('week_number', 1))
-        existing_log = WeeklyLog.objects.filter(group=group, week_number=week).first()
+        action = request.POST.get('action')
 
-        tasks = request.POST.get('tasks_completed', '').strip() or (existing_log.tasks_completed if existing_log else '')
-        link = request.POST.get('commit_or_doc_link', '').strip()
-        if not link and existing_log:
-            link = existing_log.commit_or_doc_link or ''
+        # 1. Add Past Project Archive to Department TF-IDF Corpus
+        if action == 'add_archive':
+            title = request.POST.get('title', '').strip()
+            year = request.POST.get('year', '2025').strip()
+            domain = request.POST.get('domain', 'Computer Science').strip()
+            abstract = request.POST.get('abstract', '').strip()
+            if title and abstract:
+                PastProjectArchive.objects.create(department=dept, title=title, year=year, domain=domain, abstract=abstract)
+                messages.success(request, f"Added '{title}' to {dept.name} similarity corpus.")
 
-        log, created = WeeklyLog.objects.update_or_create(
-            group=group, week_number=week,
-            defaults={
-                'tasks_completed': tasks,
-                'commit_or_doc_link': link or None,
-                'approval_status': 'PENDING'
-            }
-        )
-        action_word = "logged" if created else "updated"
-        notify_user(group.guide, f"{group.group_name} {action_word} Week {week} progress.", 'info')
+        # 2. 1-Click Load Sample AI Corpus for the Department
+        elif action == 'seed_corpus':
+            added = 0
+            for item in FALLBACK_CORPUS:
+                _, created = PastProjectArchive.objects.get_or_create(
+                    department=dept,
+                    title=item["title"],
+                    defaults={"year": "2025", "domain": "AI & Systems", "abstract": item["abstract"]}
+                )
+                if created:
+                    added += 1
+            messages.success(request, f"Loaded {added} benchmark academic abstracts into {dept.name}'s TF-IDF archive.")
 
-        return JsonResponse({
-            'ok': True,
-            'level': 'success',
-            'message': f"Week {week} progress {action_word} & synced!",
-            'log': {
-                'id': log.id,
-                'week_number': log.week_number,
-                'tasks_completed': log.tasks_completed,
-                'commit_or_doc_link': log.commit_or_doc_link or '',
-                'guide_remarks': log.guide_remarks or 'Awaiting guide review',
-                'approval_status': log.approval_status,
-                'status_display': log.get_approval_status_display(),
-            }
-        })
-    return JsonResponse({'ok': False, 'message': 'Invalid request'}, status=400)
+        # 3. Create New Department under Current College (Descending Hierarchy Expansion)
+        elif action == 'add_department':
+            new_dept_name = request.POST.get('new_dept_name', '').strip()
+            acad_year = request.POST.get('academic_year', '2026-2027').strip()
+            if new_dept_name and profile.college:
+                Department.objects.get_or_create(
+                    college=profile.college,
+                    name=new_dept_name,
+                    defaults={'academic_year': acad_year}
+                )
+                messages.success(request, f"Department '{new_dept_name}' added under {profile.college.name}! Now live for student & faculty sign-ups.")
 
-@login_required
-def upload_final_submission(request):
-    if request.method == 'POST':
-        group = request.user.student_groups.first()
-        repo = request.POST.get('github_repo_link', '').strip()
-        if repo:
-            group.github_repo_link = repo
+        # 4. Reassign Guide to Any Group in Department
+        elif action == 'assign_guide':
+            gid = request.POST.get('group_id')
+            guide_id = request.POST.get('guide_id')
+            grp = get_object_or_404(ProjectGroup, id=gid, department=dept)
+            guide_user = get_object_or_404(User, id=guide_id, profile__department=dept, profile__role='GUIDE')
+            grp.guide = guide_user
+            grp.save()
+            notify_users(grp.students.all(), f"Coordinator assigned Prof. {guide_user.get_full_name()} as your Faculty Guide.")
+            messages.success(request, f"Assigned {guide_user.get_full_name()} to {grp.name}.")
 
-        if 'final_report_pdf' in request.FILES:
-            uploaded_file = request.FILES['final_report_pdf']
-            ext = os.path.splitext(uploaded_file.name)[1].lower()
-            if ext not in ALLOWED_EXTENSIONS:
-                return JsonResponse({
-                    'ok': False,
-                    'level': 'error',
-                    'message': f'Unsupported file format ({ext}). Please upload PDF, PNG, JPG, or JPEG.'
-                }, status=400)
-            group.final_report_pdf = uploaded_file
+        return redirect('coordinator_dashboard')
 
-        group.current_stage = 'READY_FOR_VIVA'
-        group.save()
+    groups = ProjectGroup.objects.filter(department=dept).prefetch_related('students', 'logs')
+    dept_guides = User.objects.filter(profile__department=dept, profile__role='GUIDE')
+    dept_students = User.objects.filter(profile__department=dept, profile__role='STUDENT')
+    archives = PastProjectArchive.objects.filter(department=dept)
 
-        notify_user(group.guide, f"{group.group_name} uploaded final deliverables and is Ready for Viva!", 'success')
+    approved_count = ProjectProposal.objects.filter(group__department=dept, status='APPROVED').count()
+    pending_count = ProjectProposal.objects.filter(group__department=dept, status='PENDING').count()
+    changes_count = ProjectProposal.objects.filter(group__department=dept, status='CHANGES').count()
+    evaluated_count = VivaEvaluation.objects.filter(group__department=dept).count()
 
-        file_url = group.final_report_pdf.url if group.final_report_pdf else ''
-        file_name = os.path.basename(group.final_report_pdf.name) if group.final_report_pdf else ''
-
-        return JsonResponse({
-            'ok': True,
-            'level': 'success',
-            'message': 'Deliverables locked in! Group status updated to Ready for Viva.',
-            'stage_display': group.get_current_stage_display(),
-            'github_repo_link': group.github_repo_link or '',
-            'file_url': file_url,
-            'file_name': file_name
-        })
-    return JsonResponse({'ok': False, 'message': 'Invalid request'}, status=400)
-
-@login_required
-def review_proposal(request, proposal_id):
-    if request.method == 'POST':
-        proposal = get_object_or_404(ProjectProposal, id=proposal_id)
-        action = request.POST.get('status')
-        remarks = request.POST.get('reviewer_remarks', '').strip()
-        proposal.status = action
-        proposal.reviewer_remarks = remarks
-        proposal.save()
-
-        if action == 'APPROVED':
-            proposal.group.current_stage = 'IN_PROGRESS'
-            proposal.group.save()
-            notify_group_members(proposal.group, f"Proposal '{proposal.proposed_title}' was APPROVED by {request.user.first_name}!", 'success')
-            level = 'success'
-        else:
-            notify_group_members(proposal.group, f"Revision requested by {request.user.first_name}: {remarks or 'Please update.'}", 'warning')
-            level = 'warning'
-
-        return JsonResponse({
-            'ok': True,
-            'level': level,
-            'message': f"{proposal.group.group_name} proposal marked as {proposal.get_status_display()}.",
-            'status': proposal.status,
-            'status_display': proposal.get_status_display(),
-            'stage_display': proposal.group.get_current_stage_display(),
-            'remarks': remarks
-        })
-    return JsonResponse({'ok': False, 'message': 'Invalid request'}, status=400)
+    return render(request, 'coordinator_dashboard.html', {
+        'groups': groups,
+        'dept_guides': dept_guides,
+        'dept_students_count': dept_students.count(),
+        'archives': archives,
+        'approved_count': approved_count,
+        'pending_count': pending_count,
+        'changes_count': changes_count,
+        'evaluated_count': evaluated_count,
+        'college_departments': Department.objects.filter(college=profile.college) if profile.college else [],
+        'notifications': request.user.notifications.filter(is_read=False)[:6],
+    })
 
 @login_required
-def review_log(request, log_id):
-    if request.method == 'POST':
-        log = get_object_or_404(WeeklyLog, id=log_id)
-        status = request.POST.get('approval_status')
-        remarks = request.POST.get('guide_remarks', '').strip()
-        log.approval_status = status
-        log.guide_remarks = remarks
-        log.save()
-
-        lvl = 'success' if status == 'APPROVED' else 'warning'
-        notify_group_members(
-            log.group,
-            f"Week {log.week_number} logbook {log.get_approval_status_display()} by {request.user.first_name}.",
-            lvl
-        )
-        return JsonResponse({
-            'ok': True,
-            'level': lvl,
-            'message': f"Week {log.week_number} status updated for {log.group.group_name}.",
-            'status_display': log.get_approval_status_display(),
-            'approval_status': log.approval_status
-        })
-    return JsonResponse({'ok': False, 'message': 'Invalid request'}, status=400)
-
-@login_required
-def submit_viva_marks(request, group_id):
-    if request.method == 'POST':
-        group = get_object_or_404(ProjectGroup, id=group_id)
-        viva, _ = VivaEvaluation.objects.update_or_create(
-            group=group,
-            defaults={
-                'examiner': request.user,
-                'problem_definition_marks': int(request.POST.get('m1', 0)),
-                'implementation_marks': int(request.POST.get('m2', 0)),
-                'presentation_marks': int(request.POST.get('m3', 0)),
-                'qa_defense_marks': int(request.POST.get('m4', 0)),
-                'documentation_marks': int(request.POST.get('m5', 0)),
-                'examiner_comments': request.POST.get('examiner_comments', '').strip(),
-            }
-        )
-        group.current_stage = 'EVALUATED'
-        group.save()
-
-        notify_group_members(
-            group,
-            f"Viva Evaluated by {request.user.first_name}! Score: {viva.total_marks}/100 (Grade: {viva.grade}).",
-            'success'
-        )
-        return JsonResponse({
-            'ok': True,
-            'level': 'success',
-            'message': f"Viva grade locked for {group.group_name}: {viva.total_marks}/100 (Grade {viva.grade}).",
-            'total_marks': viva.total_marks,
-            'grade': viva.grade
-        })
-    return JsonResponse({'ok': False, 'message': 'Invalid request'}, status=400)
-
-@login_required
-def api_mark_notifications_read(request):
-    if request.method == 'POST':
-        request.user.notifications.filter(is_read=False).update(is_read=True)
-        return JsonResponse({'ok': True, 'level': 'info', 'message': 'Notifications marked as read.'})
-    return JsonResponse({'ok': False}, status=400)
-
-@login_required
-def export_marksheet_csv(request):
+def export_department_csv(request):
+    dept = request.user.profile.department
     response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="ProTrack_Official_Marksheet_2026.csv"'
+    response['Content-Disposition'] = f'attachment; filename="ProTrack_{dept.name}_Gradebook.csv"'
     writer = csv.writer(response)
-    writer.writerow(['Group Name', 'Students', 'Project Title', 'Smart Similarity %', 'Guide', 'Stage', 'Total Marks (100)', 'Grade'])
+    writer.writerow(['Group Name', 'Join Code', 'Students', 'Faculty Guide', 'Proposal Title', 'Proposal Status', 'AI Similarity (%)', 'Verified Logs', 'Viva Score (/100)', 'Grade'])
 
-    for g in ProjectGroup.objects.all():
-        members_str = ", ".join([m.first_name or m.username for m in g.members.all()])
-        title = g.proposal.proposed_title if hasattr(g, 'proposal') else 'Not Submitted'
-        sim = f"{g.proposal.similarity_score}%" if hasattr(g, 'proposal') else 'N/A'
-        guide = g.guide.first_name if g.guide else 'Unassigned'
-        marks = g.viva_evaluation.total_marks if hasattr(g, 'viva_evaluation') else 'Pending'
-        grade = g.viva_evaluation.grade if hasattr(g, 'viva_evaluation') else 'Pending'
-        writer.writerow([g.group_name, members_str, title, sim, guide, g.get_current_stage_display(), marks, grade])
+    for g in ProjectGroup.objects.filter(department=dept):
+        students_str = ", ".join([s.get_full_name() or s.username for s in g.students.all()])
+        guide_str = g.guide.get_full_name() if g.guide else "Unassigned"
+        prop = getattr(g, 'proposal', None)
+        viva = getattr(g, 'viva', None)
+        verified_logs = g.logs.filter(is_verified=True).count()
+        writer.writerow([
+            g.name,
+            g.join_code,
+            students_str,
+            guide_str,
+            prop.title if prop else "Not Submitted",
+            prop.get_status_display() if prop else "No Proposal",
+            f"{prop.similarity_score}%" if prop else "0%",
+            verified_logs,
+            viva.total_score if viva else "Pending",
+            viva.grade_badge if viva else "Pending"
+        ])
     return response
+
+# ==============================================================================
+# EXTERNAL EXAMINER RUBRIC WORKSPACE
+# ==============================================================================
+@login_required
+def examiner_dashboard(request):
+    dept = request.user.profile.department
+
+    if request.method == 'POST':
+        gid = request.POST.get('group_id')
+        grp = get_object_or_404(ProjectGroup, id=gid, department=dept)
+        p_score = min(max(int(request.POST.get('problem_clarity', 0) or 0), 0), 25)
+        i_score = min(max(int(request.POST.get('implementation', 0) or 0), 0), 25)
+        pr_score = min(max(int(request.POST.get('presentation', 0) or 0), 0), 25)
+        d_score = min(max(int(request.POST.get('documentation', 0) or 0), 0), 25)
+        comments = request.POST.get('examiner_comments', '').strip()
+
+        viva, _ = VivaEvaluation.objects.get_or_create(group=grp)
+        viva.examiner = request.user
+        viva.problem_clarity = p_score
+        viva.implementation = i_score
+        viva.presentation = pr_score
+        viva.documentation = d_score
+        viva.examiner_comments = comments
+        viva.save()
+
+        notify_users(grp.students.all(), f"ExternalViva Evaluation published for {grp.name}: {viva.total_score}/100 ({viva.grade_badge}).")
+        messages.success(request, f"Saved Viva Evaluation for {grp.name} ({viva.total_score}/100).")
+        return redirect('examiner_dashboard')
+
+    groups = ProjectGroup.objects.filter(department=dept).prefetch_related('students', 'logs')
+    return render(request, 'examiner_viva.html', {
+        'groups': groups,
+        'notifications': request.user.notifications.filter(is_read=False)[:6],
+    })
 """
 
-# --- portal/urls.py ---
-files["portal/urls.py"] = """from django.urls import path
+# ==============================================================================
+# 6. URL ROUTING & ADMIN REGISTRATION
+# ==============================================================================
+PORTAL_URLS_PY = """
+from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('', views.dashboard, name='dashboard'),
-    path('login/', views.user_login, name='login'),
-    path('logout/', views.user_logout, name='logout'),
+    path('', views.dashboard_router, name='dashboard_router'),
+    path('login/', views.login_view, name='login'),
+    path('signup/', views.signup_view, name='signup'),
+    path('logout/', views.logout_view, name='logout'),
+    path('student/', views.student_dashboard, name='student_dashboard'),
+    path('guide/', views.guide_dashboard, name='guide_dashboard'),
+    path('coordinator/', views.coordinator_dashboard, name='coordinator_dashboard'),
+    path('coordinator/export-csv/', views.export_department_csv, name='export_department_csv'),
+    path('examiner/', views.examiner_dashboard, name='examiner_dashboard'),
+    path('notifications/read/', views.mark_notifications_read, name='mark_notifications_read'),
     path('api/check-similarity/', views.api_check_similarity, name='api_check_similarity'),
-    path('api/notifications/read/', views.api_mark_notifications_read, name='api_mark_notifications_read'),
-    path('submit-proposal/', views.submit_proposal, name='submit_proposal'),
-    path('add-log/', views.add_weekly_log, name='add_weekly_log'),
-    path('upload-final/', views.upload_final_submission, name='upload_final_submission'),
-    path('review-proposal/<int:proposal_id>/', views.review_proposal, name='review_proposal'),
-    path('review-log/<int:log_id>/', views.review_log, name='review_log'),
-    path('submit-viva/<int:group_id>/', views.submit_viva_marks, name='submit_viva_marks'),
-    path('export-csv/', views.export_marksheet_csv, name='export_marksheet_csv'),
+    path('api/hierarchy/', views.api_hierarchy, name='api_hierarchy'),
 ]
 """
 
-# --- portal/management/commands/seed_data.py ---
-files["portal/management/commands/seed_data.py"] = """from django.core.management.base import BaseCommand
-from django.contrib.auth.models import User
-from portal.models import UserProfile, PastProjectArchive, ProjectGroup, ProjectProposal, WeeklyLog, Notification
-from portal.similarity import calculate_abstract_similarity
+ADMIN_PY = """
+from django.contrib import admin
+from .models import (
+    University, College, Department, UserProfile,
+    ProjectGroup, ProjectProposal, WeeklyLog,
+    VivaEvaluation, PastProjectArchive, Notification
+)
 
-class Command(BaseCommand):
-    help = 'Seeds ProTrack v3.0 with real Student Roster, Faculty Names, and ahmetrida/protrack links'
-
-    def handle(self, *args, **kwargs):
-        # 1. Create Faculty & Staff Accounts
-        faculty_data = [
-            ('guide1', 'Guide@123', 'GUIDE', 'Professor Saurabh Pagar', 'FAC-101'),
-            ('coordinator1', 'Admin@123', 'COORDINATOR', 'Professor Prajakta Borse', 'FAC-001'),
-            ('examiner1', 'Viva@123', 'EXAMINER', 'Professor Secretly Anonymous', 'EXT-501'),
-        ]
-        faculty_users = {}
-        for uname, pwd, role, full_name, emp_id in faculty_data:
-            u, _ = User.objects.update_or_create(username=uname, defaults={'first_name': full_name})
-            u.set_password(pwd)
-            u.save()
-            UserProfile.objects.update_or_create(user=u, defaults={'role': role, 'roll_or_emp_id': emp_id})
-            faculty_users[role] = u
-
-        # 2. Create the 5 Student Accounts for Team Claudeus
-        students_data = [
-            ('student1', 'Student@123', 'Mohammad Mustafa', 'TY-CS-01'),
-            ('student2', 'Student@123', 'Ahmed Raza', 'TY-CS-02'),
-            ('student3', 'Student@123', 'Momin Muneeb', 'TY-CS-03'),
-            ('student4', 'Student@123', 'Umar Farroque', 'TY-CS-04'),
-            ('student5', 'Student@123', 'Faizan Mansuri', 'TY-CS-05'),
-        ]
-        student_objs = []
-        for uname, pwd, full_name, roll in students_data:
-            u, _ = User.objects.update_or_create(username=uname, defaults={'first_name': full_name})
-            u.set_password(pwd)
-            u.save()
-            UserProfile.objects.update_or_create(user=u, defaults={'role': 'STUDENT', 'roll_or_emp_id': roll})
-            student_objs.append(u)
-
-        # 3. Seed Past Departmental Archives
-        past_projects = [
-            ("Automated Attendance System Using Face Recognition",
-             "A computer vision application using OpenCV and face recognition to capture student faces from a classroom webcam and log attendance into an Excel sheet automatically.",
-             "2024-25", "Computer Vision"),
-            ("Library Book Management and Fine Calculation System",
-             "A web application for college libraries to issue books, track return deadlines, manage book inventory, and calculate overdue student fines.",
-             "2023-24", "Web Development"),
-            ("Online Hospital Appointment and Patient Record Portal",
-             "A centralized healthcare portal enabling patients to book doctor appointments online and store digital medical prescriptions and lab reports.",
-             "2024-25", "Healthcare IT"),
-            ("E-Commerce Grocery Delivery Platform with Chatbot",
-             "An online shopping cart for local grocery stores featuring product recommendations, online payment checkout, and an automated support chatbot.",
-             "2023-24", "E-Commerce"),
-            ("Smart Campus Placement and Alumni Tracking Portal",
-             "A college web portal where final year students upload resumes, apply for campus placement drives, and connect with industry alumni.",
-             "2024-25", "EdTech"),
-            ("Fake News Detection Using Natural Language Processing",
-             "A machine learning text classification model using TF-IDF vectorization and Logistic Regression to classify news articles as real or fake.",
-             "2024-25", "AI / NLP"),
-        ]
-        for title, abst, yr, dom in past_projects:
-            PastProjectArchive.objects.update_or_create(title=title, defaults={'abstract': abst, 'batch_year': yr, 'domain': dom})
-
-        # 4. Create Team Claudeus Group with all 5 Members & https://github.com/ahmetrida/protrack
-        grp, _ = ProjectGroup.objects.update_or_create(
-            group_name="Team Claudeus (G-01)",
-            defaults={
-                'guide': faculty_users['GUIDE'],
-                'current_stage': 'IN_PROGRESS',
-                'github_repo_link': 'https://github.com/ahmetrida/protrack'
-            }
-        )
-        grp.members.set(student_objs)
-
-        title = "ProTrack: Web-Based Academic Project and Viva Management Portal"
-        abstract = (
-            "A centralized web portal built with Python, Django, and Scikit-Learn to manage student project registrations, "
-            "detect duplicate project abstracts using hybrid N-gram cosine similarity, track weekly guide sign-offs, and conduct rubric-based viva grading."
-        )
-        score, match_t, match_s, _ = calculate_abstract_similarity(title, abstract, exclude_group_id=grp.id)
-        ProjectProposal.objects.update_or_create(
-            group=grp,
-            defaults={
-                'proposed_title': title,
-                'abstract_text': abstract,
-                'tech_stack': 'Python, Django, Scikit-Learn, Chart.js',
-                'similarity_score': score,
-                'closest_match_title': match_t,
-                'closest_match_source': match_s,
-                'status': 'APPROVED',
-                'reviewer_remarks': 'Approved by Professor Saurabh Pagar. Well-scoped architecture and low similarity.'
-            }
-        )
-
-        WeeklyLog.objects.update_or_create(
-            group=grp, week_number=1,
-            defaults={
-                'tasks_completed': 'Completed requirement analysis, synopsis approval, and 6-table relational database schema.',
-                'commit_or_doc_link': 'https://github.com/ahmetrida/protrack',
-                'guide_remarks': 'Signed off by Professor Saurabh Pagar. Proceed to similarity engine.',
-                'approval_status': 'APPROVED'
-            }
-        )
-        WeeklyLog.objects.update_or_create(
-            group=grp, week_number=2,
-            defaults={
-                'tasks_completed': 'Implemented custom royal-violet 8pt grid UI, stateful action buttons, and hybrid TF-IDF similarity engine.',
-                'commit_or_doc_link': 'https://github.com/ahmetrida/protrack',
-                'guide_remarks': 'Awaiting guide review',
-                'approval_status': 'PENDING'
-            }
-        )
-
-        # 5. Secondary Demo Group to showcase High Similarity Warning
-        grp2, _ = ProjectGroup.objects.update_or_create(
-            group_name="Group Alpha (G-02)",
-            defaults={'guide': faculty_users['GUIDE'], 'current_stage': 'TOPIC_PENDING'}
-        )
-        dup_title = "Smart Classroom Attendance System via Webcam Face Recognition"
-        dup_abs = "A Python OpenCV face recognition system that captures live classroom video from a webcam and logs student attendance into an Excel sheet automatically."
-        s2, mt2, ms2, _ = calculate_abstract_similarity(dup_title, dup_abs, exclude_group_id=grp2.id)
-        ProjectProposal.objects.update_or_create(
-            group=grp2,
-            defaults={
-                'proposed_title': dup_title,
-                'abstract_text': dup_abs,
-                'tech_stack': 'Python, OpenCV, Pandas',
-                'similarity_score': s2,
-                'closest_match_title': mt2,
-                'closest_match_source': ms2,
-                'status': 'PENDING',
-            }
-        )
-
-        Notification.objects.all().delete()
-        for stu in student_objs:
-            Notification.objects.create(
-                recipient=stu,
-                message="Professor Saurabh Pagar approved your proposal 'ProTrack'!",
-                level='success'
-            )
-            Notification.objects.create(
-                recipient=stu,
-                message="Week 1 progress log signed off by Professor Saurabh Pagar.",
-                level='info'
-            )
-
-        self.stdout.write(self.style.SUCCESS("✅ ProTrack v3.0 Seeded with Custom Roster & Repository Links!"))
+admin.site.register(University)
+admin.site.register(College)
+admin.site.register(Department)
+admin.site.register(UserProfile)
+admin.site.register(ProjectGroup)
+admin.site.register(ProjectProposal)
+admin.site.register(WeeklyLog)
+admin.site.register(VivaEvaluation)
+admin.site.register(PastProjectArchive)
+admin.site.register(Notification)
 """
 
-# --- templates/base.html (8pt Grid + Royal Violet Palette + Non-Breaking Chips + Stateful JS Engine) ---
-files["templates/base.html"] = """<!DOCTYPE html>
+# ==============================================================================
+# 7. TEMPLATES — GOOGLE WORKSPACE MATERIAL 3 DESIGN + GOOGLE SANS + LUCIDE ICONS
+# ==============================================================================
+BASE_HTML = """
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ProTrack — Academic Project & Viva Lifecycle Platform</title>
+    <title>ProTrack — Academic Project & Viva Management Cloud</title>
+    <!-- Google Sans & Plus Jakarta Sans Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5.3 Layout Grid -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide High-Precision Vector Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
-            /* Primary Brand Family */
-            --p-primary: #604A8B;
-            --p-secondary: #8066A6;
-            --p-dark: #503A76;
-            --p-muted: #A88EC5;
-            --p-tint: #DCCFEB;
-            --p-wash: #E9E1F7;
-
-            /* Semantic Alert Palette */
-            --s-error: #B03A3A;
-            --s-error-bg: rgba(176, 58, 58, 0.12);
-            --s-success: #2F7D57;
-            --s-success-bg: rgba(47, 125, 87, 0.12);
-            --s-info: #3B6FA3;
-            --s-info-bg: rgba(59, 111, 163, 0.12);
-            --s-warning: #9A6514;
-            --s-warning-bg: rgba(154, 101, 20, 0.14);
-
-            /* Neutrals & Surfaces */
-            --surface-bg: #F6F4FA;
-            --surface-card: #FFFFFF;
-            --text-main: #1E192B;
-            --text-secondary: #5E5473;
-            --border-subtle: rgba(96, 74, 139, 0.14);
-
-            /* Strict 8pt Spacing Scale */
-            --sp-1: 8px;
-            --sp-2: 16px;
-            --sp-3: 24px;
-            --sp-4: 32px;
-            --sp-5: 40px;
-            --Radius-card: 24px;
-            --Radius-input: 16px;
-            --Radius-pill: 999px;
+            --m3-bg: #F8FAFD;
+            --m3-surface: #FFFFFF;
+            --m3-surface-tonal: #F0F4F9;
+            --m3-primary: #0B57D0;
+            --m3-primary-hover: #0842A0;
+            --m3-primary-container: #D3E3FD;
+            --m3-on-primary-container: #041E49;
+            --m3-text: #1F1F1F;
+            --m3-text-muted: #444746;
+            --m3-border: #E1E5EA;
+            --m3-success-bg: #E6F4EA;
+            --m3-success-text: #137333;
+            --m3-warning-bg: #FEF7E0;
+            --m3-warning-text: #B06000;
+            --m3-danger-bg: #FCE8E6;
+            --m3-danger-text: #C5221F;
+            --radius-xl: 24px;
+            --radius-lg: 16px;
+            --radius-pill: 9999px;
         }
 
         body {
-            background-color: var(--surface-bg);
-            background-image: radial-gradient(at 0% 0%, var(--p-wash) 0px, transparent 55%);
-            color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+            font-family: 'Google Sans', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--m3-bg);
+            color: var(--m3-text);
             font-size: 16px;
-            line-height: 1.5;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Frosted Navigation on 8pt Grid */
-        .protrack-nav {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: saturate(180%) blur(20px);
-            -webkit-backdrop-filter: saturate(180%) blur(20px);
-            border-bottom: 1px solid var(--border-subtle);
-            padding: var(--sp-2) 0;
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Google Sans', 'Plus Jakarta Sans', sans-serif;
+            letter-spacing: -0.015em;
+            font-weight: 500;
+        }
+
+        /* Google Workspace Top Appbar */
+        .m3-navbar {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--m3-border);
+            padding: 14px 28px;
             position: sticky;
             top: 0;
             z-index: 1030;
         }
 
         .brand-logo {
-            font-weight: 700;
-            font-size: 1.35rem;
-            letter-spacing: -0.025em;
-            color: var(--p-dark);
-            text-decoration: none;
             display: inline-flex;
             align-items: center;
-            gap: var(--sp-1);
-            white-space: nowrap;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--m3-text);
+            font-weight: 700;
+            font-size: 1.35rem;
         }
 
         .brand-icon-box {
-            width: 40px;
-            height: 40px;
+            width: 42px;
+            height: 42px;
             border-radius: 12px;
-            background: linear-gradient(135deg, var(--p-primary), var(--p-dark));
-            color: #FFFFFF;
-            display: inline-flex;
+            background: var(--m3-primary);
+            color: #fff;
+            display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 12px rgba(96, 74, 139, 0.25);
         }
 
-        /* 8pt Grid Bento Cards */
-        .bento-card {
-            background: var(--surface-card);
-            border-radius: var(--Radius-card);
-            border: 1px solid var(--border-subtle);
-            box-shadow: 0 8px 24px rgba(80, 58, 118, 0.05);
-            padding: var(--sp-3);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        /* Material 3 Elevated Cards */
+        .m3-card {
+            background: var(--m3-surface);
+            border: 1px solid var(--m3-border);
+            border-radius: var(--radius-xl);
+            padding: 32px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 16px rgba(11, 87, 208, 0.03);
+            transition: box-shadow 0.2s ease, transform 0.2s ease;
         }
 
-        .bento-card:hover {
-            box-shadow: 0 12px 32px rgba(80, 58, 118, 0.09);
+        .m3-card-tonal {
+            background: var(--m3-surface-tonal);
+            border: 1px solid transparent;
+            border-radius: var(--radius-xl);
+            padding: 28px;
         }
 
-        /* Form Controls on 8pt Scale */
+        /* Spacious Material 3 Controls */
         .form-label {
-            font-size: 0.88rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: var(--sp-1);
+            font-weight: 500;
+            font-size: 0.95rem;
+            color: var(--m3-text);
+            margin-bottom: 8px;
         }
 
         .form-control, .form-select {
-            background-color: var(--p-wash);
-            border: 1.5px solid transparent;
-            border-radius: var(--Radius-input);
-            padding: 12px 16px;
-            font-size: 0.98rem;
-            color: var(--text-main);
-            transition: all 0.2s ease;
+            border-radius: 14px;
+            padding: 14px 18px;
+            font-size: 1rem;
+            border: 1px solid #C4C7C5;
+            background-color: #FFFFFF;
+            color: var(--m3-text);
+            transition: all 0.18s ease;
         }
 
         .form-control:focus, .form-select:focus {
-            background-color: #FFFFFF;
-            border-color: var(--p-primary);
-            box-shadow: 0 0 0 4px rgba(96, 74, 139, 0.16);
-            color: var(--text-main);
+            border-color: var(--m3-primary);
+            box-shadow: 0 0 0 3px rgba(11, 87, 208, 0.16);
         }
 
-        /* Non-Breaking Buttons & Interactive States */
-        .btn-pro {
-            background-color: var(--p-primary);
+        /* Material 3 Pill Buttons */
+        .btn-m3-primary {
+            background-color: var(--m3-primary);
             color: #FFFFFF;
-            border-radius: var(--Radius-pill);
+            border: none;
+            border-radius: var(--radius-pill);
+            padding: 12px 26px;
+            font-size: 0.98rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.18s ease;
+        }
+
+        .btn-m3-primary:hover {
+            background-color: var(--m3-primary-hover);
+            color: #FFFFFF;
+            box-shadow: 0 2px 8px rgba(11, 87, 208, 0.28);
+        }
+
+        .btn-m3-tonal {
+            background-color: var(--m3-primary-container);
+            color: var(--m3-on-primary-container);
+            border: none;
+            border-radius: var(--radius-pill);
             padding: 12px 24px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            border: 1px solid transparent;
+            font-size: 0.96rem;
+            font-weight: 500;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            white-space: nowrap !important;
-            flex-shrink: 0;
-            transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
-            cursor: pointer;
+            transition: all 0.18s ease;
         }
 
-        .btn-pro:hover:not(:disabled) {
-            background-color: var(--p-dark);
-            color: #FFFFFF;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(80, 58, 118, 0.28);
+        .btn-m3-tonal:hover {
+            background-color: #B8D1FC;
+            color: var(--m3-on-primary-container);
         }
 
-        .btn-pro:active:not(:disabled) {
-            transform: translateY(0);
-        }
-
-        .btn-pro-secondary {
-            background-color: var(--p-tint);
-            color: var(--p-dark);
-            border-radius: var(--Radius-pill);
-            padding: 12px 24px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            border: 1px solid rgba(96, 74, 139, 0.15);
+        .btn-m3-outline {
+            background-color: transparent;
+            color: var(--m3-primary);
+            border: 1px solid #747775;
+            border-radius: var(--radius-pill);
+            padding: 11px 24px;
+            font-size: 0.96rem;
+            font-weight: 500;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            white-space: nowrap !important;
-            flex-shrink: 0;
-            transition: all 0.2s ease;
-            cursor: pointer;
         }
 
-        .btn-pro-secondary:hover:not(:disabled) {
-            background-color: var(--p-muted);
-            color: #FFFFFF;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(96, 74, 139, 0.2);
+        .btn-m3-outline:hover {
+            background-color: var(--m3-surface-tonal);
+            border-color: var(--m3-primary);
         }
 
-        /* Completed / Locked Button State (Prevents Duplicate Actions) */
-        .btn-pro.btn-locked,
-        .btn-pro-secondary.btn-locked,
-        button:disabled.btn-locked {
-            background-color: var(--s-success-bg) !important;
-            color: var(--s-success) !important;
-            border: 1.5px solid rgba(47, 125, 87, 0.35) !important;
-            box-shadow: none !important;
-            transform: none !important;
-            cursor: not-allowed !important;
-            opacity: 1 !important;
-        }
-
-        /* Non-Breaking Chips & Status Pills */
-        .pro-chip {
+        /* Status & Context Chips */
+        .m3-chip {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 6px 16px;
-            border-radius: var(--Radius-pill);
-            font-size: 0.85rem;
-            font-weight: 600;
-            white-space: nowrap !important;
-            flex-shrink: 0;
-            line-height: 1.2;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
-        }
-
-        .pro-chip:hover {
-            transform: translateY(-1px);
-        }
-
-        .chip-primary { background: var(--p-wash); color: var(--p-dark); border: 1px solid var(--p-tint); }
-        .chip-member { background: var(--p-tint); color: var(--p-dark); }
-        .chip-success { background: var(--s-success-bg); color: var(--s-success); }
-        .chip-warning { background: var(--s-warning-bg); color: var(--s-warning); }
-        .chip-error { background: var(--s-error-bg); color: var(--s-error); }
-        .chip-info { background: var(--s-info-bg); color: var(--s-info); }
-
-        /* Floating Toast Engine with Reverse Progress Bar */
-        #toast-stack {
-            position: fixed;
-            top: 24px;
-            right: 24px;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            width: 380px;
-            max-width: calc(100vw - 32px);
-            pointer-events: none;
-        }
-
-        .pro-toast {
-            pointer-events: auto;
-            background: rgba(255, 255, 255, 0.97);
-            backdrop-filter: blur(20px);
-            border-radius: 16px;
-            box-shadow: 0 16px 40px rgba(80, 58, 118, 0.18);
-            border: 1px solid var(--border-subtle);
-            overflow: hidden;
-            transform: translateX(120%);
-            opacity: 0;
-            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
-        }
-
-        .pro-toast.show {
-            transform: translateX(0);
-            opacity: 1;
-        }
-
-        .pro-toast-body {
-            padding: 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 0.94rem;
+            padding: 6px 14px;
+            border-radius: var(--radius-pill);
+            font-size: 0.875rem;
             font-weight: 500;
-            color: var(--text-main);
-        }
-
-        .toast-reverse-bar {
-            height: 4px;
-            width: 100%;
-            animation: shrinkReverse 4.2s linear forwards;
-        }
-
-        .bar-success { background: var(--s-success); }
-        .bar-warning { background: var(--s-warning); }
-        .bar-error, .bar-danger { background: var(--s-error); }
-        .bar-info { background: var(--s-info); }
-
-        @keyframes shrinkReverse {
-            0% { width: 100%; }
-            100% { width: 0%; }
-        }
-
-        /* Clean Tables */
-        .table-pro th {
-            color: var(--text-secondary);
-            font-weight: 600;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            border-bottom: 1px solid var(--border-subtle);
-            padding: 12px 16px;
             white-space: nowrap;
         }
 
-        .table-pro td {
-            padding: 16px;
-            border-bottom: 1px solid var(--border-subtle);
-            vertical-align: middle;
+        .chip-tonal { background: var(--m3-primary-container); color: var(--m3-on-primary-container); }
+        .chip-success { background: var(--m3-success-bg); color: var(--m3-success-text); }
+        .chip-warning { background: var(--m3-warning-bg); color: var(--m3-warning-text); }
+        .chip-danger { background: var(--m3-danger-bg); color: var(--m3-danger-text); }
+        .chip-neutral { background: var(--m3-surface-tonal); color: var(--m3-text-muted); }
+
+        .lucide {
+            width: 20px;
+            height: 20px;
+            stroke-width: 2px;
+        }
+
+        /* Floating Toast Snackbar */
+        .toast-stack {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            z-index: 1090;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 420px;
+        }
+
+        .m3-snackbar {
+            background: #1F1F1F;
+            color: #FFFFFF;
+            padding: 16px 22px;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.95rem;
         }
     </style>
 </head>
-<body class="d-flex flex-column min-vh-100">
+<body>
+    {% if user.is_authenticated %}
+    <nav class="m3-navbar">
+        <div class="container-fluid d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <a href="{% url 'dashboard_router' %}" class="brand-logo">
+                    <span class="brand-icon-box"><i data-lucide="graduation-cap"></i></span>
+                    <span>ProTrack</span>
+                </a>
+                {% if user.profile.department %}
+                <span class="m3-chip chip-neutral d-none d-lg-inline-flex">
+                    <i data-lucide="building-2" style="width:16px;height:16px;"></i>
+                    {{ user.profile.university.name }} &bull; {{ user.profile.college.name }} &bull; <strong class="text-dark">{{ user.profile.department.name }}</strong>
+                </span>
+                {% endif %}
+            </div>
 
-    <!-- Floating Animated Reverse-Progress Toast Stack -->
-    <div id="toast-stack"></div>
+            <div class="d-flex align-items-center gap-3">
+                <span class="m3-chip chip-tonal">
+                    <i data-lucide="shield-check" style="width:16px;height:16px;"></i>
+                    {{ user.profile.get_role_display }}
+                </span>
 
-    <!-- Sticky Header -->
-    <nav class="protrack-nav">
-        <div class="container d-flex justify-content-between align-items-center gap-3">
-            <a class="brand-logo" href="{% url 'dashboard' %}">
-                <span class="brand-icon-box"><i class="bi bi-layers-half"></i></span>
-                <span>ProTrack</span>
-            </a>
-
-            {% if user.is_authenticated %}
-            <div class="d-flex align-items-center gap-2 gap-md-3 flex-nowrap">
-                <!-- Notification Bell -->
+                <!-- Notifications Bell -->
                 <div class="dropdown">
-                    <button class="btn-pro-secondary py-2 px-3 position-relative" data-bs-toggle="dropdown" onclick="markNotificationsRead()">
-                        <i class="bi bi-bell-fill"></i>
-                        {% if unread_count > 0 %}
-                        <span id="notif-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill" style="background: var(--s-error);">
-                            {{ unread_count }}
+                    <button class="btn btn-m3-outline position-relative py-2 px-3" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i data-lucide="bell"></i>
+                        {% if notifications %}
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            {{ notifications|length }}
                         </span>
                         {% endif %}
                     </button>
-                    <div class="dropdown-menu dropdown-menu-end p-3 shadow-lg border-0" style="width: 350px; border-radius: 20px;">
+                    <div class="dropdown-menu dropdown-menu-end p-3 shadow-lg border-0" style="width: 360px; border-radius: 20px;">
                         <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-                            <span class="fw-bold small text-uppercase" style="color: var(--p-primary);">Activity Center</span>
-                            <span class="pro-chip chip-info py-1 px-2" style="font-size: 0.75rem;">Real-Time</span>
+                            <span class="fw-bold">Department Alerts</span>
+                            {% if notifications %}
+                            <a href="{% url 'mark_notifications_read' %}" class="small text-decoration-none fw-medium">Mark all read</a>
+                            {% endif %}
                         </div>
-                        <div id="notif-list">
-                            {% for n in notifications %}
-                            <div class="py-2 border-bottom small d-flex align-items-start gap-2">
-                                <i class="bi bi-circle-fill mt-1" style="font-size: 7px; color: {% if n.level == 'success' %}var(--s-success){% elif n.level == 'warning' %}var(--s-warning){% elif n.level == 'error' %}var(--s-error){% else %}var(--s-info){% endif %};"></i>
-                                <span>{{ n.message }}</span>
-                            </div>
-                            {% empty %}
-                            <div class="text-muted small py-3 text-center">No new notifications</div>
-                            {% endfor %}
+                        {% for n in notifications %}
+                        <div class="py-2 border-bottom small">
+                            <div class="text-dark fw-medium">{{ n.message }}</div>
+                            <div class="text-muted" style="font-size: 0.78rem;">{{ n.created_at|timesince }} ago</div>
                         </div>
+                        {% empty %}
+                        <div class="text-center py-4 text-muted small">
+                            <i data-lucide="check-circle-2" class="mb-2 text-success"></i>
+                            <div>All caught up! No new notifications.</div>
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
 
-                <span class="pro-chip chip-primary d-none d-sm-inline-flex">
-                    <i class="bi bi-person-badge"></i> {{ user.profile.get_role_display }}
-                </span>
-                <span class="fw-semibold d-none d-lg-inline text-nowrap">{{ user.first_name|default:user.username }}</span>
-                <a href="{% url 'logout' %}" class="btn-pro-secondary py-2 px-3 text-decoration-none">
-                    <i class="bi bi-box-arrow-right"></i> <span>Sign Out</span>
-                </a>
+                <!-- User Identity & Logout -->
+                <div class="d-flex align-items-center gap-2 ps-2 border-start">
+                    <div class="text-end d-none d-sm-block">
+                        <div class="fw-medium" style="line-height:1.2;">{{ user.get_full_name|default:user.username }}</div>
+                        <div class="text-muted small" style="font-size:0.8rem;">{{ user.profile.identifier }}</div>
+                    </div>
+                    <a href="{% url 'logout' %}" class="btn btn-m3-outline py-2 px-3" title="Sign Out">
+                        <i data-lucide="log-out"></i>
+                    </a>
+                </div>
             </div>
-            {% endif %}
         </div>
     </nav>
+    {% endif %}
 
-    <!-- Main Container on 8pt Grid -->
-    <main class="container my-4 flex-grow-1">
-        {% block content %}{% endblock %}
+    <main class="flex-grow-1 py-4 py-md-5">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
     </main>
 
-    <!-- Updated Official Footer -->
-    <footer class="py-4 mt-auto border-top" style="background: rgba(255, 255, 255, 0.75); border-color: var(--border-subtle) !important;">
-        <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2 small" style="color: var(--text-secondary);">
-            <span><strong>ProTrack</strong> — Academic Project & Viva Lifecycle Platform.</span>
-            <span>ProTrack © 2026. All rights reserved.</span>
+    <!-- Floating Material 3 Snackbars -->
+    {% if messages %}
+    <div class="toast-stack" id="toastStack">
+        {% for message in messages %}
+        <div class="m3-snackbar">
+            <i data-lucide="sparkles" class="text-info flex-shrink-0"></i>
+            <div class="flex-grow-1">{{ message }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <footer class="py-4 border-top bg-white mt-auto">
+        <div class="container d-flex flex-wrap justify-content-between align-items-center text-muted small">
+            <div><strong>ProTrack Cloud v4.0</strong> &mdash; Dynamic Multi-Tenant Academic Project & Viva Portal</div>
+            <div>Powered by Django &bull; Scikit-Learn TF-IDF &bull; Google Material 3</div>
         </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function getCSRFToken() {
-            const el = document.querySelector('[name=csrfmiddlewaretoken]');
-            return el ? el.value : '';
-        }
-
-        // Reverse-Progress Toast Notification Engine
-        function showToast(message, level = 'success') {
-            const stack = document.getElementById('toast-stack');
-            const toast = document.createElement('div');
-            toast.className = 'pro-toast';
-
-            const iconMap = {
-                'success': '<i class="bi bi-check-circle-fill fs-5" style="color: var(--s-success);"></i>',
-                'warning': '<i class="bi bi-exclamation-triangle-fill fs-5" style="color: var(--s-warning);"></i>',
-                'error': '<i class="bi bi-x-circle-fill fs-5" style="color: var(--s-error);"></i>',
-                'danger': '<i class="bi bi-x-circle-fill fs-5" style="color: var(--s-error);"></i>',
-                'info': '<i class="bi bi-info-circle-fill fs-5" style="color: var(--s-info);"></i>'
-            };
-
-            toast.innerHTML = `
-                <div class="pro-toast-body">
-                    ${iconMap[level] || iconMap.info}
-                    <div class="flex-grow-1">${message}</div>
-                    <button type="button" class="btn-close btn-sm" onclick="this.closest('.pro-toast').remove()"></button>
-                </div>
-                <div class="toast-reverse-bar bar-${level}"></div>
-            `;
-
-            stack.appendChild(toast);
-            requestAnimationFrame(() => toast.classList.add('show'));
-
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 350);
-            }, 4200);
-        }
-
-        // Stateful Button Controller (Prevents Duplicate Submissions & Re-Enables on Edit)
-        function setButtonLoading(btn, loadingText = 'Processing...') {
-            if (!btn) return;
-            if (!btn.dataset.defaultHtml) {
-                btn.dataset.defaultHtml = btn.innerHTML;
-            }
-            btn.disabled = true;
-            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> <span>${loadingText}</span>`;
-        }
-
-        function lockActionButton(btn, completedLabel = 'Saved ✓') {
-            if (!btn) return;
-            if (!btn.dataset.defaultHtml) {
-                btn.dataset.defaultHtml = btn.innerHTML;
-            }
-            btn.disabled = true;
-            btn.classList.add('btn-locked');
-            btn.innerHTML = `<i class="bi bi-check2-circle"></i> <span>${completedLabel}</span>`;
-        }
-
-        function unlockActionButton(btn) {
-            if (!btn || !btn.classList.contains('btn-locked')) return;
-            btn.disabled = false;
-            btn.classList.remove('btn-locked');
-            if (btn.dataset.defaultHtml) {
-                btn.innerHTML = btn.dataset.defaultHtml;
-            }
-        }
-
-        // Automatically watch all forms so locked buttons wake up only when inputs change
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('form[data-watch-dirty="true"]').forEach(form => {
-                const unlockAllInForm = () => {
-                    form.querySelectorAll('.btn-locked').forEach(btn => unlockActionButton(btn));
-                };
-                form.addEventListener('input', unlockAllInForm);
-                form.addEventListener('change', unlockAllInForm);
-            });
-        });
-
-        async function markNotificationsRead() {
-            const badge = document.getElementById('notif-badge');
-            if (!badge) return;
-            badge.remove();
-            await fetch("{% url 'api_mark_notifications_read' %}", {
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCSRFToken() }
-            });
-        }
-
-        {% if messages %}
-            {% for m in messages %}
-                showToast("{{ m|escapejs }}", "{{ m.tags|default:'info' }}");
-            {% endfor %}
-        {% endif %}
+        lucide.createIcons();
+        setTimeout(() => {
+            const stack = document.getElementById('toastStack');
+            if (stack) stack.style.display = 'none';
+        }, 5000);
     </script>
 </body>
 </html>
 """
 
-# --- templates/login.html ---
-files["templates/login.html"] = """{% extends 'base.html' %}
+# ==============================================================================
+# 8. LOGIN & SELF-SERVICE REGISTRATION TEMPLATES
+# ==============================================================================
+LOGIN_HTML = """
+{% extends 'base.html' %}
 {% block content %}
-<div class="row justify-content-center align-items-center my-4">
-    <div class="col-lg-5 col-md-7">
-        <div class="bento-card p-4 p-md-5">
-            <div class="text-center mb-4">
-                <div class="brand-icon-box mx-auto mb-3" style="width: 56px; height: 56px; border-radius: 16px;">
-                    <i class="bi bi-layers-half fs-3"></i>
+<div class="row justify-content-center align-items-center g-5 py-3">
+    <div class="col-lg-6">
+        <div class="m3-chip chip-tonal mb-3">
+            <i data-lucide="globe" style="width:16px;height:16px;"></i>
+            Multi-University Dynamic Cloud
+        </div>
+        <h1 class="display-5 fw-bold mb-3" style="color: #041E49;">Academic Project & Viva Lifecycle, Simplified.</h1>
+        <p class="lead text-muted mb-4" style="font-size: 1.15rem;">
+            A unified workspace for Universities, Colleges, and Departments. Submit proposals with real-time Scikit-Learn TF-IDF similarity detection, track weekly mentor sign-offs, and grade viva evaluations seamlessly.
+        </p>
+
+        <div class="row g-3 mb-4">
+            <div class="col-sm-4">
+                <div class="m3-card-tonal text-center py-3">
+                    <div class="h3 fw-bold text-primary mb-0">{{ total_universities }}</div>
+                    <div class="small text-muted">Universities</div>
                 </div>
-                <h2 class="fw-bold mb-1">Sign in to ProTrack</h2>
-                <p class="small mb-0" style="color: var(--text-secondary);">Academic Project & Viva Lifecycle Platform</p>
+            </div>
+            <div class="col-sm-4">
+                <div class="m3-card-tonal text-center py-3">
+                    <div class="h3 fw-bold text-primary mb-0">{{ total_departments }}</div>
+                    <div class="small text-muted">Departments</div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="m3-card-tonal text-center py-3">
+                    <div class="h3 fw-bold text-primary mb-0">{{ total_users }}</div>
+                    <div class="small text-muted">Registered Users</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="m3-card">
+            <div class="d-flex align-items-center gap-3 mb-4">
+                <div class="brand-icon-box"><i data-lucide="graduation-cap"></i></div>
+                <div>
+                    <h3 class="mb-0 fw-bold">Sign in to ProTrack</h3>
+                    <div class="text-muted small">Use your student or faculty account</div>
+                </div>
             </div>
 
-            <form method="POST" id="loginForm" onsubmit="handleLoginSubmit(event)">
+            <form method="POST">
                 {% csrf_token %}
                 <div class="mb-3">
                     <label class="form-label">Username</label>
-                    <input type="text" name="username" id="id_username" class="form-control" placeholder="Enter your username" required>
+                    <input type="text" name="username" class="form-control" placeholder="Enter your username" required autofocus>
                 </div>
-
                 <div class="mb-4">
                     <label class="form-label">Password</label>
-                    <div class="position-relative">
-                        <input type="password" name="password" id="id_password" class="form-control pe-5" placeholder="Enter your password" required>
-                        <button type="button" onclick="togglePassword()" class="btn border-0 position-absolute top-50 end-0 translate-middle-y me-2" style="color: var(--p-primary);" title="Show or Hide Password">
-                            <i id="eye_icon" class="bi bi-eye-slash fs-5"></i>
-                        </button>
+                    <input type="password" name="password" class="form-control" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="btn-m3-primary w-100 mb-3">
+                    <i data-lucide="log-in"></i> Sign In to Workspace
+                </button>
+            </form>
+
+            <hr class="my-4">
+            <div class="text-center">
+                <p class="text-muted mb-3">First time here from your college or department?</p>
+                <a href="{% url 'signup' %}" class="btn-m3-tonal w-100 text-decoration-none">
+                    <i data-lucide="user-plus"></i> Create New Account (Student / Faculty)
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+"""
+
+SIGNUP_HTML = """
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-9">
+        <div class="m3-card">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-3 border-bottom">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="brand-icon-box"><i data-lucide="user-plus"></i></div>
+                    <div>
+                        <h2 class="mb-0 fw-bold">Create Your ProTrack Account</h2>
+                        <div class="text-muted">Select your role and connect to your University &rarr; College &rarr; Department</div>
+                    </div>
+                </div>
+                <a href="{% url 'login' %}" class="btn-m3-outline text-decoration-none">
+                    <i data-lucide="arrow-left"></i> Back to Sign In
+                </a>
+            </div>
+
+            <form method="POST" id="signupForm">
+                {% csrf_token %}
+
+                <!-- STEP 1: ROLE SELECTION -->
+                <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                    <i data-lucide="badge-check" class="text-primary"></i> 1. Choose Your Academic Role
+                </h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3 col-sm-6">
+                        <label class="m3-card-tonal p-3 w-100 h-100 d-block" style="cursor:pointer;">
+                            <input type="radio" name="role" value="STUDENT" class="form-check-input me-2" checked>
+                            <strong class="d-block mt-1">Student</strong>
+                            <span class="small text-muted">Create/join groups, test abstracts & log tasks</span>
+                        </label>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="m3-card-tonal p-3 w-100 h-100 d-block" style="cursor:pointer;">
+                            <input type="radio" name="role" value="GUIDE" class="form-check-input me-2">
+                            <strong class="d-block mt-1">Faculty Guide</strong>
+                            <span class="small text-muted">Mentor student groups, approve proposals & logs</span>
+                        </label>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="m3-card-tonal p-3 w-100 h-100 d-block" style="cursor:pointer;">
+                            <input type="radio" name="role" value="COORDINATOR" class="form-check-input me-2">
+                            <strong class="d-block mt-1">Coordinator / HOD</strong>
+                            <span class="small text-muted">Manage department, AI archives & analytics</span>
+                        </label>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="m3-card-tonal p-3 w-100 h-100 d-block" style="cursor:pointer;">
+                            <input type="radio" name="role" value="EXAMINER" class="form-check-input me-2">
+                            <strong class="d-block mt-1">External Examiner</strong>
+                            <span class="small text-muted">Evaluate projects & grade final viva rubrics</span>
+                        </label>
                     </div>
                 </div>
 
-                <button type="submit" id="loginBtn" class="btn-pro w-100 py-3">
-                    <span>Sign In to Portal</span> <i class="bi bi-arrow-right"></i>
+                <!-- STEP 2: DESCENDING INSTITUTIONAL HIERARCHY -->
+                <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                    <i data-lucide="building-2" class="text-primary"></i> 2. Institution Hierarchy (University &rarr; College &rarr; Department)
+                </h5>
+                <div class="m3-card-tonal mb-4">
+                    <div class="row g-4">
+                        <!-- University -->
+                        <div class="col-md-4">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label mb-0">University</label>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" onclick="toggleNewField('uni')">+ Add New</button>
+                            </div>
+                            <select name="university_id" id="uniSelect" class="form-select mb-2" onchange="filterColleges()">
+                                <option value="">-- Select University --</option>
+                                {% for u in universities %}
+                                <option value="{{ u.id }}">{{ u.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="text" name="new_university" id="uniInput" class="form-control {% if universities %}d-none{% endif %}" placeholder="Or type new University name...">
+                        </div>
+
+                        <!-- College -->
+                        <div class="col-md-4">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label mb-0">College / Institute</label>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" onclick="toggleNewField('col')">+ Add New</button>
+                            </div>
+                            <select name="college_id" id="colSelect" class="form-select mb-2" onchange="filterDepartments()">
+                                <option value="">-- Select College --</option>
+                                {% for c in colleges %}
+                                <option value="{{ c.id }}" data-uni="{{ c.university_id }}">{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="text" name="new_college" id="colInput" class="form-control {% if colleges %}d-none{% endif %}" placeholder="Or type new College name...">
+                        </div>
+
+                        <!-- Department -->
+                        <div class="col-md-4">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label mb-0">Department</label>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" onclick="toggleNewField('dept')">+ Add New</button>
+                            </div>
+                            <select name="department_id" id="deptSelect" class="form-select mb-2">
+                                <option value="">-- Select Department --</option>
+                                {% for d in departments %}
+                                <option value="{{ d.id }}" data-col="{{ d.college_id }}">{{ d.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="text" name="new_department" id="deptInput" class="form-control {% if departments %}d-none{% endif %}" placeholder="e.g. Computer Science">
+                        </div>
+                    </div>
+                    <div class="small text-muted mt-3">
+                        <i data-lucide="info" style="width:15px;height:15px;"></i>
+                        If your University, College, or Department isn't listed yet, click <strong>+ Add New</strong> above to register it dynamically. All students and faculty who select the same department are automatically linked.
+                    </div>
+                </div>
+
+                <!-- STEP 3: PERSONAL CREDENTIALS -->
+                <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                    <i data-lucide="user-check" class="text-primary"></i> 3. Personal & Login Details
+                </h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" name="full_name" class="form-control" placeholder="e.g. Prof. Saurabh Pagar or Ahmed Raza" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Roll No. / Faculty ID</label>
+                        <input type="text" name="identifier" class="form-control" placeholder="e.g. TY-CS-01 or FAC-101" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Class / Division</label>
+                        <input type="text" name="class_division" class="form-control" value="TY-CS-A">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Choose Username</label>
+                        <input type="text" name="username" class="form-control" placeholder="e.g. ahmed_cs" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Create Password</label>
+                        <input type="password" name="password" class="form-control" placeholder="Minimum 6 characters" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-m3-primary w-100 py-3">
+                    <i data-lucide="sparkles"></i> Complete Registration & Launch Workspace
                 </button>
             </form>
-        </div>
-
-        <!-- 1-Click Role Switcher with Real Faculty & Student Names -->
-        <div class="bento-card mt-3 p-4">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-                <span class="small fw-bold text-uppercase" style="color: var(--text-secondary);">1-Click Role Demo</span>
-                <span class="pro-chip chip-primary">Instant Access</span>
-            </div>
-            <div class="row g-2">
-                <div class="col-6">
-                    <button class="btn-pro-secondary w-100 py-2" onclick="instantLogin(this, 'student1','Student@123')">
-                        <i class="bi bi-person-workspace"></i> <span>Student</span>
-                    </button>
-                </div>
-                <div class="col-6">
-                    <button class="btn-pro-secondary w-100 py-2" onclick="instantLogin(this, 'guide1','Guide@123')">
-                        <i class="bi bi-person-check"></i> <span>Prof. Saurabh</span>
-                    </button>
-                </div>
-                <div class="col-6">
-                    <button class="btn-pro-secondary w-100 py-2" onclick="instantLogin(this, 'coordinator1','Admin@123')">
-                        <i class="bi bi-pie-chart"></i> <span>Prof. Prajakta</span>
-                    </button>
-                </div>
-                <div class="col-6">
-                    <button class="btn-pro-secondary w-100 py-2" onclick="instantLogin(this, 'examiner1','Viva@123')">
-                        <i class="bi bi-award"></i> <span>Examiner</span>
-                    </button>
-                </div>
-            </div>
         </div>
     </div>
 </div>
 
 <script>
-function togglePassword() {
-    const input = document.getElementById('id_password');
-    const icon = document.getElementById('eye_icon');
-    if (input.type === 'password') {
-        input.type = 'text';
-        icon.className = 'bi bi-eye fs-5';
-    } else {
-        input.type = 'password';
-        icon.className = 'bi bi-eye-slash fs-5';
-    }
+function toggleNewField(prefix) {
+    const input = document.getElementById(prefix + 'Input');
+    input.classList.toggle('d-none');
+    if (!input.classList.contains('d-none')) input.focus();
 }
 
-function handleLoginSubmit(e) {
-    const btn = document.getElementById('loginBtn');
-    setButtonLoading(btn, 'Authenticating...');
+function filterColleges() {
+    const uniId = document.getElementById('uniSelect').value;
+    const colSelect = document.getElementById('colSelect');
+    Array.from(colSelect.options).forEach(opt => {
+        if (!opt.value) return;
+        opt.hidden = uniId && opt.getAttribute('data-uni') !== uniId;
+    });
+    colSelect.value = '';
+    filterDepartments();
 }
 
-function instantLogin(clickedBtn, u, p) {
-    document.getElementById('id_username').value = u;
-    document.getElementById('id_password').value = p;
-    setButtonLoading(clickedBtn, 'Signing in...');
-    setButtonLoading(document.getElementById('loginBtn'), 'Authenticating...');
-    showToast(`Signing in as ${u}...`, 'info');
-    setTimeout(() => document.getElementById('loginForm').submit(), 300);
+function filterDepartments() {
+    const colId = document.getElementById('colSelect').value;
+    const deptSelect = document.getElementById('deptSelect');
+    Array.from(deptSelect.options).forEach(opt => {
+        if (!opt.value) return;
+        opt.hidden = colId && opt.getAttribute('data-col') !== colId;
+    });
+    deptSelect.value = '';
 }
 </script>
 {% endblock %}
 """
 
-# --- templates/student_dashboard.html ---
-files["templates/student_dashboard.html"] = """{% extends 'base.html' %}
+# ==============================================================================
+# 9. STUDENT DASHBOARD TEMPLATE (WIZARD + PROPOSAL + LOGBOOK)
+# ==============================================================================
+STUDENT_DASHBOARD_HTML = """
+{% extends 'base.html' %}
 {% block content %}
-<!-- Top Group Summary Bento Card -->
-<div class="bento-card mb-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+
+{% if not group %}
+<!-- ======================================================================= -->
+<!-- STATE A: DYNAMIC GROUP CREATION & TEAMMATE PAIRING WIZARD               -->
+<!-- ======================================================================= -->
+<div class="m3-card mb-4">
+    <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="brand-icon-box"><i data-lucide="users"></i></div>
         <div>
-            <span class="small fw-bold text-uppercase" style="color: var(--p-primary);">Student Project Workspace</span>
-            <h2 class="fw-bold mb-2">{{ group.group_name }}</h2>
-            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                <span class="small fw-semibold me-1" style="color: var(--text-secondary);">Team Members:</span>
-                {% for m in group.members.all %}
-                <span class="pro-chip chip-member"><i class="bi bi-person-fill"></i> {{ m.first_name|default:m.username }}</span>
-                {% endfor %}
-            </div>
-            <div class="small" style="color: var(--text-secondary);">
-                Assigned Faculty Guide: <strong class="text-dark">{{ group.guide.first_name|default:"Unassigned" }}</strong>
-            </div>
-        </div>
-        <div class="d-flex flex-wrap align-items-center gap-2">
-            {% if viva %}
-            <span class="pro-chip chip-success fs-6 px-3 py-2">
-                <i class="bi bi-award-fill"></i> Score: {{ viva.total_marks }}/100 (Grade {{ viva.grade }})
-            </span>
-            {% endif %}
-            <span id="stage-pill" class="pro-chip chip-primary fs-6 px-3 py-2">
-                <i class="bi bi-disc"></i> <span id="stage-text">{{ group.get_current_stage_display }}</span>
-            </span>
+            <h2 class="mb-0 fw-bold">Welcome to {{ user.profile.department.name }}!</h2>
+            <div class="text-muted">Set up your academic project group or join your teammates using a group code.</div>
         </div>
     </div>
-</div>
 
-<!-- 12-Column 8pt Bento Grid -->
-<div class="row g-4">
-    <!-- Left Column: Proposal & Smart Similarity (7 Columns) -->
-    <div class="col-lg-7">
-        <div class="bento-card h-100">
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                <h4 class="fw-bold mb-0">Project Proposal & Smart Similarity</h4>
-                <span id="proposal-status-pill" class="pro-chip {% if proposal.status == 'APPROVED' %}chip-success{% elif proposal.status == 'REJECTED' %}chip-error{% else %}chip-warning{% endif %}">
-                    {{ proposal.get_status_display|default:"Draft" }}
-                </span>
+    <div class="row g-4 mt-2">
+        <!-- Create New Group Card -->
+        <div class="col-lg-7">
+            <div class="m3-card-tonal h-100">
+                <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                    <i data-lucide="plus-circle" class="text-primary"></i> Option 1: Create a New Project Group
+                </h4>
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="create_group">
+                    <div class="mb-3">
+                        <label class="form-label">Project Group Name / Number</label>
+                        <input type="text" name="group_name" class="form-control" placeholder="e.g. G-01: Team Horizon" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Select Faculty Guide (from {{ user.profile.department.name }})</label>
+                        <select name="guide_id" class="form-select">
+                            <option value="">-- Choose Registered Faculty Guide (or assign later) --</option>
+                            {% for g in dept_guides %}
+                            <option value="{{ g.id }}">Prof. {{ g.get_full_name|default:g.username }} ({{ g.profile.identifier }})</option>
+                            {% endfor %}
+                        </select>
+                        {% if not dept_guides %}
+                        <div class="small text-muted mt-1">No Faculty Guides have registered in {{ user.profile.department.name }} yet. You can create your group now and assign your guide once they register!</div>
+                        {% endif %}
+                    </div>
+                    {% if dept_students %}
+                    <div class="mb-4">
+                        <label class="form-label">Add Classmates from {{ user.profile.department.name }} (Optional)</label>
+                        <select name="teammate_ids" class="form-select" multiple style="height: 110px;">
+                            {% for s in dept_students %}
+                            <option value="{{ s.id }}">{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})</option>
+                            {% endfor %}
+                        </select>
+                        <div class="small text-muted mt-1">Hold Ctrl/Cmd to select multiple teammates, or share your Join Code after creating.</div>
+                    </div>
+                    {% endif %}
+                    <button type="submit" class="btn-m3-primary w-100">
+                        <i data-lucide="rocket"></i> Create Project Group
+                    </button>
+                </form>
             </div>
-            <p class="small mb-3" style="color: var(--text-secondary);">
-                Update any field below. Action buttons automatically lock once completed and unlock as soon as you edit a field.
-            </p>
+        </div>
 
-            <!-- Smart Similarity Meter -->
-            <div id="sim-box" class="p-3 mb-4 rounded-4 {% if proposal.similarity_score >= 50 %}chip-error{% else %}chip-success{% endif %}" style="border: 1px solid currentColor;">
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="fw-bold"><i class="bi bi-cpu"></i> Smart Similarity Index</span>
-                    <span id="sim-score" class="fs-4 fw-bold">{{ proposal.similarity_score|default:"0.0" }}%</span>
+        <!-- Join Existing Group Card -->
+        <div class="col-lg-5">
+            <div class="m3-card-tonal h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                        <i data-lucide="key-round" class="text-primary"></i> Option 2: Join Existing Group
+                    </h4>
+                    <p class="text-muted">If your teammate already created a group in <strong>{{ user.profile.department.name }}</strong>, enter the 6-character Group Join Code below:</p>
+                    <form method="POST" class="mb-4">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="join_group">
+                        <div class="mb-3">
+                            <label class="form-label">Group Join Code</label>
+                            <input type="text" name="join_code" class="form-control text-uppercase fw-bold" placeholder="e.g. PT-8X2A" required>
+                        </div>
+                        <button type="submit" class="btn-m3-tonal w-100">
+                            <i data-lucide="user-check"></i> Join Teammate's Group
+                        </button>
+                    </form>
                 </div>
-                <div class="progress my-2" style="height: 8px; border-radius: 99px; background: rgba(0,0,0,0.08);">
-                    <div id="sim-bar" class="progress-bar" style="width: {{ proposal.similarity_score|default:0 }}%; background-color: {% if proposal.similarity_score >= 50 %}var(--s-error){% else %}var(--s-success){% endif %};"></div>
-                </div>
-                <div id="sim-match" class="small">
-                    Closest Match: <strong>{{ proposal.closest_match_title|default:"None" }}</strong> ({{ proposal.closest_match_source|default:"Archive" }})
-                </div>
-                {% if proposal.reviewer_remarks %}
-                <div class="small mt-2 pt-2 border-top border-dark border-opacity-10">
-                    <strong>Guide Remarks:</strong> "{{ proposal.reviewer_remarks }}"
+
+                {% if open_groups %}
+                <div class="border-top pt-3">
+                    <div class="small fw-bold text-muted mb-2">Active Groups in {{ user.profile.department.name }}:</div>
+                    {% for og in open_groups|slice:":4" %}
+                    <div class="d-flex justify-content-between align-items-center py-1 small">
+                        <span><strong>{{ og.name }}</strong> ({{ og.students.count }} members)</span>
+                        <span class="m3-chip chip-tonal py-1 px-2">{{ og.join_code }}</span>
+                    </div>
+                    {% endfor %}
                 </div>
                 {% endif %}
             </div>
-
-            <form id="proposalForm" data-watch-dirty="true" onsubmit="saveProposalRealtime(event)">
-                {% csrf_token %}
-                <div class="mb-3">
-                    <label class="form-label">Proposed Project Title</label>
-                    <input type="text" name="proposed_title" id="prop_title" class="form-control" value="{{ proposal.proposed_title }}" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Technologies & Frameworks</label>
-                    <input type="text" name="tech_stack" id="prop_stack" class="form-control" value="{{ proposal.tech_stack }}" placeholder="Python, Django, Scikit-Learn" required>
-                </div>
-                <div class="mb-4">
-                    <label class="form-label">Project Abstract</label>
-                    <textarea name="abstract_text" id="prop_abstract" rows="4" class="form-control" required>{{ proposal.abstract_text }}</textarea>
-                </div>
-                <div class="d-flex flex-wrap gap-2">
-                    <button type="button" id="btnCheckSim" onclick="checkSimilarityRealtime()" class="btn-pro-secondary flex-grow-1">
-                        <i class="bi bi-shield-check"></i> <span>Check Similarity</span>
-                    </button>
-                    <button type="submit" id="btnSaveProposal" class="btn-pro flex-grow-1 btn-locked" disabled
-                        data-default-html='<i class="bi bi-cloud-check"></i> <span>Save Proposal Changes</span>'>
-                        <i class="bi bi-check2-circle"></i> <span>Proposal Up to Date ✓</span>
-                    </button>
-                </div>
-            </form>
         </div>
     </div>
+</div>
 
-    <!-- Right Column: Weekly Progress + Multi-Format Deliverable Upload (5 Columns) -->
-    <div class="col-lg-5 d-flex flex-column gap-4">
-        <!-- Weekly Progress Logger -->
-        <div class="bento-card">
-            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-                <h4 class="fw-bold mb-0" id="log-form-heading">Weekly Progress</h4>
-                <span class="pro-chip chip-primary" id="log-mode-badge">Week {{ next_week }}</span>
+{% else %}
+<!-- ======================================================================= -->
+<!-- STATE B: ACTIVE GROUP WORKSPACE (PROPOSAL, AI SIMILARITY & LOGBOOK)     -->
+<!-- ======================================================================= -->
+<div class="m3-card mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-7">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <span class="m3-chip chip-tonal"><i data-lucide="users" style="width:15px;height:15px;"></i> {{ group.name }}</span>
+                <span class="m3-chip chip-neutral" title="Share this code with teammates to join">
+                    <i data-lucide="hash" style="width:15px;height:15px;"></i> Join Code: <strong>{{ group.join_code }}</strong>
+                </span>
+                {% if proposal %}
+                    {% if proposal.status == 'APPROVED' %}
+                    <span class="m3-chip chip-success"><i data-lucide="check-circle" style="width:15px;height:15px;"></i> Proposal Approved</span>
+                    {% elif proposal.status == 'CHANGES' %}
+                    <span class="m3-chip chip-danger"><i data-lucide="alert-circle" style="width:15px;height:15px;"></i> Changes Requested</span>
+                    {% else %}
+                    <span class="m3-chip chip-warning"><i data-lucide="clock" style="width:15px;height:15px;"></i> Pending Guide Review</span>
+                    {% endif %}
+                {% endif %}
             </div>
-            <p class="small mb-3" style="color: var(--text-secondary);">
-                Log a new milestone or click <strong>Edit</strong> on any week below to patch existing progress.
-            </p>
-
-            <form id="logForm" data-watch-dirty="true" onsubmit="saveLogRealtime(event)">
-                {% csrf_token %}
-                <div class="row g-2 mb-3">
-                    <div class="col-4">
-                        <label class="form-label">Week #</label>
-                        <input type="number" name="week_number" id="log_week" class="form-control" value="{{ next_week }}" min="1" max="16" required>
-                    </div>
-                    <div class="col-8">
-                        <label class="form-label">GitHub Commit Link</label>
-                        <input type="url" name="commit_or_doc_link" id="log_link" class="form-control" value="{{ group.github_repo_link|default:'https://github.com/ahmetrida/protrack' }}">
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Completed Tasks / Updates</label>
-                    <textarea name="tasks_completed" id="log_tasks" rows="2" class="form-control" placeholder="Describe what your team built or updated..." required></textarea>
-                </div>
-                <button type="submit" id="btnSaveLog" class="btn-pro w-100">
-                    <i class="bi bi-journal-plus"></i> <span>Submit Weekly Progress</span>
-                </button>
-            </form>
+            <h2 class="fw-bold mb-2">{{ proposal.title|default:"Project Proposal Not Submitted Yet" }}</h2>
+            <div class="text-muted d-flex flex-wrap gap-3">
+                <span><strong>Team Members:</strong> {% for s in group.students.all %}{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }}){% if not forloop.last %}, {% endif %}{% endfor %}</span>
+            </div>
         </div>
 
-        <!-- Final Repository & Multi-Format File Upload -->
-        <div class="bento-card">
-            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-                <h4 class="fw-bold mb-0">Project Deliverables</h4>
-                <span class="pro-chip chip-info">PDF • PNG • JPG • JPEG</span>
-            </div>
-            <p class="small mb-3" style="color: var(--text-secondary);">
-                Link your GitHub repository and upload your report or architecture snapshot.
-            </p>
-            <form id="finalForm" data-watch-dirty="true" onsubmit="saveFinalRealtime(event)" enctype="multipart/form-data">
-                {% csrf_token %}
-                <div class="mb-3">
-                    <label class="form-label">GitHub Repository URL</label>
-                    <input type="url" name="github_repo_link" class="form-control" value="{{ group.github_repo_link|default:'https://github.com/ahmetrida/protrack' }}" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Upload Report or Screenshot (PDF, PNG, JPG, JPEG)</label>
-                    <input type="file" name="final_report_pdf" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
-                    <div id="file-link-box" class="mt-2">
-                        {% if group.final_report_pdf %}
-                        <a href="{{ group.final_report_pdf.url }}" target="_blank" class="pro-chip chip-success text-decoration-none mt-1">
-                            <i class="bi bi-file-earmark-check-fill"></i> View Uploaded Deliverable
-                        </a>
+        <div class="col-lg-5">
+            <div class="m3-card-tonal p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="small text-muted">Assigned Faculty Guide</div>
+                        {% if group.guide %}
+                        <div class="fw-bold fs-5">Prof. {{ group.guide.get_full_name|default:group.guide.username }}</div>
+                        {% else %}
+                        <div class="text-danger fw-medium">No Guide Selected Yet</div>
                         {% endif %}
                     </div>
+                    {% if viva %}
+                    <div class="text-end">
+                        <div class="small text-muted">Final Viva Grade</div>
+                        <span class="m3-chip chip-success fs-6">{{ viva.total_score }}/100 &bull; {{ viva.grade_badge }}</span>
+                    </div>
+                    {% endif %}
                 </div>
-                <button type="submit" id="btnSaveFinal" class="btn-pro-secondary w-100">
-                    <i class="bi bi-cloud-arrow-up-fill"></i> <span>Save Deliverables</span>
-                </button>
-            </form>
+
+                {% if not group.guide and dept_guides %}
+                <form method="POST" class="mt-3 d-flex gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="assign_guide">
+                    <select name="guide_id" class="form-select form-select-sm" required>
+                        <option value="">-- Select Registered Department Guide --</option>
+                        {% for g in dept_guides %}
+                        <option value="{{ g.id }}">Prof. {{ g.get_full_name|default:g.username }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn-m3-primary py-1 px-3">Assign</button>
+                </form>
+                {% endif %}
+            </div>
         </div>
     </div>
-</div>
-
-<!-- Weekly Progress Timeline Table -->
-<div class="bento-card mt-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <h4 class="fw-bold mb-0">Weekly Progress Timeline</h4>
-        <span class="pro-chip chip-primary"><i class="bi bi-pencil-square"></i> Click Edit on any row to update</span>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-pro mb-0">
-            <thead>
-                <tr>
-                    <th>Week</th>
-                    <th>Progress Summary</th>
-                    <th>Repository Link</th>
-                    <th>Guide Remarks</th>
-                    <th>Status</th>
-                    <th class="text-end">Action</th>
-                </tr>
-            </thead>
-            <tbody id="logbook-tbody">
-                {% for log in logs %}
-                <tr id="log-row-{{ log.week_number }}">
-                    <td class="fw-bold text-nowrap">Week {{ log.week_number }}</td>
-                    <td id="log-tasks-{{ log.week_number }}">{{ log.tasks_completed }}</td>
-                    <td>
-                        {% if log.commit_or_doc_link %}
-                        <a href="{{ log.commit_or_doc_link }}" target="_blank" class="pro-chip chip-primary text-decoration-none py-1 px-3">
-                            <span>Repo</span> <i class="bi bi-box-arrow-up-right"></i>
-                        </a>
-                        {% else %}-{% endif %}
-                    </td>
-                    <td class="small" style="color: var(--text-secondary);">{{ log.guide_remarks|default:"Awaiting guide review" }}</td>
-                    <td>
-                        <span class="pro-chip {% if log.approval_status == 'APPROVED' %}chip-success{% elif log.approval_status == 'CHANGES_NEEDED' %}chip-error{% else %}chip-warning{% endif %}">
-                            {{ log.get_approval_status_display }}
-                        </span>
-                    </td>
-                    <td class="text-end">
-                        <button type="button" class="btn-pro-secondary py-1 px-3"
-                            onclick="loadLogIntoEditor('{{ log.week_number }}', '{{ log.tasks_completed|escapejs }}', '{{ log.commit_or_doc_link|default:''|escapejs }}')">
-                            <i class="bi bi-pencil-square"></i> <span>Edit</span>
-                        </button>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<script>
-function updateSimUI(data) {
-    const box = document.getElementById('sim-box');
-    const scoreEl = document.getElementById('sim-score');
-    const bar = document.getElementById('sim-bar');
-    const matchEl = document.getElementById('sim-match');
-
-    scoreEl.textContent = `${data.score}%`;
-    bar.style.width = `${data.score}%`;
-
-    const isHigh = data.score >= 50;
-    box.className = `p-3 mb-4 rounded-4 ${isHigh ? 'chip-error' : 'chip-success'}`;
-    bar.style.backgroundColor = isHigh ? 'var(--s-error)' : 'var(--s-success)';
-
-    const kwHtml = (data.keywords && data.keywords.length)
-        ? ` • Overlapping terms: <em>${data.keywords.join(', ')}</em>`
-        : '';
-    matchEl.innerHTML = `Closest Match: <strong>${data.match_title}</strong> (${data.match_source})${kwHtml}`;
-}
-
-async function checkSimilarityRealtime() {
-    const btn = document.getElementById('btnCheckSim');
-    setButtonLoading(btn, 'Scanning Archive...');
-    const form = document.getElementById('proposalForm');
-    const res = await fetch("{% url 'api_check_similarity' %}", {
-        method: 'POST',
-        headers: { 'X-CSRFToken': getCSRFToken() },
-        body: new FormData(form)
-    });
-    const data = await res.json();
-    if (data.ok) {
-        updateSimUI(data);
-        lockActionButton(btn, `Verified (${data.score}%) ✓`);
-        showToast(data.message, data.level);
-    }
-}
-
-async function saveProposalRealtime(e) {
-    e.preventDefault();
-    const btn = document.getElementById('btnSaveProposal');
-    setButtonLoading(btn, 'Saving Proposal...');
-    const form = document.getElementById('proposalForm');
-    const res = await fetch("{% url 'submit_proposal' %}", {
-        method: 'POST',
-        headers: { 'X-CSRFToken': getCSRFToken() },
-        body: new FormData(form)
-    });
-    const data = await res.json();
-    if (data.ok) {
-        updateSimUI(data);
-        const pill = document.getElementById('proposal-status-pill');
-        pill.textContent = data.status_display;
-        pill.className = 'pro-chip chip-warning';
-        lockActionButton(btn, 'Proposal Saved ✓');
-        showToast(data.message, data.level);
-    }
-}
-
-function loadLogIntoEditor(week, tasks, link) {
-    document.getElementById('log_week').value = week;
-    document.getElementById('log_tasks').value = tasks;
-    document.getElementById('log_link').value = link;
-    document.getElementById('log-form-heading').textContent = `Edit Week ${week}`;
-    document.getElementById('log-mode-badge').textContent = `Editing Week ${week}`;
-    const btn = document.getElementById('btnSaveLog');
-    unlockActionButton(btn);
-    btn.innerHTML = `<i class="bi bi-check2-circle"></i> <span>Update Week ${week} Progress</span>`;
-    btn.dataset.defaultHtml = btn.innerHTML;
-    document.getElementById('log_tasks').focus();
-    showToast(`Loaded Week ${week} for editing.`, 'info');
-}
-
-async function saveLogRealtime(e) {
-    e.preventDefault();
-    const btn = document.getElementById('btnSaveLog');
-    setButtonLoading(btn, 'Saving Log...');
-    const form = document.getElementById('logForm');
-    const res = await fetch("{% url 'add_weekly_log' %}", {
-        method: 'POST',
-        headers: { 'X-CSRFToken': getCSRFToken() },
-        body: new FormData(form)
-    });
-    const data = await res.json();
-    if (data.ok) {
-        const l = data.log;
-        lockActionButton(btn, `Week ${l.week_number} Saved ✓`);
-        showToast(data.message, data.level);
-
-        const tbody = document.getElementById('logbook-tbody');
-        const existingRow = document.getElementById(`log-row-${l.week_number}`);
-        const rowHtml = `
-            <td class="fw-bold text-nowrap">Week ${l.week_number}</td>
-            <td id="log-tasks-${l.week_number}">${l.tasks_completed}</td>
-            <td>${l.commit_or_doc_link ? `<a href="${l.commit_or_doc_link}" target="_blank" class="pro-chip chip-primary text-decoration-none py-1 px-3"><span>Repo</span> <i class="bi bi-box-arrow-up-right"></i></a>` : '-'}</td>
-            <td class="small" style="color: var(--text-secondary);">${l.guide_remarks}</td>
-            <td><span class="pro-chip chip-warning">${l.status_display}</span></td>
-            <td class="text-end">
-                <button type="button" class="btn-pro-secondary py-1 px-3"
-                    onclick="loadLogIntoEditor('${l.week_number}', '${l.tasks_completed.replace(/'/g, "\\'")}', '${l.commit_or_doc_link}')">
-                    <i class="bi bi-pencil-square"></i> <span>Edit</span>
-                </button>
-            </td>
-        `;
-        if (existingRow) {
-            existingRow.innerHTML = rowHtml;
-        } else {
-            const tr = document.createElement('tr');
-            tr.id = `log-row-${l.week_number}`;
-            tr.innerHTML = rowHtml;
-            tbody.appendChild(tr);
-        }
-    }
-}
-
-async function saveFinalRealtime(e) {
-    e.preventDefault();
-    const btn = document.getElementById('btnSaveFinal');
-    setButtonLoading(btn, 'Uploading...');
-    const form = document.getElementById('finalForm');
-    const res = await fetch("{% url 'upload_final_submission' %}", {
-        method: 'POST',
-        headers: { 'X-CSRFToken': getCSRFToken() },
-        body: new FormData(form)
-    });
-    const data = await res.json();
-    if (data.ok) {
-        document.getElementById('stage-text').textContent = data.stage_display;
-        if (data.file_url) {
-            document.getElementById('file-link-box').innerHTML = `
-                <a href="${data.file_url}" target="_blank" class="pro-chip chip-success text-decoration-none mt-1">
-                    <i class="bi bi-file-earmark-check-fill"></i> View ${data.file_name || 'Uploaded Deliverable'}
-                </a>`;
-        }
-        lockActionButton(btn, 'Deliverables Saved ✓');
-        showToast(data.message, data.level);
-    } else {
-        unlockActionButton(btn);
-        showToast(data.message || 'Upload failed.', 'error');
-    }
-}
-</script>
-{% endblock %}
-"""
-
-# --- templates/guide_dashboard.html ---
-files["templates/guide_dashboard.html"] = """{% extends 'base.html' %}
-{% block content %}
-<div class="bento-card mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
-    <div>
-        <span class="small fw-bold text-uppercase" style="color: var(--p-primary);">Faculty Guide Workspace</span>
-        <h2 class="fw-bold mb-0">{{ user.first_name|default:"Professor Saurabh Pagar" }}</h2>
-    </div>
-    <span class="pro-chip chip-primary fs-6">{{ groups|length }} Assigned Groups</span>
 </div>
 
 <div class="row g-4">
-    {% for g in groups %}
-    <div class="col-12">
-        <div class="bento-card">
-            <div class="d-flex flex-wrap justify-content-between align-items-start border-bottom pb-3 mb-4 gap-3">
-                <div>
-                    <h3 class="fw-bold mb-2">{{ g.group_name }}</h3>
-                    <div class="d-flex flex-wrap gap-2 mb-2">
-                        {% for m in g.members.all %}
-                        <span class="pro-chip chip-member"><i class="bi bi-person"></i> {{ m.first_name|default:m.username }}</span>
-                        {% empty %}
-                        <span class="small text-muted">No members listed</span>
-                        {% endfor %}
-                    </div>
-                    <div class="small">
-                        GitHub Repo: {% if g.github_repo_link %}<a href="{{ g.github_repo_link }}" target="_blank" class="fw-semibold text-decoration-none" style="color: var(--p-primary);">{{ g.github_repo_link }}</a>{% else %}Not uploaded{% endif %}
-                    </div>
-                </div>
-                <span id="guide-stage-{{ g.id }}" class="pro-chip chip-primary fs-6">{{ g.get_current_stage_display }}</span>
+    <!-- LEFT COLUMN: PROPOSAL SUBMISSION & LIVE TF-IDF SIMILARITY ENGINE -->
+    <div class="col-lg-7">
+        <div class="m3-card h-100">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold mb-0 d-flex align-items-center gap-2">
+                    <i data-lucide="file-text" class="text-primary"></i> Project Proposal & AI Originality Check
+                </h4>
+                {% if proposal %}
+                <span class="m3-chip {% if proposal.similarity_score >= 60 %}chip-danger{% elif proposal.similarity_score >= 30 %}chip-warning{% else %}chip-success{% endif %}">
+                    Similarity: {{ proposal.similarity_score }}%
+                </span>
+                {% endif %}
             </div>
 
-            {% if g.proposal %}
-            <div class="row g-4 align-items-center mb-4 p-3 rounded-4" style="background: var(--p-wash);">
-                <div class="col-lg-7">
-                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                        <span class="pro-chip {% if g.proposal.similarity_score >= 50 %}chip-error{% else %}chip-success{% endif %}">
-                            Smart Similarity: {{ g.proposal.similarity_score }}%
-                        </span>
-                        <span id="prop-badge-{{ g.proposal.id }}" class="pro-chip {% if g.proposal.status == 'APPROVED' %}chip-success{% elif g.proposal.status == 'REJECTED' %}chip-error{% else %}chip-warning{% endif %}">
-                            {{ g.proposal.get_status_display }}
-                        </span>
-                    </div>
-                    <h5 class="fw-bold mb-1">{{ g.proposal.proposed_title }}</h5>
-                    <p class="small mb-2" style="color: var(--text-secondary);">{{ g.proposal.abstract_text }}</p>
-                    <div class="small" style="color: var(--text-secondary);">
-                        Closest Match: <strong>{{ g.proposal.closest_match_title }}</strong> ({{ g.proposal.closest_match_source }})
-                    </div>
+            {% if proposal.guide_remarks %}
+            <div class="p-3 mb-4 rounded-4" style="background: var(--m3-warning-bg); color: var(--m3-warning-text);">
+                <div class="fw-bold d-flex align-items-center gap-2 mb-1">
+                    <i data-lucide="message-square-warning"></i> Faculty Guide Remarks:
                 </div>
-                <div class="col-lg-5">
-                    <form data-watch-dirty="true" onsubmit="reviewProposalRealtime(event, {{ g.proposal.id }}, {{ g.id }})" class="bg-white p-3 rounded-4 border">
-                        {% csrf_token %}
-                        <label class="form-label">Guide Decision & Remarks</label>
-                        <input type="text" name="reviewer_remarks" class="form-control mb-2" value="{{ g.proposal.reviewer_remarks|default:'' }}" placeholder="Enter remarks for students...">
-                        <div class="d-flex gap-2">
-                            <select name="status" class="form-select">
-                                <option value="APPROVED" {% if g.proposal.status == 'APPROVED' %}selected{% endif %}>Approve Proposal</option>
-                                <option value="REJECTED" {% if g.proposal.status == 'REJECTED' %}selected{% endif %}>Request Changes</option>
-                            </select>
-                            {% if g.proposal.status == 'APPROVED' %}
-                            <button type="submit" id="btn-prop-{{ g.proposal.id }}" class="btn-pro btn-locked" disabled
-                                data-default-html='<i class="bi bi-check2-circle"></i> <span>Update Decision</span>'>
-                                <i class="bi bi-check2-circle"></i> <span>Approved ✓</span>
-                            </button>
-                            {% else %}
-                            <button type="submit" id="btn-prop-{{ g.proposal.id }}" class="btn-pro"
-                                data-default-html='<i class="bi bi-check2-circle"></i> <span>Confirm Decision</span>'>
-                                <i class="bi bi-check2-circle"></i> <span>Confirm Decision</span>
-                            </button>
-                            {% endif %}
-                        </div>
-                    </form>
-                </div>
+                <div>{{ proposal.guide_remarks }}</div>
             </div>
             {% endif %}
 
-            <h5 class="fw-bold mb-3">Weekly Progress Sign-Offs</h5>
-            <div class="table-responsive">
-                <table class="table table-pro mb-0">
-                    <thead>
-                        <tr><th>Week</th><th>Tasks Completed</th><th>Status</th><th>Guide Action</th></tr>
-                    </thead>
-                    <tbody>
-                        {% for log in g.weekly_logs.all %}
-                        <tr>
-                            <td class="fw-bold text-nowrap">Week {{ log.week_number }}</td>
-                            <td>{{ log.tasks_completed }}</td>
-                            <td>
-                                <span id="log-pill-{{ log.id }}" class="pro-chip {% if log.approval_status == 'APPROVED' %}chip-success{% elif log.approval_status == 'CHANGES_NEEDED' %}chip-error{% else %}chip-warning{% endif %}">
-                                    {{ log.get_approval_status_display }}
-                                </span>
-                            </td>
-                            <td style="min-width: 360px;">
-                                <form data-watch-dirty="true" onsubmit="reviewLogRealtime(event, {{ log.id }})" class="d-flex gap-2">
-                                    {% csrf_token %}
-                                    <input type="text" name="guide_remarks" class="form-control py-2" value="{{ log.guide_remarks|default:'' }}" placeholder="Guide feedback...">
-                                    <select name="approval_status" class="form-select py-2 w-auto">
-                                        <option value="APPROVED" {% if log.approval_status == 'APPROVED' %}selected{% endif %}>Sign Off</option>
-                                        <option value="CHANGES_NEEDED" {% if log.approval_status == 'CHANGES_NEEDED' %}selected{% endif %}>Revise</option>
-                                    </select>
-                                    {% if log.approval_status == 'APPROVED' %}
-                                    <button type="submit" id="btn-log-{{ log.id }}" class="btn-pro py-2 px-3 btn-locked" disabled
-                                        data-default-html='<i class="bi bi-check2"></i> <span>Update</span>'>
-                                        <i class="bi bi-check2-circle"></i> <span>Signed Off ✓</span>
-                                    </button>
-                                    {% else %}
-                                    <button type="submit" id="btn-log-{{ log.id }}" class="btn-pro py-2 px-3"
-                                        data-default-html='<i class="bi bi-check2"></i> <span>Sign Off</span>'>
-                                        <i class="bi bi-check2"></i> <span>Sign Off</span>
-                                    </button>
-                                    {% endif %}
-                                </form>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="4" class="text-muted text-center">No weekly logs submitted yet.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-</div>
-
-<script>
-async function reviewProposalRealtime(e, propId, groupId) {
-    e.preventDefault();
-    const btn = document.getElementById(`btn-prop-${propId}`);
-    setButtonLoading(btn, 'Saving...');
-    const res = await fetch(`/review-proposal/${propId}/`, {
-        method: 'POST',
-        headers: { 'X-CSRFToken': getCSRFToken() },
-        body: new FormData(e.target)
-    });
-    const data = await res.json();
-    if (data.ok) {
-        const badge = document.getElementById(`prop-badge-${propId}`);
-        badge.textContent = data.status_display;
-        badge.className = `pro-chip ${data.status === 'APPROVED' ? 'chip-success' : 'chip-error'}`;
-        document.getElementById(`guide-stage-${groupId}`).textContent = data.stage_display;
-        lockActionButton(btn, `${data.status_display} ✓`);
-        showToast(data.message, data.level);
-    }
-}
-
-async function reviewLogRealtime(e, logId) {
-    e.preventDefault();
-    const btn = document.getElementById(`btn-log-${logId}`);
-    setButtonLoading(btn, 'Saving...');
-    const res = await fetch(`/review-log/${logId}/`, {
-        method: 'POST',
-        headers: { 'X-CSRFToken': getCSRFToken() },
-        body: new FormData(e.target)
-    });
-    const data = await res.json();
-    if (data.ok) {
-        const pill = document.getElementById(`log-pill-${logId}`);
-        pill.textContent = data.status_display;
-        pill.className = `pro-chip ${data.approval_status === 'APPROVED' ? 'chip-success' : 'chip-warning'}`;
-        lockActionButton(btn, `${data.status_display} ✓`);
-        showToast(data.message, data.level);
-    }
-}
-</script>
-{% endblock %}
-"""
-
-# --- templates/examiner_viva.html ---
-files["templates/examiner_viva.html"] = """{% extends 'base.html' %}
-{% block content %}
-<div class="bento-card mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
-    <div>
-        <span class="small fw-bold text-uppercase" style="color: var(--p-primary);">External Examiner Viva Portal</span>
-        <h2 class="fw-bold mb-0">{{ user.first_name|default:"Professor Secretly Anonymous" }}</h2>
-    </div>
-    <a href="{% url 'export_marksheet_csv' %}" class="btn-pro text-decoration-none">
-        <i class="bi bi-download"></i> <span>Download Official Marksheet (CSV)</span>
-    </a>
-</div>
-
-<div class="row g-4">
-    {% for g in groups %}
-    <div class="col-12">
-        <div class="bento-card">
-            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
-                <div>
-                    <h4 class="fw-bold mb-2">{{ g.group_name }} — {{ g.proposal.proposed_title|default:"Untitled" }}</h4>
-                    <div class="d-flex flex-wrap gap-2 mb-2">
-                        {% for m in g.members.all %}
-                        <span class="pro-chip chip-member"><i class="bi bi-person"></i> {{ m.first_name|default:m.username }}</span>
-                        {% endfor %}
-                    </div>
-                    <span class="small" style="color: var(--text-secondary);">
-                        Guide: <strong>{{ g.guide.first_name|default:"Unassigned" }}</strong> •
-                        Repo: {% if g.github_repo_link %}<a href="{{ g.github_repo_link }}" target="_blank" style="color: var(--p-primary);">{{ g.github_repo_link }}</a>{% else %}N/A{% endif %}
-                    </span>
-                </div>
-                <span id="viva-badge-{{ g.id }}" class="pro-chip {% if g.viva_evaluation %}chip-success{% else %}chip-warning{% endif %} fs-6 px-3 py-2">
-                    {% if g.viva_evaluation %}
-                        Evaluated: {{ g.viva_evaluation.total_marks }}/100 (Grade {{ g.viva_evaluation.grade }})
-                    {% else %}
-                        Pending Viva Evaluation
-                    {% endif %}
-                </span>
-            </div>
-
-            <form data-watch-dirty="true" onsubmit="saveVivaRealtime(event, {{ g.id }})" oninput="calcLiveTotal({{ g.id }})" id="viva-form-{{ g.id }}">
+            <form method="POST" enctype="multipart/form-data">
                 {% csrf_token %}
-                <div class="row g-3 mb-3">
-                    <div class="col-md-2 col-6">
-                        <label class="form-label">Problem Def (20)</label>
-                        <input type="number" name="m1" min="0" max="20" class="form-control viva-input-{{ g.id }}" value="{{ g.viva_evaluation.problem_definition_marks|default:18 }}" required>
-                    </div>
-                    <div class="col-md-2 col-6">
-                        <label class="form-label">Implementation (20)</label>
-                        <input type="number" name="m2" min="0" max="20" class="form-control viva-input-{{ g.id }}" value="{{ g.viva_evaluation.implementation_marks|default:19 }}" required>
-                    </div>
-                    <div class="col-md-2 col-6">
-                        <label class="form-label">Presentation (20)</label>
-                        <input type="number" name="m3" min="0" max="20" class="form-control viva-input-{{ g.id }}" value="{{ g.viva_evaluation.presentation_marks|default:18 }}" required>
-                    </div>
-                    <div class="col-md-2 col-6">
-                        <label class="form-label">Q&A Defense (20)</label>
-                        <input type="number" name="m4" min="0" max="20" class="form-control viva-input-{{ g.id }}" value="{{ g.viva_evaluation.qa_defense_marks|default:18 }}" required>
-                    </div>
-                    <div class="col-md-2 col-6">
-                        <label class="form-label">Documentation (20)</label>
-                        <input type="number" name="m5" min="0" max="20" class="form-control viva-input-{{ g.id }}" value="{{ g.viva_evaluation.documentation_marks|default:19 }}" required>
-                    </div>
-                    <div class="col-md-2 col-6 d-flex flex-column justify-content-end">
-                        <div class="p-2 text-center rounded-4" style="background: var(--p-wash); border: 1px solid var(--p-tint);">
-                            <span class="small d-block" style="color: var(--text-secondary);">Live Total</span>
-                            <strong id="live-total-{{ g.id }}" class="fs-5" style="color: var(--p-dark);">{{ g.viva_evaluation.total_marks|default:92 }}/100</strong>
-                        </div>
-                    </div>
+                <input type="hidden" name="action" value="submit_proposal">
+                <div class="mb-3">
+                    <label class="form-label">Project Title</label>
+                    <input type="text" name="title" id="propTitle" class="form-control" value="{{ proposal.title|default:'' }}" placeholder="Enter descriptive academic project title" required>
                 </div>
-                <div class="row g-2 align-items-center">
-                    <div class="col-md-9">
-                        <input type="text" name="examiner_comments" class="form-control" value="{{ g.viva_evaluation.examiner_comments|default:'' }}" placeholder="Enter official viva remarks...">
+                <div class="mb-3">
+                    <label class="form-label">Technical Domain / Area</label>
+                    <input type="text" name="domain" class="form-control" value="{{ proposal.domain|default:'' }}" placeholder="e.g. Machine Learning, Cloud Computing, Cybersecurity, FinTech" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Detailed Project Abstract</label>
+                    <textarea name="abstract" id="propAbstract" rows="6" class="form-control" placeholder="Describe problem statement, methodology, architecture, and expected outcomes..." required>{{ proposal.abstract|default:'' }}</textarea>
+                </div>
+
+                <!-- Live AI TF-IDF Similarity Result Box -->
+                <div id="simResultBox" class="m3-card-tonal p-3 mb-3 d-none">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="fw-bold d-flex align-items-center gap-2">
+                            <i data-lucide="cpu" class="text-primary"></i> Scikit-Learn TF-IDF Similarity Scan
+                        </span>
+                        <span id="simBadge" class="m3-chip chip-tonal">0%</span>
                     </div>
-                    <div class="col-md-3">
-                        {% if g.viva_evaluation %}
-                        <button type="submit" id="btn-viva-{{ g.id }}" class="btn-pro w-100 btn-locked" disabled
-                            data-default-html='<i class="bi bi-award"></i> <span>Update Viva Grade</span>'>
-                            <i class="bi bi-check2-circle"></i> <span>Grade Locked ✓</span>
-                        </button>
-                        {% else %}
-                        <button type="submit" id="btn-viva-{{ g.id }}" class="btn-pro w-100"
-                            data-default-html='<i class="bi bi-award"></i> <span>Submit Viva Grade</span>'>
-                            <i class="bi bi-award"></i> <span>Submit Viva Grade</span>
-                        </button>
-                        {% endif %}
+                    <div class="small text-muted">Closest Match in Department / Archive: <strong id="simMatch" class="text-dark">None</strong></div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Attach Synopsis / Blackbook Report (PDF, DOCX, PNG)</label>
+                    <input type="file" name="report_file" class="form-control">
+                    {% if proposal.report_file %}
+                    <div class="small mt-2">
+                        <a href="{{ proposal.report_file.url }}" target="_blank" class="text-primary fw-medium text-decoration-none">
+                            <i data-lucide="external-link" style="width:15px;height:15px;"></i> View Currently Uploaded Report File
+                        </a>
                     </div>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex flex-wrap gap-3">
+                    <button type="button" onclick="runSimilarityCheck()" id="btnSimCheck" class="btn-m3-tonal">
+                        <i data-lucide="sparkles"></i> Test Abstract Similarity
+                    </button>
+                    <button type="submit" class="btn-m3-primary flex-grow-1">
+                        <i data-lucide="send"></i> Save & Submit Proposal to Guide
+                    </button>
                 </div>
             </form>
         </div>
     </div>
-    {% endfor %}
+
+    <!-- RIGHT COLUMN: WEEKLY PROGRESS LOGBOOK -->
+    <div class="col-lg-5">
+        <div class="m3-card h-100">
+            <h4 class="fw-bold mb-4 d-flex align-items-center gap-2">
+                <i data-lucide="calendar-check-2" class="text-primary"></i> Weekly Progress Logbook
+            </h4>
+
+            <form method="POST" class="m3-card-tonal p-3 mb-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="submit_log">
+                <div class="row g-2 mb-2">
+                    <div class="col-4">
+                        <label class="form-label small">Week #</label>
+                        <input type="number" name="week_number" class="form-control" value="{{ next_week }}" min="1" max="52" required>
+                    </div>
+                    <div class="col-8">
+                        <label class="form-label small">Milestone Completed</label>
+                        <input type="text" name="tasks_completed" class="form-control" placeholder="e.g. Database schema & UI" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small">Next Week Target Plan</label>
+                    <input type="text" name="next_week_plan" class="form-control" placeholder="e.g. API integration & unit tests" required>
+                </div>
+                <button type="submit" class="btn-m3-primary w-100 py-2">
+                    <i data-lucide="plus"></i> Record Weekly Log Entry
+                </button>
+            </form>
+
+            <div class="d-flex flex-column gap-3" style="max-height: 400px; overflow-y: auto;">
+                {% for log in logs %}
+                <div class="p-3 border rounded-4 bg-white">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold">Week {{ log.week_number }}</span>
+                        {% if log.is_verified %}
+                        <span class="m3-chip chip-success py-1 px-2"><i data-lucide="check" style="width:14px;height:14px;"></i> Guide Verified</span>
+                        {% else %}
+                        <span class="m3-chip chip-warning py-1 px-2">Awaiting Sign-Off</span>
+                        {% endif %}
+                    </div>
+                    <div class="small mb-1"><strong>Completed:</strong> {{ log.tasks_completed }}</div>
+                    <div class="small text-muted"><strong>Next Plan:</strong> {{ log.next_week_plan }}</div>
+                    {% if log.guide_feedback %}
+                    <div class="small text-primary mt-2 pt-2 border-top">
+                        <strong>Guide Note:</strong> {{ log.guide_feedback }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="text-center py-4 text-muted">
+                    <i data-lucide="clipboard-list" class="mb-2"></i>
+                    <div>No weekly logs recorded yet. Submit Week 1 above!</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
-function calcLiveTotal(groupId) {
-    const inputs = document.querySelectorAll(`.viva-input-${groupId}`);
-    let sum = 0;
-    inputs.forEach(inp => sum += parseInt(inp.value || 0, 10));
-    document.getElementById(`live-total-${groupId}`).textContent = `${sum}/100`;
-}
-
-async function saveVivaRealtime(e, groupId) {
-    e.preventDefault();
-    const btn = document.getElementById(`btn-viva-${groupId}`);
-    setButtonLoading(btn, 'Locking Grade...');
-    const res = await fetch(`/submit-viva/${groupId}/`, {
-        method: 'POST',
-        headers: { 'X-CSRFToken': getCSRFToken() },
-        body: new FormData(e.target)
-    });
-    const data = await res.json();
-    if (data.ok) {
-        const badge = document.getElementById(`viva-badge-${groupId}`);
-        badge.className = 'pro-chip chip-success fs-6 px-3 py-2';
-        badge.textContent = `Evaluated: ${data.total_marks}/100 (Grade ${data.grade})`;
-        lockActionButton(btn, 'Grade Locked ✓');
-        showToast(data.message, data.level);
+function runSimilarityCheck() {
+    const title = document.getElementById('propTitle').value;
+    const abstract = document.getElementById('propAbstract').value;
+    const btn = document.getElementById('btnSimCheck');
+    if (!title || !abstract) {
+        alert('Please enter both your Project Title and Abstract first.');
+        return;
     }
+    btn.disabled = true;
+    btn.innerText = 'Scanning Department Corpus...';
+
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('abstract', abstract);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    fetch("{% url 'api_check_similarity' %}", {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="sparkles"></i> Test Abstract Similarity';
+        lucide.createIcons();
+
+        const box = document.getElementById('simResultBox');
+        const badge = document.getElementById('simBadge');
+        const match = document.getElementById('simMatch');
+        box.classList.remove('d-none');
+        badge.innerText = data.score + '% (' + data.risk + ' RISK)';
+        match.innerText = data.closest_match;
+        badge.className = 'm3-chip ' + (data.score >= 60 ? 'chip-danger' : (data.score >= 30 ? 'chip-warning' : 'chip-success'));
+    });
 }
 </script>
+{% endif %}
 {% endblock %}
 """
 
-# --- templates/coordinator_dashboard.html ---
-files["templates/coordinator_dashboard.html"] = """{% extends 'base.html' %}
+# ==============================================================================
+# 10. FACULTY GUIDE DASHBOARD TEMPLATE
+# ==============================================================================
+GUIDE_DASHBOARD_HTML = """
+{% extends 'base.html' %}
 {% block content %}
-<div class="bento-card mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
-        <span class="small fw-bold text-uppercase" style="color: var(--p-primary);">Project Coordinator Overview</span>
-        <h2 class="fw-bold mb-0">{{ user.first_name|default:"Professor Prajakta Borse" }}</h2>
+        <h2 class="fw-bold mb-1">Faculty Guide Mentoring Console</h2>
+        <div class="text-muted">Review proposals, verify weekly student logbooks, and mentor groups in <strong>{{ user.profile.department.name }}</strong></div>
     </div>
-    <a href="{% url 'export_marksheet_csv' %}" class="btn-pro text-decoration-none">
-        <i class="bi bi-file-earmark-spreadsheet"></i> <span>Export Official Marksheet</span>
-    </a>
+    <div class="d-flex gap-2">
+        <span class="m3-chip chip-tonal">Mentored Groups: {{ my_groups.count }}</span>
+        <span class="m3-chip chip-warning">Pending Proposals: {{ pending_proposals }}</span>
+        <span class="m3-chip chip-neutral">Unverified Logs: {{ unverified_logs }}</span>
+    </div>
+</div>
+
+{% if unassigned_groups %}
+<div class="m3-card-tonal mb-4">
+    <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+        <i data-lucide="user-plus" class="text-primary"></i> Unassigned Student Groups in {{ user.profile.department.name }}
+    </h5>
+    <div class="row g-3">
+        {% for ug in unassigned_groups %}
+        <div class="col-md-6">
+            <div class="bg-white p-3 rounded-4 border d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="fw-bold">{{ ug.name }} <span class="text-muted small">({{ ug.join_code }})</span></div>
+                    <div class="small text-muted">Members: {% for s in ug.students.all %}{{ s.get_full_name|default:s.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+                </div>
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="claim_group">
+                    <input type="hidden" name="group_id" value="{{ ug.id }}">
+                    <button type="submit" class="btn-m3-tonal py-2 px-3">Accept Group</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% for g in my_groups %}
+<div class="m3-card mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 pb-3 mb-4 border-bottom">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="m3-chip chip-tonal">{{ g.name }}</span>
+                <span class="m3-chip chip-neutral">Code: {{ g.join_code }}</span>
+            </div>
+            <div class="text-muted small">
+                <strong>Students:</strong> {% for s in g.students.all %}{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }}){% if not forloop.last %}, {% endif %}{% endfor %}
+            </div>
+        </div>
+        {% if g.proposal %}
+        <div class="d-flex align-items-center gap-2">
+            <span class="m3-chip {% if g.proposal.similarity_score >= 60 %}chip-danger{% elif g.proposal.similarity_score >= 30 %}chip-warning{% else %}chip-success{% endif %}">
+                AI Similarity: {{ g.proposal.similarity_score }}%
+            </span>
+            <span class="m3-chip {% if g.proposal.status == 'APPROVED' %}chip-success{% elif g.proposal.status == 'CHANGES' %}chip-danger{% else %}chip-warning{% endif %}">
+                {{ g.proposal.get_status_display }}
+            </span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="row g-4">
+        <!-- Proposal Evaluation -->
+        <div class="col-lg-7">
+            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="file-check" class="text-primary"></i> Project Proposal Review
+            </h5>
+            {% if g.proposal %}
+            <div class="m3-card-tonal p-4">
+                <h5 class="fw-bold mb-1">{{ g.proposal.title }}</h5>
+                <div class="small text-primary fw-medium mb-3">Domain: {{ g.proposal.domain }} &bull; Closest Match: {{ g.proposal.closest_match_title }}</div>
+                <p class="mb-3">{{ g.proposal.abstract }}</p>
+
+                {% if g.proposal.report_file %}
+                <div class="mb-3">
+                    <a href="{{ g.proposal.report_file.url }}" target="_blank" class="btn-m3-outline py-2 px-3 text-decoration-none">
+                        <i data-lucide="download"></i> Open Student Uploaded Synopsis / Report
+                    </a>
+                </div>
+                {% endif %}
+
+                <form method="POST" class="border-top pt-3 mt-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="review_proposal">
+                    <input type="hidden" name="proposal_id" value="{{ g.proposal.id }}">
+                    <div class="mb-3">
+                        <label class="form-label small">Mentor Feedback / Remarks for Students</label>
+                        <input type="text" name="guide_remarks" class="form-control" value="{{ g.proposal.guide_remarks }}" placeholder="Add feedback or instructions for the team...">
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" name="decision" value="APPROVED" class="btn-m3-primary">
+                            <i data-lucide="check-circle"></i> Approve Proposal
+                        </button>
+                        <button type="submit" name="decision" value="CHANGES" class="btn-m3-outline text-danger border-danger">
+                            <i data-lucide="refresh-cw"></i> Request Revisions
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% else %}
+            <div class="m3-card-tonal text-center py-5 text-muted">
+                <i data-lucide="file-clock" class="mb-2"></i>
+                <div>This group has not submitted their project proposal yet.</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Weekly Log Sign-off -->
+        <div class="col-lg-5">
+            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="list-checks" class="text-primary"></i> Weekly Logbook Sign-Off
+            </h5>
+            <div class="d-flex flex-column gap-3" style="max-height: 420px; overflow-y: auto;">
+                {% for log in g.logs.all %}
+                <div class="p-3 border rounded-4 bg-white">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold">Week {{ log.week_number }}</span>
+                        {% if log.is_verified %}
+                        <span class="m3-chip chip-success py-1 px-2">Verified</span>
+                        {% else %}
+                        <span class="m3-chip chip-warning py-1 px-2">Pending Sign-Off</span>
+                        {% endif %}
+                    </div>
+                    <div class="small mb-1"><strong>Completed:</strong> {{ log.tasks_completed }}</div>
+                    <div class="small text-muted mb-2"><strong>Next Plan:</strong> {{ log.next_week_plan }}</div>
+
+                    {% if not log.is_verified %}
+                    <form method="POST" class="d-flex gap-2 mt-2 pt-2 border-top">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="verify_log">
+                        <input type="hidden" name="log_id" value="{{ log.id }}">
+                        <input type="text" name="guide_feedback" class="form-control form-control-sm" placeholder="Optional mentor note...">
+                        <button type="submit" class="btn-m3-primary py-1 px-3">Verify</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="m3-card-tonal text-center py-5 text-muted">
+                    No weekly progress logs submitted yet.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% empty %}
+<div class="m3-card text-center py-5">
+    <i data-lucide="users" class="text-primary mb-3" style="width:44px;height:44px;"></i>
+    <h4 class="fw-bold">No Mentored Groups Yet</h4>
+    <p class="text-muted mb-0">When students in <strong>{{ user.profile.department.name }}</strong> create a group and select you as their Faculty Guide, their proposals and weekly logs will appear right here automatically.</p>
+</div>
+{% endfor %}
+{% endblock %}
+"""
+
+# ==============================================================================
+# 11. COORDINATOR DASHBOARD TEMPLATE (ANALYTICS + HIERARCHY + ARCHIVES)
+# ==============================================================================
+COORDINATOR_DASHBOARD_HTML = """
+{% extends 'base.html' %}
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <h2 class="fw-bold mb-1">Department Coordinator Command Center</h2>
+        <div class="text-muted">{{ user.profile.university.name }} &bull; {{ user.profile.college.name }} &bull; <strong>{{ user.profile.department.name }}</strong></div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'export_department_csv' %}" class="btn-m3-primary text-decoration-none">
+            <i data-lucide="download"></i> Export Master Gradebook (CSV)
+        </a>
+    </div>
+</div>
+
+<!-- KPI Row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3 col-6">
+        <div class="m3-card p-4">
+            <div class="text-muted small mb-1">Active Project Groups</div>
+            <div class="display-6 fw-bold text-primary">{{ groups.count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="m3-card p-4">
+            <div class="text-muted small mb-1">Enrolled Students</div>
+            <div class="display-6 fw-bold text-dark">{{ dept_students_count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="m3-card p-4">
+            <div class="text-muted small mb-1">Approved Proposals</div>
+            <div class="display-6 fw-bold text-success">{{ approved_count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="m3-card p-4">
+            <div class="text-muted small mb-1">AI Archive Corpus</div>
+            <div class="display-6 fw-bold text-primary">{{ archives.count }}</div>
+        </div>
+    </div>
 </div>
 
 <div class="row g-4 mb-4">
-    <div class="col-lg-4">
-        <div class="bento-card h-100 d-flex flex-column justify-content-between">
-            <h5 class="fw-bold mb-3">Department Stage Breakdown</h5>
-            <canvas id="stageChart" height="220"></canvas>
-        </div>
-    </div>
+    <!-- Left: Master Department Group Roster -->
     <div class="col-lg-8">
-        <div class="bento-card h-100">
-            <h5 class="fw-bold mb-3">Registered Groups & Smart Similarity Status</h5>
+        <div class="m3-card h-100">
+            <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="layers" class="text-primary"></i> Department Project Groups & Guide Allocation
+            </h4>
             <div class="table-responsive">
-                <table class="table table-pro mb-0">
-                    <thead>
-                        <tr><th>Group & Roster</th><th>Project Title</th><th>Similarity</th><th>Guide</th><th>Stage</th><th>Marks</th></tr>
+                <table class="table align-middle">
+                    <thead class="text-muted small">
+                        <tr>
+                            <th>Group & Code</th>
+                            <th>Proposal & AI Similarity</th>
+                            <th>Faculty Guide</th>
+                            <th>Viva Score</th>
+                        </tr>
                     </thead>
                     <tbody>
                         {% for g in groups %}
                         <tr>
                             <td>
-                                <div class="fw-bold text-nowrap">{{ g.group_name }}</div>
-                                <div class="small text-muted">
-                                    {% for m in g.members.all %}{{ m.first_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
-                                </div>
+                                <div class="fw-bold">{{ g.name }}</div>
+                                <div class="small text-muted">Code: {{ g.join_code }} &bull; {{ g.students.count }} Students</div>
                             </td>
-                            <td>{{ g.proposal.proposed_title|default:"Not Submitted" }}</td>
                             <td>
                                 {% if g.proposal %}
-                                <span class="pro-chip {% if g.proposal.similarity_score >= 50 %}chip-error{% else %}chip-success{% endif %}">
-                                    {{ g.proposal.similarity_score }}%
+                                <div class="fw-medium">{{ g.proposal.title|truncatechars:42 }}</div>
+                                <span class="m3-chip {% if g.proposal.status == 'APPROVED' %}chip-success{% else %}chip-warning{% endif %} py-0 px-2 small">
+                                    {{ g.proposal.get_status_display }} ({{ g.proposal.similarity_score }}%)
                                 </span>
-                                {% else %}-{% endif %}
+                                {% else %}
+                                <span class="text-muted small">Not Submitted</span>
+                                {% endif %}
                             </td>
-                            <td class="text-nowrap small fw-medium">{{ g.guide.first_name|default:"Unassigned" }}</td>
-                            <td><span class="pro-chip chip-primary">{{ g.get_current_stage_display }}</span></td>
-                            <td class="fw-bold text-nowrap">
-                                {% if g.viva_evaluation %}{{ g.viva_evaluation.total_marks }}/100 ({{ g.viva_evaluation.grade }}){% else %}Pending{% endif %}
+                            <td>
+                                <form method="POST" class="d-flex gap-1">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="assign_guide">
+                                    <input type="hidden" name="group_id" value="{{ g.id }}">
+                                    <select name="guide_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                                        <option value="">-- Unassigned --</option>
+                                        {% for prof in dept_guides %}
+                                        <option value="{{ prof.id }}" {% if g.guide_id == prof.id %}selected{% endif %}>
+                                            Prof. {{ prof.get_full_name|default:prof.username }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </form>
                             </td>
+                            <td>
+                                {% if g.viva %}
+                                <span class="m3-chip chip-success">{{ g.viva.total_score }}/100</span>
+                                {% else %}
+                                <span class="m3-chip chip-neutral">Pending</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-4 text-muted">No project groups created in {{ user.profile.department.name }} yet.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -2160,58 +2222,268 @@ files["templates/coordinator_dashboard.html"] = """{% extends 'base.html' %}
             </div>
         </div>
     </div>
+
+    <!-- Right: Proposal Analytics Chart & Dynamic College Department Expansion -->
+    <div class="col-lg-4">
+        <div class="m3-card mb-4">
+            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="pie-chart" class="text-primary"></i> Proposal Status Breakdown
+            </h5>
+            <canvas id="deptChart" height="200"></canvas>
+        </div>
+
+        <div class="m3-card">
+            <h5 class="fw-bold mb-2 d-flex align-items-center gap-2">
+                <i data-lucide="git-branch-plus" class="text-primary"></i> Add College Department
+            </h5>
+            <p class="small text-muted mb-3">New departments added under <strong>{{ user.profile.college.name }}</strong> immediately appear on the Student & Faculty registration screen.</p>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_department">
+                <div class="mb-2">
+                    <input type="text" name="new_dept_name" class="form-control" placeholder="e.g. Information Technology or AI & DS" required>
+                </div>
+                <button type="submit" class="btn-m3-tonal w-100">
+                    <i data-lucide="plus"></i> Publish Department to Cloud
+                </button>
+            </form>
+        </div>
+    </div>
 </div>
 
-<div class="bento-card">
-    <h5 class="fw-bold mb-3">Departmental Past Project Archive (TF-IDF Reference Corpus)</h5>
-    <div class="table-responsive">
-        <table class="table table-pro mb-0">
-            <thead><tr><th>Batch</th><th>Domain</th><th>Project Title</th><th>Abstract Summary</th></tr></thead>
-            <tbody>
-                {% for a in archives %}
-                <tr>
-                    <td><span class="pro-chip chip-primary">{{ a.batch_year }}</span></td>
-                    <td class="fw-medium text-nowrap">{{ a.domain }}</td>
-                    <td class="fw-semibold">{{ a.title }}</td>
-                    <td class="small" style="color: var(--text-secondary);">{{ a.abstract|truncatechars:100 }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<!-- Scikit-Learn TF-IDF Past Project Archive Manager -->
+<div class="m3-card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+        <div>
+            <h4 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                <i data-lucide="database" class="text-primary"></i> Department Past Project Archive (TF-IDF Plagiarism Corpus)
+            </h4>
+            <div class="text-muted small">Student abstracts in {{ user.profile.department.name }} are mathematically compared against these historical records and peer submissions.</div>
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="seed_corpus">
+            <button type="submit" class="btn-m3-tonal">
+                <i data-lucide="sparkles"></i> Load 5 Benchmark AI Abstracts
+            </button>
+        </form>
+    </div>
+
+    <form method="POST" class="m3-card-tonal p-3 mb-4">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_archive">
+        <div class="row g-2">
+            <div class="col-md-4">
+                <input type="text" name="title" class="form-control" placeholder="Past Project Title" required>
+            </div>
+            <div class="col-md-2">
+                <input type="text" name="year" class="form-control" value="2025" placeholder="Year" required>
+            </div>
+            <div class="col-md-4">
+                <input type="text" name="abstract" class="form-control" placeholder="Paste project abstract summary..." required>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn-m3-primary w-100 h-100">Add Archive</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="row g-3">
+        {% for a in archives %}
+        <div class="col-md-6">
+            <div class="p-3 border rounded-4 bg-white h-100">
+                <div class="fw-bold">{{ a.title }} <span class="m3-chip chip-neutral py-0 px-2 small">{{ a.year }}</span></div>
+                <div class="small text-muted mt-1">{{ a.abstract|truncatechars:160 }}</div>
+            </div>
+        </div>
+        {% endfor %}
     </div>
 </div>
 
 <script>
-new Chart(document.getElementById('stageChart'), {
+new Chart(document.getElementById('deptChart'), {
     type: 'doughnut',
     data: {
-        labels: ['Topic Pending', 'In Progress', 'Ready for Viva', 'Evaluated'],
+        labels: ['Approved', 'Pending Review', 'Changes Requested'],
         datasets: [{
-            data: [{{ stage_counts.pending }}, {{ stage_counts.progress }}, {{ stage_counts.ready }}, {{ stage_counts.evaluated }}],
-            backgroundColor: ['#9A6514', '#604A8B', '#3B6FA3', '#2F7D57'],
+            data: [{{ approved_count }}, {{ pending_count }}, {{ changes_count }}],
+            backgroundColor: ['#137333', '#F9AB00', '#C5221F'],
             borderWidth: 0
         }]
     },
-    options: {
-        cutout: '72%',
-        plugins: { legend: { position: 'bottom' } }
-    }
+    options: { plugins: { legend: { position: 'bottom' } }, cutout: '68%' }
 });
 </script>
 {% endblock %}
 """
 
-for filepath, content in files.items():
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(content)
-    print(f"✅ Updated {filepath}")
+# ==============================================================================
+# 12. EXTERNAL EXAMINER VIVA RUBRIC TEMPLATE
+# ==============================================================================
+EXAMINER_VIVA_HTML = """
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <h2 class="fw-bold mb-1">External Examiner Viva Assessment Portal</h2>
+        <div class="text-muted">Live 100-Point Rubric Grading for <strong>{{ user.profile.department.name }}</strong> ({{ user.profile.college.name }})</div>
+    </div>
+    <span class="m3-chip chip-tonal"><i data-lucide="award"></i> Total Groups: {{ groups.count }}</span>
+</div>
 
-print("\n🗄️ Applying Database Migrations...")
-subprocess.run([sys.executable, "manage.py", "makemigrations", "portal"], check=True)
-subprocess.run([sys.executable, "manage.py", "migrate"], check=True)
+{% for g in groups %}
+<div class="m3-card mb-4">
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="m3-chip chip-tonal">{{ g.name }}</span>
+                <span class="m3-chip chip-neutral">Guide: {% if g.guide %}Prof. {{ g.guide.get_full_name|default:g.guide.username }}{% else %}Unassigned{% endif %}</span>
+                <span class="m3-chip chip-neutral">Verified Logs: {{ g.logs.count }}</span>
+            </div>
+            <h4 class="fw-bold mb-2">{{ g.proposal.title|default:"Proposal Pending" }}</h4>
+            <p class="text-muted mb-3">{{ g.proposal.abstract|default:"No abstract uploaded yet." }}</p>
+            <div class="small text-muted mb-3">
+                <strong>Examinees:</strong> {% for s in g.students.all %}{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }}){% if not forloop.last %}, {% endif %}{% endfor %}
+            </div>
+            {% if g.proposal and g.proposal.report_file %}
+            <a href="{{ g.proposal.report_file.url }}" target="_blank" class="btn-m3-tonal text-decoration-none">
+                <i data-lucide="file-text"></i> Inspect Uploaded Project Report
+            </a>
+            {% endif %}
+        </div>
 
-print("\n🌱 Seeding Updated Team Claudeus Roster & Faculty Names...")
-subprocess.run([sys.executable, "manage.py", "seed_data"], check=True)
+        <div class="col-lg-6">
+            <form method="POST" class="m3-card-tonal p-4">
+                {% csrf_token %}
+                <input type="hidden" name="group_id" value="{{ g.id }}">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0">4-Pillar Viva Rubric</h5>
+                    <span class="m3-chip chip-success fs-6" id="totalBadge_{{ g.id }}">
+                        Total: {{ g.viva.total_score|default:0 }} / 100
+                    </span>
+                </div>
 
-print("\n🚀 ProTrack v3.0 Masterpiece Edition is Ready!")
-print("👉 Run: python manage.py runserver 0.0.0.0:8000")
+                <div class="row g-3 mb-3">
+                    <div class="col-sm-6">
+                        <label class="form-label small">1. Problem Formulation (0-25)</label>
+                        <input type="number" name="problem_clarity" class="form-control rubric-{{ g.id }}" min="0" max="25" value="{{ g.viva.problem_clarity|default:20 }}" oninput="calcViva({{ g.id }})" required>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small">2. System Implementation (0-25)</label>
+                        <input type="number" name="implementation" class="form-control rubric-{{ g.id }}" min="0" max="25" value="{{ g.viva.implementation|default:20 }}" oninput="calcViva({{ g.id }})" required>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small">3. Presentation & Defense (0-25)</label>
+                        <input type="number" name="presentation" class="form-control rubric-{{ g.id }}" min="0" max="25" value="{{ g.viva.presentation|default:20 }}" oninput="calcViva({{ g.id }})" required>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small">4. Blackbook Documentation (0-25)</label>
+                        <input type="number" name="documentation" class="form-control rubric-{{ g.id }}" min="0" max="25" value="{{ g.viva.documentation|default:20 }}" oninput="calcViva({{ g.id }})" required>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small">Examiner Evaluation Remarks</label>
+                    <input type="text" name="examiner_comments" class="form-control" value="{{ g.viva.examiner_comments|default:'' }}" placeholder="Enter official viva remarks...">
+                </div>
+
+                <button type="submit" class="btn-m3-primary w-100">
+                    <i data-lucide="check-circle-2"></i> Certify & Publish Final Viva Grade
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% empty %}
+<div class="m3-card text-center py-5 text-muted">
+    No project groups found in {{ user.profile.department.name }} for evaluation yet.
+</div>
+{% endfor %}
+
+<script>
+function calcViva(gid) {
+    let sum = 0;
+    document.querySelectorAll('.rubric-' + gid).forEach(el => {
+        let v = parseInt(el.value || 0, 10);
+        if (v > 25) v = 25;
+        if (v < 0) v = 0;
+        sum += v;
+    });
+    document.getElementById('totalBadge_' + gid).innerText = 'Total: ' + sum + ' / 100';
+}
+</script>
+{% endblock %}
+"""
+
+# ==============================================================================
+# 13. OPTIONAL SEED COMMAND (KEPT CLEAN IN CASE EVER NEEDED)
+# ==============================================================================
+SEED_DATA_PY = """
+from django.core.management.base import BaseCommand
+
+class Command(BaseCommand):
+    help = 'ProTrack v4.0 runs 100% dynamically via self-service registration.'
+
+    def handle(self, *args, **kwargs):
+        self.stdout.write(self.style.SUCCESS(
+            "ProTrack v4.0 is configured for 100% fresh self-service registration! Visit /signup/ in your browser to create your University, College, Department, and Role accounts dynamically."
+        ))
+"""
+
+# ==============================================================================
+# MASTER BUILD EXECUTION
+# ==============================================================================
+def build():
+    print("=================================================================")
+    print("  Building ProTrack v4.0 — Dynamic Google Material 3 Edition")
+    print("=================================================================")
+
+    write_file('requirements.txt', REQUIREMENTS_TXT)
+    write_file('manage.py', MANAGE_PY)
+
+    # Config package
+    write_file('protrack_config/__init__.py', '')
+    write_file('protrack_config/settings.py', SETTINGS_PY)
+    write_file('protrack_config/urls.py', CONFIG_URLS_PY)
+    write_file('protrack_config/wsgi.py', WSGI_PY)
+
+    # Portal package
+    write_file('portal/__init__.py', '')
+    write_file('portal/models.py', MODELS_PY)
+    write_file('portal/similarity.py', SIMILARITY_PY)
+    write_file('portal/views.py', VIEWS_PY)
+    write_file('portal/urls.py', PORTAL_URLS_PY)
+    write_file('portal/admin.py', ADMIN_PY)
+    write_file('portal/management/__init__.py', '')
+    write_file('portal/management/commands/__init__.py', '')
+    write_file('portal/management/commands/seed_data.py', SEED_DATA_PY)
+
+    # Templates
+    write_file('templates/base.html', BASE_HTML)
+    write_file('templates/login.html', LOGIN_HTML)
+    write_file('templates/signup.html', SIGNUP_HTML)
+    write_file('templates/student_dashboard.html', STUDENT_DASHBOARD_HTML)
+    write_file('templates/guide_dashboard.html', GUIDE_DASHBOARD_HTML)
+    write_file('templates/coordinator_dashboard.html', COORDINATOR_DASHBOARD_HTML)
+    write_file('templates/examiner_viva.html', EXAMINER_VIVA_HTML)
+
+    # Reset old database & migrations so v4.0 starts 100% fresh
+    if os.path.exists('db.sqlite3'):
+        os.remove('db.sqlite3')
+        print("  [CLEAN] Removed old db.sqlite3 for a 100% fresh start")
+
+    if os.path.exists('portal/migrations'):
+        shutil.rmtree('portal/migrations')
+    os.makedirs('portal/migrations', exist_ok=True)
+    write_file('portal/migrations/__init__.py', '')
+
+    print("\nRunning Django makemigrations & migrate...")
+    subprocess.run([sys.executable, 'manage.py', 'makemigrations', 'portal'], check=True)
+    subprocess.run([sys.executable, 'manage.py', 'migrate'], check=True)
+
+    print("\n=================================================================")
+    print("  ProTrack v4.0 Built Successfully! (100% Fresh & Dynamic)")
+    print("=================================================================")
+
+if __name__ == '__main__':
+    build()

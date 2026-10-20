@@ -3,468 +3,339 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ProTrack — Academic Project & Viva Lifecycle Platform</title>
+    <title>ProTrack — Academic Project & Viva Management Cloud</title>
+    <!-- Google Sans & Plus Jakarta Sans Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5.3 Layout Grid -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide High-Precision Vector Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
-            /* Primary Brand Family */
-            --p-primary: #604A8B;
-            --p-secondary: #8066A6;
-            --p-dark: #503A76;
-            --p-muted: #A88EC5;
-            --p-tint: #DCCFEB;
-            --p-wash: #E9E1F7;
-
-            /* Semantic Alert Palette */
-            --s-error: #B03A3A;
-            --s-error-bg: rgba(176, 58, 58, 0.12);
-            --s-success: #2F7D57;
-            --s-success-bg: rgba(47, 125, 87, 0.12);
-            --s-info: #3B6FA3;
-            --s-info-bg: rgba(59, 111, 163, 0.12);
-            --s-warning: #9A6514;
-            --s-warning-bg: rgba(154, 101, 20, 0.14);
-
-            /* Neutrals & Surfaces */
-            --surface-bg: #F6F4FA;
-            --surface-card: #FFFFFF;
-            --text-main: #1E192B;
-            --text-secondary: #5E5473;
-            --border-subtle: rgba(96, 74, 139, 0.14);
-
-            /* Strict 8pt Spacing Scale */
-            --sp-1: 8px;
-            --sp-2: 16px;
-            --sp-3: 24px;
-            --sp-4: 32px;
-            --sp-5: 40px;
-            --Radius-card: 24px;
-            --Radius-input: 16px;
-            --Radius-pill: 999px;
+            --m3-bg: #F8FAFD;
+            --m3-surface: #FFFFFF;
+            --m3-surface-tonal: #F0F4F9;
+            --m3-primary: #0B57D0;
+            --m3-primary-hover: #0842A0;
+            --m3-primary-container: #D3E3FD;
+            --m3-on-primary-container: #041E49;
+            --m3-text: #1F1F1F;
+            --m3-text-muted: #444746;
+            --m3-border: #E1E5EA;
+            --m3-success-bg: #E6F4EA;
+            --m3-success-text: #137333;
+            --m3-warning-bg: #FEF7E0;
+            --m3-warning-text: #B06000;
+            --m3-danger-bg: #FCE8E6;
+            --m3-danger-text: #C5221F;
+            --radius-xl: 24px;
+            --radius-lg: 16px;
+            --radius-pill: 9999px;
         }
 
         body {
-            background-color: var(--surface-bg);
-            background-image: radial-gradient(at 0% 0%, var(--p-wash) 0px, transparent 55%);
-            color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+            font-family: 'Google Sans', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--m3-bg);
+            color: var(--m3-text);
             font-size: 16px;
-            line-height: 1.5;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Frosted Navigation on 8pt Grid */
-        .protrack-nav {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: saturate(180%) blur(20px);
-            -webkit-backdrop-filter: saturate(180%) blur(20px);
-            border-bottom: 1px solid var(--border-subtle);
-            padding: var(--sp-2) 0;
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Google Sans', 'Plus Jakarta Sans', sans-serif;
+            letter-spacing: -0.015em;
+            font-weight: 500;
+        }
+
+        /* Google Workspace Top Appbar */
+        .m3-navbar {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--m3-border);
+            padding: 14px 28px;
             position: sticky;
             top: 0;
             z-index: 1030;
         }
 
         .brand-logo {
-            font-weight: 700;
-            font-size: 1.35rem;
-            letter-spacing: -0.025em;
-            color: var(--p-dark);
-            text-decoration: none;
             display: inline-flex;
             align-items: center;
-            gap: var(--sp-1);
-            white-space: nowrap;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--m3-text);
+            font-weight: 700;
+            font-size: 1.35rem;
         }
 
         .brand-icon-box {
-            width: 40px;
-            height: 40px;
+            width: 42px;
+            height: 42px;
             border-radius: 12px;
-            background: linear-gradient(135deg, var(--p-primary), var(--p-dark));
-            color: #FFFFFF;
-            display: inline-flex;
+            background: var(--m3-primary);
+            color: #fff;
+            display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 12px rgba(96, 74, 139, 0.25);
         }
 
-        /* 8pt Grid Bento Cards */
-        .bento-card {
-            background: var(--surface-card);
-            border-radius: var(--Radius-card);
-            border: 1px solid var(--border-subtle);
-            box-shadow: 0 8px 24px rgba(80, 58, 118, 0.05);
-            padding: var(--sp-3);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        /* Material 3 Elevated Cards */
+        .m3-card {
+            background: var(--m3-surface);
+            border: 1px solid var(--m3-border);
+            border-radius: var(--radius-xl);
+            padding: 32px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 16px rgba(11, 87, 208, 0.03);
+            transition: box-shadow 0.2s ease, transform 0.2s ease;
         }
 
-        .bento-card:hover {
-            box-shadow: 0 12px 32px rgba(80, 58, 118, 0.09);
+        .m3-card-tonal {
+            background: var(--m3-surface-tonal);
+            border: 1px solid transparent;
+            border-radius: var(--radius-xl);
+            padding: 28px;
         }
 
-        /* Form Controls on 8pt Scale */
+        /* Spacious Material 3 Controls */
         .form-label {
-            font-size: 0.88rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: var(--sp-1);
+            font-weight: 500;
+            font-size: 0.95rem;
+            color: var(--m3-text);
+            margin-bottom: 8px;
         }
 
         .form-control, .form-select {
-            background-color: var(--p-wash);
-            border: 1.5px solid transparent;
-            border-radius: var(--Radius-input);
-            padding: 12px 16px;
-            font-size: 0.98rem;
-            color: var(--text-main);
-            transition: all 0.2s ease;
+            border-radius: 14px;
+            padding: 14px 18px;
+            font-size: 1rem;
+            border: 1px solid #C4C7C5;
+            background-color: #FFFFFF;
+            color: var(--m3-text);
+            transition: all 0.18s ease;
         }
 
         .form-control:focus, .form-select:focus {
-            background-color: #FFFFFF;
-            border-color: var(--p-primary);
-            box-shadow: 0 0 0 4px rgba(96, 74, 139, 0.16);
-            color: var(--text-main);
+            border-color: var(--m3-primary);
+            box-shadow: 0 0 0 3px rgba(11, 87, 208, 0.16);
         }
 
-        /* Non-Breaking Buttons & Interactive States */
-        .btn-pro {
-            background-color: var(--p-primary);
+        /* Material 3 Pill Buttons */
+        .btn-m3-primary {
+            background-color: var(--m3-primary);
             color: #FFFFFF;
-            border-radius: var(--Radius-pill);
+            border: none;
+            border-radius: var(--radius-pill);
+            padding: 12px 26px;
+            font-size: 0.98rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.18s ease;
+        }
+
+        .btn-m3-primary:hover {
+            background-color: var(--m3-primary-hover);
+            color: #FFFFFF;
+            box-shadow: 0 2px 8px rgba(11, 87, 208, 0.28);
+        }
+
+        .btn-m3-tonal {
+            background-color: var(--m3-primary-container);
+            color: var(--m3-on-primary-container);
+            border: none;
+            border-radius: var(--radius-pill);
             padding: 12px 24px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            border: 1px solid transparent;
+            font-size: 0.96rem;
+            font-weight: 500;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            white-space: nowrap !important;
-            flex-shrink: 0;
-            transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
-            cursor: pointer;
+            transition: all 0.18s ease;
         }
 
-        .btn-pro:hover:not(:disabled) {
-            background-color: var(--p-dark);
-            color: #FFFFFF;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(80, 58, 118, 0.28);
+        .btn-m3-tonal:hover {
+            background-color: #B8D1FC;
+            color: var(--m3-on-primary-container);
         }
 
-        .btn-pro:active:not(:disabled) {
-            transform: translateY(0);
-        }
-
-        .btn-pro-secondary {
-            background-color: var(--p-tint);
-            color: var(--p-dark);
-            border-radius: var(--Radius-pill);
-            padding: 12px 24px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            border: 1px solid rgba(96, 74, 139, 0.15);
+        .btn-m3-outline {
+            background-color: transparent;
+            color: var(--m3-primary);
+            border: 1px solid #747775;
+            border-radius: var(--radius-pill);
+            padding: 11px 24px;
+            font-size: 0.96rem;
+            font-weight: 500;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            white-space: nowrap !important;
-            flex-shrink: 0;
-            transition: all 0.2s ease;
-            cursor: pointer;
         }
 
-        .btn-pro-secondary:hover:not(:disabled) {
-            background-color: var(--p-muted);
-            color: #FFFFFF;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(96, 74, 139, 0.2);
+        .btn-m3-outline:hover {
+            background-color: var(--m3-surface-tonal);
+            border-color: var(--m3-primary);
         }
 
-        /* Completed / Locked Button State (Prevents Duplicate Actions) */
-        .btn-pro.btn-locked,
-        .btn-pro-secondary.btn-locked,
-        button:disabled.btn-locked {
-            background-color: var(--s-success-bg) !important;
-            color: var(--s-success) !important;
-            border: 1.5px solid rgba(47, 125, 87, 0.35) !important;
-            box-shadow: none !important;
-            transform: none !important;
-            cursor: not-allowed !important;
-            opacity: 1 !important;
-        }
-
-        /* Non-Breaking Chips & Status Pills */
-        .pro-chip {
+        /* Status & Context Chips */
+        .m3-chip {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 6px 16px;
-            border-radius: var(--Radius-pill);
-            font-size: 0.85rem;
-            font-weight: 600;
-            white-space: nowrap !important;
-            flex-shrink: 0;
-            line-height: 1.2;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
-        }
-
-        .pro-chip:hover {
-            transform: translateY(-1px);
-        }
-
-        .chip-primary { background: var(--p-wash); color: var(--p-dark); border: 1px solid var(--p-tint); }
-        .chip-member { background: var(--p-tint); color: var(--p-dark); }
-        .chip-success { background: var(--s-success-bg); color: var(--s-success); }
-        .chip-warning { background: var(--s-warning-bg); color: var(--s-warning); }
-        .chip-error { background: var(--s-error-bg); color: var(--s-error); }
-        .chip-info { background: var(--s-info-bg); color: var(--s-info); }
-
-        /* Floating Toast Engine with Reverse Progress Bar */
-        #toast-stack {
-            position: fixed;
-            top: 24px;
-            right: 24px;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            width: 380px;
-            max-width: calc(100vw - 32px);
-            pointer-events: none;
-        }
-
-        .pro-toast {
-            pointer-events: auto;
-            background: rgba(255, 255, 255, 0.97);
-            backdrop-filter: blur(20px);
-            border-radius: 16px;
-            box-shadow: 0 16px 40px rgba(80, 58, 118, 0.18);
-            border: 1px solid var(--border-subtle);
-            overflow: hidden;
-            transform: translateX(120%);
-            opacity: 0;
-            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
-        }
-
-        .pro-toast.show {
-            transform: translateX(0);
-            opacity: 1;
-        }
-
-        .pro-toast-body {
-            padding: 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 0.94rem;
+            padding: 6px 14px;
+            border-radius: var(--radius-pill);
+            font-size: 0.875rem;
             font-weight: 500;
-            color: var(--text-main);
-        }
-
-        .toast-reverse-bar {
-            height: 4px;
-            width: 100%;
-            animation: shrinkReverse 4.2s linear forwards;
-        }
-
-        .bar-success { background: var(--s-success); }
-        .bar-warning { background: var(--s-warning); }
-        .bar-error, .bar-danger { background: var(--s-error); }
-        .bar-info { background: var(--s-info); }
-
-        @keyframes shrinkReverse {
-            0% { width: 100%; }
-            100% { width: 0%; }
-        }
-
-        /* Clean Tables */
-        .table-pro th {
-            color: var(--text-secondary);
-            font-weight: 600;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            border-bottom: 1px solid var(--border-subtle);
-            padding: 12px 16px;
             white-space: nowrap;
         }
 
-        .table-pro td {
-            padding: 16px;
-            border-bottom: 1px solid var(--border-subtle);
-            vertical-align: middle;
+        .chip-tonal { background: var(--m3-primary-container); color: var(--m3-on-primary-container); }
+        .chip-success { background: var(--m3-success-bg); color: var(--m3-success-text); }
+        .chip-warning { background: var(--m3-warning-bg); color: var(--m3-warning-text); }
+        .chip-danger { background: var(--m3-danger-bg); color: var(--m3-danger-text); }
+        .chip-neutral { background: var(--m3-surface-tonal); color: var(--m3-text-muted); }
+
+        .lucide {
+            width: 20px;
+            height: 20px;
+            stroke-width: 2px;
+        }
+
+        /* Floating Toast Snackbar */
+        .toast-stack {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            z-index: 1090;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 420px;
+        }
+
+        .m3-snackbar {
+            background: #1F1F1F;
+            color: #FFFFFF;
+            padding: 16px 22px;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.95rem;
         }
     </style>
 </head>
-<body class="d-flex flex-column min-vh-100">
+<body>
+    {% if user.is_authenticated %}
+    <nav class="m3-navbar">
+        <div class="container-fluid d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <a href="{% url 'dashboard_router' %}" class="brand-logo">
+                    <span class="brand-icon-box"><i data-lucide="graduation-cap"></i></span>
+                    <span>ProTrack</span>
+                </a>
+                {% if user.profile.department %}
+                <span class="m3-chip chip-neutral d-none d-lg-inline-flex">
+                    <i data-lucide="building-2" style="width:16px;height:16px;"></i>
+                    {{ user.profile.university.name }} &bull; {{ user.profile.college.name }} &bull; <strong class="text-dark">{{ user.profile.department.name }}</strong>
+                </span>
+                {% endif %}
+            </div>
 
-    <!-- Floating Animated Reverse-Progress Toast Stack -->
-    <div id="toast-stack"></div>
+            <div class="d-flex align-items-center gap-3">
+                <span class="m3-chip chip-tonal">
+                    <i data-lucide="shield-check" style="width:16px;height:16px;"></i>
+                    {{ user.profile.get_role_display }}
+                </span>
 
-    <!-- Sticky Header -->
-    <nav class="protrack-nav">
-        <div class="container d-flex justify-content-between align-items-center gap-3">
-            <a class="brand-logo" href="{% url 'dashboard' %}">
-                <span class="brand-icon-box"><i class="bi bi-layers-half"></i></span>
-                <span>ProTrack</span>
-            </a>
-
-            {% if user.is_authenticated %}
-            <div class="d-flex align-items-center gap-2 gap-md-3 flex-nowrap">
-                <!-- Notification Bell -->
+                <!-- Notifications Bell -->
                 <div class="dropdown">
-                    <button class="btn-pro-secondary py-2 px-3 position-relative" data-bs-toggle="dropdown" onclick="markNotificationsRead()">
-                        <i class="bi bi-bell-fill"></i>
-                        {% if unread_count > 0 %}
-                        <span id="notif-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill" style="background: var(--s-error);">
-                            {{ unread_count }}
+                    <button class="btn btn-m3-outline position-relative py-2 px-3" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i data-lucide="bell"></i>
+                        {% if notifications %}
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            {{ notifications|length }}
                         </span>
                         {% endif %}
                     </button>
-                    <div class="dropdown-menu dropdown-menu-end p-3 shadow-lg border-0" style="width: 350px; border-radius: 20px;">
+                    <div class="dropdown-menu dropdown-menu-end p-3 shadow-lg border-0" style="width: 360px; border-radius: 20px;">
                         <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-                            <span class="fw-bold small text-uppercase" style="color: var(--p-primary);">Activity Center</span>
-                            <span class="pro-chip chip-info py-1 px-2" style="font-size: 0.75rem;">Real-Time</span>
+                            <span class="fw-bold">Department Alerts</span>
+                            {% if notifications %}
+                            <a href="{% url 'mark_notifications_read' %}" class="small text-decoration-none fw-medium">Mark all read</a>
+                            {% endif %}
                         </div>
-                        <div id="notif-list">
-                            {% for n in notifications %}
-                            <div class="py-2 border-bottom small d-flex align-items-start gap-2">
-                                <i class="bi bi-circle-fill mt-1" style="font-size: 7px; color: {% if n.level == 'success' %}var(--s-success){% elif n.level == 'warning' %}var(--s-warning){% elif n.level == 'error' %}var(--s-error){% else %}var(--s-info){% endif %};"></i>
-                                <span>{{ n.message }}</span>
-                            </div>
-                            {% empty %}
-                            <div class="text-muted small py-3 text-center">No new notifications</div>
-                            {% endfor %}
+                        {% for n in notifications %}
+                        <div class="py-2 border-bottom small">
+                            <div class="text-dark fw-medium">{{ n.message }}</div>
+                            <div class="text-muted" style="font-size: 0.78rem;">{{ n.created_at|timesince }} ago</div>
                         </div>
+                        {% empty %}
+                        <div class="text-center py-4 text-muted small">
+                            <i data-lucide="check-circle-2" class="mb-2 text-success"></i>
+                            <div>All caught up! No new notifications.</div>
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
 
-                <span class="pro-chip chip-primary d-none d-sm-inline-flex">
-                    <i class="bi bi-person-badge"></i> {{ user.profile.get_role_display }}
-                </span>
-                <span class="fw-semibold d-none d-lg-inline text-nowrap">{{ user.first_name|default:user.username }}</span>
-                <a href="{% url 'logout' %}" class="btn-pro-secondary py-2 px-3 text-decoration-none">
-                    <i class="bi bi-box-arrow-right"></i> <span>Sign Out</span>
-                </a>
+                <!-- User Identity & Logout -->
+                <div class="d-flex align-items-center gap-2 ps-2 border-start">
+                    <div class="text-end d-none d-sm-block">
+                        <div class="fw-medium" style="line-height:1.2;">{{ user.get_full_name|default:user.username }}</div>
+                        <div class="text-muted small" style="font-size:0.8rem;">{{ user.profile.identifier }}</div>
+                    </div>
+                    <a href="{% url 'logout' %}" class="btn btn-m3-outline py-2 px-3" title="Sign Out">
+                        <i data-lucide="log-out"></i>
+                    </a>
+                </div>
             </div>
-            {% endif %}
         </div>
     </nav>
+    {% endif %}
 
-    <!-- Main Container on 8pt Grid -->
-    <main class="container my-4 flex-grow-1">
-        {% block content %}{% endblock %}
+    <main class="flex-grow-1 py-4 py-md-5">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
     </main>
 
-    <!-- Updated Official Footer -->
-    <footer class="py-4 mt-auto border-top" style="background: rgba(255, 255, 255, 0.75); border-color: var(--border-subtle) !important;">
-        <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2 small" style="color: var(--text-secondary);">
-            <span><strong>ProTrack</strong> — Academic Project & Viva Lifecycle Platform.</span>
-            <span>ProTrack © 2026. All rights reserved.</span>
+    <!-- Floating Material 3 Snackbars -->
+    {% if messages %}
+    <div class="toast-stack" id="toastStack">
+        {% for message in messages %}
+        <div class="m3-snackbar">
+            <i data-lucide="sparkles" class="text-info flex-shrink-0"></i>
+            <div class="flex-grow-1">{{ message }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <footer class="py-4 border-top bg-white mt-auto">
+        <div class="container d-flex flex-wrap justify-content-between align-items-center text-muted small">
+            <div><strong>ProTrack Cloud v4.0</strong> &mdash; Dynamic Multi-Tenant Academic Project & Viva Portal</div>
+            <div>Powered by Django &bull; Scikit-Learn TF-IDF &bull; Google Material 3</div>
         </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function getCSRFToken() {
-            const el = document.querySelector('[name=csrfmiddlewaretoken]');
-            return el ? el.value : '';
-        }
-
-        // Reverse-Progress Toast Notification Engine
-        function showToast(message, level = 'success') {
-            const stack = document.getElementById('toast-stack');
-            const toast = document.createElement('div');
-            toast.className = 'pro-toast';
-
-            const iconMap = {
-                'success': '<i class="bi bi-check-circle-fill fs-5" style="color: var(--s-success);"></i>',
-                'warning': '<i class="bi bi-exclamation-triangle-fill fs-5" style="color: var(--s-warning);"></i>',
-                'error': '<i class="bi bi-x-circle-fill fs-5" style="color: var(--s-error);"></i>',
-                'danger': '<i class="bi bi-x-circle-fill fs-5" style="color: var(--s-error);"></i>',
-                'info': '<i class="bi bi-info-circle-fill fs-5" style="color: var(--s-info);"></i>'
-            };
-
-            toast.innerHTML = `
-                <div class="pro-toast-body">
-                    ${iconMap[level] || iconMap.info}
-                    <div class="flex-grow-1">${message}</div>
-                    <button type="button" class="btn-close btn-sm" onclick="this.closest('.pro-toast').remove()"></button>
-                </div>
-                <div class="toast-reverse-bar bar-${level}"></div>
-            `;
-
-            stack.appendChild(toast);
-            requestAnimationFrame(() => toast.classList.add('show'));
-
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 350);
-            }, 4200);
-        }
-
-        // Stateful Button Controller (Prevents Duplicate Submissions & Re-Enables on Edit)
-        function setButtonLoading(btn, loadingText = 'Processing...') {
-            if (!btn) return;
-            if (!btn.dataset.defaultHtml) {
-                btn.dataset.defaultHtml = btn.innerHTML;
-            }
-            btn.disabled = true;
-            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> <span>${loadingText}</span>`;
-        }
-
-        function lockActionButton(btn, completedLabel = 'Saved ✓') {
-            if (!btn) return;
-            if (!btn.dataset.defaultHtml) {
-                btn.dataset.defaultHtml = btn.innerHTML;
-            }
-            btn.disabled = true;
-            btn.classList.add('btn-locked');
-            btn.innerHTML = `<i class="bi bi-check2-circle"></i> <span>${completedLabel}</span>`;
-        }
-
-        function unlockActionButton(btn) {
-            if (!btn || !btn.classList.contains('btn-locked')) return;
-            btn.disabled = false;
-            btn.classList.remove('btn-locked');
-            if (btn.dataset.defaultHtml) {
-                btn.innerHTML = btn.dataset.defaultHtml;
-            }
-        }
-
-        // Automatically watch all forms so locked buttons wake up only when inputs change
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('form[data-watch-dirty="true"]').forEach(form => {
-                const unlockAllInForm = () => {
-                    form.querySelectorAll('.btn-locked').forEach(btn => unlockActionButton(btn));
-                };
-                form.addEventListener('input', unlockAllInForm);
-                form.addEventListener('change', unlockAllInForm);
-            });
-        });
-
-        async function markNotificationsRead() {
-            const badge = document.getElementById('notif-badge');
-            if (!badge) return;
-            badge.remove();
-            await fetch("{% url 'api_mark_notifications_read' %}", {
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCSRFToken() }
-            });
-        }
-
-        {% if messages %}
-            {% for m in messages %}
-                showToast("{{ m|escapejs }}", "{{ m.tags|default:'info' }}");
-            {% endfor %}
-        {% endif %}
+        lucide.createIcons();
+        setTimeout(() => {
+            const stack = document.getElementById('toastStack');
+            if (stack) stack.style.display = 'none';
+        }, 5000);
     </script>
 </body>
 </html>

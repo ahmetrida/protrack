@@ -2,16 +2,9 @@ import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = 'django-insecure-protrack-v3-masterpiece-2026'
+SECRET_KEY = 'django-insecure-protrack-v4-enterprise-edition-secret-key'
 DEBUG = True
 ALLOWED_HOSTS = ['*']
-
-CSRF_TRUSTED_ORIGINS = [
-    'https://*.app.github.dev',
-    'https://*.github.dev',
-    'https://*.pythonanywhere.com',
-    'https://*.onrender.com',
-]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -25,7 +18,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -62,8 +54,9 @@ DATABASES = {
 }
 
 AUTH_PASSWORD_VALIDATORS = []
+
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
 USE_TZ = True
 
@@ -72,7 +65,8 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'dashboard'
-LOGOUT_REDIRECT_URL = 'login'
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/login/'
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

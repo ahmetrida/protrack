@@ -1,351 +1,335 @@
 {% extends 'base.html' %}
 {% block content %}
-<!-- Top Group Summary Bento Card -->
-<div class="bento-card mb-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+
+{% if not group %}
+<!-- ======================================================================= -->
+<!-- STATE A: DYNAMIC GROUP CREATION & TEAMMATE PAIRING WIZARD               -->
+<!-- ======================================================================= -->
+<div class="m3-card mb-4">
+    <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="brand-icon-box"><i data-lucide="users"></i></div>
         <div>
-            <span class="small fw-bold text-uppercase" style="color: var(--p-primary);">Student Project Workspace</span>
-            <h2 class="fw-bold mb-2">{{ group.group_name }}</h2>
-            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                <span class="small fw-semibold me-1" style="color: var(--text-secondary);">Team Members:</span>
-                {% for m in group.members.all %}
-                <span class="pro-chip chip-member"><i class="bi bi-person-fill"></i> {{ m.first_name|default:m.username }}</span>
-                {% endfor %}
-            </div>
-            <div class="small" style="color: var(--text-secondary);">
-                Assigned Faculty Guide: <strong class="text-dark">{{ group.guide.first_name|default:"Unassigned" }}</strong>
-            </div>
-        </div>
-        <div class="d-flex flex-wrap align-items-center gap-2">
-            {% if viva %}
-            <span class="pro-chip chip-success fs-6 px-3 py-2">
-                <i class="bi bi-award-fill"></i> Score: {{ viva.total_marks }}/100 (Grade {{ viva.grade }})
-            </span>
-            {% endif %}
-            <span id="stage-pill" class="pro-chip chip-primary fs-6 px-3 py-2">
-                <i class="bi bi-disc"></i> <span id="stage-text">{{ group.get_current_stage_display }}</span>
-            </span>
+            <h2 class="mb-0 fw-bold">Welcome to {{ user.profile.department.name }}!</h2>
+            <div class="text-muted">Set up your academic project group or join your teammates using a group code.</div>
         </div>
     </div>
-</div>
 
-<!-- 12-Column 8pt Bento Grid -->
-<div class="row g-4">
-    <!-- Left Column: Proposal & Smart Similarity (7 Columns) -->
-    <div class="col-lg-7">
-        <div class="bento-card h-100">
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                <h4 class="fw-bold mb-0">Project Proposal & Smart Similarity</h4>
-                <span id="proposal-status-pill" class="pro-chip {% if proposal.status == 'APPROVED' %}chip-success{% elif proposal.status == 'REJECTED' %}chip-error{% else %}chip-warning{% endif %}">
-                    {{ proposal.get_status_display|default:"Draft" }}
-                </span>
+    <div class="row g-4 mt-2">
+        <!-- Create New Group Card -->
+        <div class="col-lg-7">
+            <div class="m3-card-tonal h-100">
+                <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                    <i data-lucide="plus-circle" class="text-primary"></i> Option 1: Create a New Project Group
+                </h4>
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="create_group">
+                    <div class="mb-3">
+                        <label class="form-label">Project Group Name / Number</label>
+                        <input type="text" name="group_name" class="form-control" placeholder="e.g. G-01: Team Horizon" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Select Faculty Guide (from {{ user.profile.department.name }})</label>
+                        <select name="guide_id" class="form-select">
+                            <option value="">-- Choose Registered Faculty Guide (or assign later) --</option>
+                            {% for g in dept_guides %}
+                            <option value="{{ g.id }}">Prof. {{ g.get_full_name|default:g.username }} ({{ g.profile.identifier }})</option>
+                            {% endfor %}
+                        </select>
+                        {% if not dept_guides %}
+                        <div class="small text-muted mt-1">No Faculty Guides have registered in {{ user.profile.department.name }} yet. You can create your group now and assign your guide once they register!</div>
+                        {% endif %}
+                    </div>
+                    {% if dept_students %}
+                    <div class="mb-4">
+                        <label class="form-label">Add Classmates from {{ user.profile.department.name }} (Optional)</label>
+                        <select name="teammate_ids" class="form-select" multiple style="height: 110px;">
+                            {% for s in dept_students %}
+                            <option value="{{ s.id }}">{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})</option>
+                            {% endfor %}
+                        </select>
+                        <div class="small text-muted mt-1">Hold Ctrl/Cmd to select multiple teammates, or share your Join Code after creating.</div>
+                    </div>
+                    {% endif %}
+                    <button type="submit" class="btn-m3-primary w-100">
+                        <i data-lucide="rocket"></i> Create Project Group
+                    </button>
+                </form>
             </div>
-            <p class="small mb-3" style="color: var(--text-secondary);">
-                Update any field below. Action buttons automatically lock once completed and unlock as soon as you edit a field.
-            </p>
+        </div>
 
-            <!-- Smart Similarity Meter -->
-            <div id="sim-box" class="p-3 mb-4 rounded-4 {% if proposal.similarity_score >= 50 %}chip-error{% else %}chip-success{% endif %}" style="border: 1px solid currentColor;">
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="fw-bold"><i class="bi bi-cpu"></i> Smart Similarity Index</span>
-                    <span id="sim-score" class="fs-4 fw-bold">{{ proposal.similarity_score|default:"0.0" }}%</span>
+        <!-- Join Existing Group Card -->
+        <div class="col-lg-5">
+            <div class="m3-card-tonal h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                        <i data-lucide="key-round" class="text-primary"></i> Option 2: Join Existing Group
+                    </h4>
+                    <p class="text-muted">If your teammate already created a group in <strong>{{ user.profile.department.name }}</strong>, enter the 6-character Group Join Code below:</p>
+                    <form method="POST" class="mb-4">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="join_group">
+                        <div class="mb-3">
+                            <label class="form-label">Group Join Code</label>
+                            <input type="text" name="join_code" class="form-control text-uppercase fw-bold" placeholder="e.g. PT-8X2A" required>
+                        </div>
+                        <button type="submit" class="btn-m3-tonal w-100">
+                            <i data-lucide="user-check"></i> Join Teammate's Group
+                        </button>
+                    </form>
                 </div>
-                <div class="progress my-2" style="height: 8px; border-radius: 99px; background: rgba(0,0,0,0.08);">
-                    <div id="sim-bar" class="progress-bar" style="width: {{ proposal.similarity_score|default:0 }}%; background-color: {% if proposal.similarity_score >= 50 %}var(--s-error){% else %}var(--s-success){% endif %};"></div>
-                </div>
-                <div id="sim-match" class="small">
-                    Closest Match: <strong>{{ proposal.closest_match_title|default:"None" }}</strong> ({{ proposal.closest_match_source|default:"Archive" }})
-                </div>
-                {% if proposal.reviewer_remarks %}
-                <div class="small mt-2 pt-2 border-top border-dark border-opacity-10">
-                    <strong>Guide Remarks:</strong> "{{ proposal.reviewer_remarks }}"
+
+                {% if open_groups %}
+                <div class="border-top pt-3">
+                    <div class="small fw-bold text-muted mb-2">Active Groups in {{ user.profile.department.name }}:</div>
+                    {% for og in open_groups|slice:":4" %}
+                    <div class="d-flex justify-content-between align-items-center py-1 small">
+                        <span><strong>{{ og.name }}</strong> ({{ og.students.count }} members)</span>
+                        <span class="m3-chip chip-tonal py-1 px-2">{{ og.join_code }}</span>
+                    </div>
+                    {% endfor %}
                 </div>
                 {% endif %}
             </div>
-
-            <form id="proposalForm" data-watch-dirty="true" onsubmit="saveProposalRealtime(event)">
-                {% csrf_token %}
-                <div class="mb-3">
-                    <label class="form-label">Proposed Project Title</label>
-                    <input type="text" name="proposed_title" id="prop_title" class="form-control" value="{{ proposal.proposed_title }}" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Technologies & Frameworks</label>
-                    <input type="text" name="tech_stack" id="prop_stack" class="form-control" value="{{ proposal.tech_stack }}" placeholder="Python, Django, Scikit-Learn" required>
-                </div>
-                <div class="mb-4">
-                    <label class="form-label">Project Abstract</label>
-                    <textarea name="abstract_text" id="prop_abstract" rows="4" class="form-control" required>{{ proposal.abstract_text }}</textarea>
-                </div>
-                <div class="d-flex flex-wrap gap-2">
-                    <button type="button" id="btnCheckSim" onclick="checkSimilarityRealtime()" class="btn-pro-secondary flex-grow-1">
-                        <i class="bi bi-shield-check"></i> <span>Check Similarity</span>
-                    </button>
-                    <button type="submit" id="btnSaveProposal" class="btn-pro flex-grow-1 btn-locked" disabled
-                        data-default-html='<i class="bi bi-cloud-check"></i> <span>Save Proposal Changes</span>'>
-                        <i class="bi bi-check2-circle"></i> <span>Proposal Up to Date ✓</span>
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Right Column: Weekly Progress + Multi-Format Deliverable Upload (5 Columns) -->
-    <div class="col-lg-5 d-flex flex-column gap-4">
-        <!-- Weekly Progress Logger -->
-        <div class="bento-card">
-            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-                <h4 class="fw-bold mb-0" id="log-form-heading">Weekly Progress</h4>
-                <span class="pro-chip chip-primary" id="log-mode-badge">Week {{ next_week }}</span>
-            </div>
-            <p class="small mb-3" style="color: var(--text-secondary);">
-                Log a new milestone or click <strong>Edit</strong> on any week below to patch existing progress.
-            </p>
-
-            <form id="logForm" data-watch-dirty="true" onsubmit="saveLogRealtime(event)">
-                {% csrf_token %}
-                <div class="row g-2 mb-3">
-                    <div class="col-4">
-                        <label class="form-label">Week #</label>
-                        <input type="number" name="week_number" id="log_week" class="form-control" value="{{ next_week }}" min="1" max="16" required>
-                    </div>
-                    <div class="col-8">
-                        <label class="form-label">GitHub Commit Link</label>
-                        <input type="url" name="commit_or_doc_link" id="log_link" class="form-control" value="{{ group.github_repo_link|default:'https://github.com/ahmetrida/protrack' }}">
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Completed Tasks / Updates</label>
-                    <textarea name="tasks_completed" id="log_tasks" rows="2" class="form-control" placeholder="Describe what your team built or updated..." required></textarea>
-                </div>
-                <button type="submit" id="btnSaveLog" class="btn-pro w-100">
-                    <i class="bi bi-journal-plus"></i> <span>Submit Weekly Progress</span>
-                </button>
-            </form>
-        </div>
-
-        <!-- Final Repository & Multi-Format File Upload -->
-        <div class="bento-card">
-            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-                <h4 class="fw-bold mb-0">Project Deliverables</h4>
-                <span class="pro-chip chip-info">PDF • PNG • JPG • JPEG</span>
-            </div>
-            <p class="small mb-3" style="color: var(--text-secondary);">
-                Link your GitHub repository and upload your report or architecture snapshot.
-            </p>
-            <form id="finalForm" data-watch-dirty="true" onsubmit="saveFinalRealtime(event)" enctype="multipart/form-data">
-                {% csrf_token %}
-                <div class="mb-3">
-                    <label class="form-label">GitHub Repository URL</label>
-                    <input type="url" name="github_repo_link" class="form-control" value="{{ group.github_repo_link|default:'https://github.com/ahmetrida/protrack' }}" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Upload Report or Screenshot (PDF, PNG, JPG, JPEG)</label>
-                    <input type="file" name="final_report_pdf" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
-                    <div id="file-link-box" class="mt-2">
-                        {% if group.final_report_pdf %}
-                        <a href="{{ group.final_report_pdf.url }}" target="_blank" class="pro-chip chip-success text-decoration-none mt-1">
-                            <i class="bi bi-file-earmark-check-fill"></i> View Uploaded Deliverable
-                        </a>
-                        {% endif %}
-                    </div>
-                </div>
-                <button type="submit" id="btnSaveFinal" class="btn-pro-secondary w-100">
-                    <i class="bi bi-cloud-arrow-up-fill"></i> <span>Save Deliverables</span>
-                </button>
-            </form>
         </div>
     </div>
 </div>
 
-<!-- Weekly Progress Timeline Table -->
-<div class="bento-card mt-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <h4 class="fw-bold mb-0">Weekly Progress Timeline</h4>
-        <span class="pro-chip chip-primary"><i class="bi bi-pencil-square"></i> Click Edit on any row to update</span>
+{% else %}
+<!-- ======================================================================= -->
+<!-- STATE B: ACTIVE GROUP WORKSPACE (PROPOSAL, AI SIMILARITY & LOGBOOK)     -->
+<!-- ======================================================================= -->
+<div class="m3-card mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-7">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <span class="m3-chip chip-tonal"><i data-lucide="users" style="width:15px;height:15px;"></i> {{ group.name }}</span>
+                <span class="m3-chip chip-neutral" title="Share this code with teammates to join">
+                    <i data-lucide="hash" style="width:15px;height:15px;"></i> Join Code: <strong>{{ group.join_code }}</strong>
+                </span>
+                {% if proposal %}
+                    {% if proposal.status == 'APPROVED' %}
+                    <span class="m3-chip chip-success"><i data-lucide="check-circle" style="width:15px;height:15px;"></i> Proposal Approved</span>
+                    {% elif proposal.status == 'CHANGES' %}
+                    <span class="m3-chip chip-danger"><i data-lucide="alert-circle" style="width:15px;height:15px;"></i> Changes Requested</span>
+                    {% else %}
+                    <span class="m3-chip chip-warning"><i data-lucide="clock" style="width:15px;height:15px;"></i> Pending Guide Review</span>
+                    {% endif %}
+                {% endif %}
+            </div>
+            <h2 class="fw-bold mb-2">{{ proposal.title|default:"Project Proposal Not Submitted Yet" }}</h2>
+            <div class="text-muted d-flex flex-wrap gap-3">
+                <span><strong>Team Members:</strong> {% for s in group.students.all %}{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }}){% if not forloop.last %}, {% endif %}{% endfor %}</span>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="m3-card-tonal p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="small text-muted">Assigned Faculty Guide</div>
+                        {% if group.guide %}
+                        <div class="fw-bold fs-5">Prof. {{ group.guide.get_full_name|default:group.guide.username }}</div>
+                        {% else %}
+                        <div class="text-danger fw-medium">No Guide Selected Yet</div>
+                        {% endif %}
+                    </div>
+                    {% if viva %}
+                    <div class="text-end">
+                        <div class="small text-muted">Final Viva Grade</div>
+                        <span class="m3-chip chip-success fs-6">{{ viva.total_score }}/100 &bull; {{ viva.grade_badge }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if not group.guide and dept_guides %}
+                <form method="POST" class="mt-3 d-flex gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="assign_guide">
+                    <select name="guide_id" class="form-select form-select-sm" required>
+                        <option value="">-- Select Registered Department Guide --</option>
+                        {% for g in dept_guides %}
+                        <option value="{{ g.id }}">Prof. {{ g.get_full_name|default:g.username }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn-m3-primary py-1 px-3">Assign</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
     </div>
-    <div class="table-responsive">
-        <table class="table table-pro mb-0">
-            <thead>
-                <tr>
-                    <th>Week</th>
-                    <th>Progress Summary</th>
-                    <th>Repository Link</th>
-                    <th>Guide Remarks</th>
-                    <th>Status</th>
-                    <th class="text-end">Action</th>
-                </tr>
-            </thead>
-            <tbody id="logbook-tbody">
-                {% for log in logs %}
-                <tr id="log-row-{{ log.week_number }}">
-                    <td class="fw-bold text-nowrap">Week {{ log.week_number }}</td>
-                    <td id="log-tasks-{{ log.week_number }}">{{ log.tasks_completed }}</td>
-                    <td>
-                        {% if log.commit_or_doc_link %}
-                        <a href="{{ log.commit_or_doc_link }}" target="_blank" class="pro-chip chip-primary text-decoration-none py-1 px-3">
-                            <span>Repo</span> <i class="bi bi-box-arrow-up-right"></i>
-                        </a>
-                        {% else %}-{% endif %}
-                    </td>
-                    <td class="small" style="color: var(--text-secondary);">{{ log.guide_remarks|default:"Awaiting guide review" }}</td>
-                    <td>
-                        <span class="pro-chip {% if log.approval_status == 'APPROVED' %}chip-success{% elif log.approval_status == 'CHANGES_NEEDED' %}chip-error{% else %}chip-warning{% endif %}">
-                            {{ log.get_approval_status_display }}
+</div>
+
+<div class="row g-4">
+    <!-- LEFT COLUMN: PROPOSAL SUBMISSION & LIVE TF-IDF SIMILARITY ENGINE -->
+    <div class="col-lg-7">
+        <div class="m3-card h-100">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold mb-0 d-flex align-items-center gap-2">
+                    <i data-lucide="file-text" class="text-primary"></i> Project Proposal & AI Originality Check
+                </h4>
+                {% if proposal %}
+                <span class="m3-chip {% if proposal.similarity_score >= 60 %}chip-danger{% elif proposal.similarity_score >= 30 %}chip-warning{% else %}chip-success{% endif %}">
+                    Similarity: {{ proposal.similarity_score }}%
+                </span>
+                {% endif %}
+            </div>
+
+            {% if proposal.guide_remarks %}
+            <div class="p-3 mb-4 rounded-4" style="background: var(--m3-warning-bg); color: var(--m3-warning-text);">
+                <div class="fw-bold d-flex align-items-center gap-2 mb-1">
+                    <i data-lucide="message-square-warning"></i> Faculty Guide Remarks:
+                </div>
+                <div>{{ proposal.guide_remarks }}</div>
+            </div>
+            {% endif %}
+
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="submit_proposal">
+                <div class="mb-3">
+                    <label class="form-label">Project Title</label>
+                    <input type="text" name="title" id="propTitle" class="form-control" value="{{ proposal.title|default:'' }}" placeholder="Enter descriptive academic project title" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Technical Domain / Area</label>
+                    <input type="text" name="domain" class="form-control" value="{{ proposal.domain|default:'' }}" placeholder="e.g. Machine Learning, Cloud Computing, Cybersecurity, FinTech" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Detailed Project Abstract</label>
+                    <textarea name="abstract" id="propAbstract" rows="6" class="form-control" placeholder="Describe problem statement, methodology, architecture, and expected outcomes..." required>{{ proposal.abstract|default:'' }}</textarea>
+                </div>
+
+                <!-- Live AI TF-IDF Similarity Result Box -->
+                <div id="simResultBox" class="m3-card-tonal p-3 mb-3 d-none">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="fw-bold d-flex align-items-center gap-2">
+                            <i data-lucide="cpu" class="text-primary"></i> Scikit-Learn TF-IDF Similarity Scan
                         </span>
-                    </td>
-                    <td class="text-end">
-                        <button type="button" class="btn-pro-secondary py-1 px-3"
-                            onclick="loadLogIntoEditor('{{ log.week_number }}', '{{ log.tasks_completed|escapejs }}', '{{ log.commit_or_doc_link|default:''|escapejs }}')">
-                            <i class="bi bi-pencil-square"></i> <span>Edit</span>
-                        </button>
-                    </td>
-                </tr>
+                        <span id="simBadge" class="m3-chip chip-tonal">0%</span>
+                    </div>
+                    <div class="small text-muted">Closest Match in Department / Archive: <strong id="simMatch" class="text-dark">None</strong></div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Attach Synopsis / Blackbook Report (PDF, DOCX, PNG)</label>
+                    <input type="file" name="report_file" class="form-control">
+                    {% if proposal.report_file %}
+                    <div class="small mt-2">
+                        <a href="{{ proposal.report_file.url }}" target="_blank" class="text-primary fw-medium text-decoration-none">
+                            <i data-lucide="external-link" style="width:15px;height:15px;"></i> View Currently Uploaded Report File
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex flex-wrap gap-3">
+                    <button type="button" onclick="runSimilarityCheck()" id="btnSimCheck" class="btn-m3-tonal">
+                        <i data-lucide="sparkles"></i> Test Abstract Similarity
+                    </button>
+                    <button type="submit" class="btn-m3-primary flex-grow-1">
+                        <i data-lucide="send"></i> Save & Submit Proposal to Guide
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN: WEEKLY PROGRESS LOGBOOK -->
+    <div class="col-lg-5">
+        <div class="m3-card h-100">
+            <h4 class="fw-bold mb-4 d-flex align-items-center gap-2">
+                <i data-lucide="calendar-check-2" class="text-primary"></i> Weekly Progress Logbook
+            </h4>
+
+            <form method="POST" class="m3-card-tonal p-3 mb-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="submit_log">
+                <div class="row g-2 mb-2">
+                    <div class="col-4">
+                        <label class="form-label small">Week #</label>
+                        <input type="number" name="week_number" class="form-control" value="{{ next_week }}" min="1" max="52" required>
+                    </div>
+                    <div class="col-8">
+                        <label class="form-label small">Milestone Completed</label>
+                        <input type="text" name="tasks_completed" class="form-control" placeholder="e.g. Database schema & UI" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small">Next Week Target Plan</label>
+                    <input type="text" name="next_week_plan" class="form-control" placeholder="e.g. API integration & unit tests" required>
+                </div>
+                <button type="submit" class="btn-m3-primary w-100 py-2">
+                    <i data-lucide="plus"></i> Record Weekly Log Entry
+                </button>
+            </form>
+
+            <div class="d-flex flex-column gap-3" style="max-height: 400px; overflow-y: auto;">
+                {% for log in logs %}
+                <div class="p-3 border rounded-4 bg-white">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold">Week {{ log.week_number }}</span>
+                        {% if log.is_verified %}
+                        <span class="m3-chip chip-success py-1 px-2"><i data-lucide="check" style="width:14px;height:14px;"></i> Guide Verified</span>
+                        {% else %}
+                        <span class="m3-chip chip-warning py-1 px-2">Awaiting Sign-Off</span>
+                        {% endif %}
+                    </div>
+                    <div class="small mb-1"><strong>Completed:</strong> {{ log.tasks_completed }}</div>
+                    <div class="small text-muted"><strong>Next Plan:</strong> {{ log.next_week_plan }}</div>
+                    {% if log.guide_feedback %}
+                    <div class="small text-primary mt-2 pt-2 border-top">
+                        <strong>Guide Note:</strong> {{ log.guide_feedback }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="text-center py-4 text-muted">
+                    <i data-lucide="clipboard-list" class="mb-2"></i>
+                    <div>No weekly logs recorded yet. Submit Week 1 above!</div>
+                </div>
                 {% endfor %}
-            </tbody>
-        </table>
+            </div>
+        </div>
     </div>
 </div>
 
 <script>
-function updateSimUI(data) {
-    const box = document.getElementById('sim-box');
-    const scoreEl = document.getElementById('sim-score');
-    const bar = document.getElementById('sim-bar');
-    const matchEl = document.getElementById('sim-match');
-
-    scoreEl.textContent = `${data.score}%`;
-    bar.style.width = `${data.score}%`;
-
-    const isHigh = data.score >= 50;
-    box.className = `p-3 mb-4 rounded-4 ${isHigh ? 'chip-error' : 'chip-success'}`;
-    bar.style.backgroundColor = isHigh ? 'var(--s-error)' : 'var(--s-success)';
-
-    const kwHtml = (data.keywords && data.keywords.length)
-        ? ` • Overlapping terms: <em>${data.keywords.join(', ')}</em>`
-        : '';
-    matchEl.innerHTML = `Closest Match: <strong>${data.match_title}</strong> (${data.match_source})${kwHtml}`;
-}
-
-async function checkSimilarityRealtime() {
-    const btn = document.getElementById('btnCheckSim');
-    setButtonLoading(btn, 'Scanning Archive...');
-    const form = document.getElementById('proposalForm');
-    const res = await fetch("{% url 'api_check_similarity' %}", {
-        method: 'POST',
-        headers: { 'X-CSRFToken': getCSRFToken() },
-        body: new FormData(form)
-    });
-    const data = await res.json();
-    if (data.ok) {
-        updateSimUI(data);
-        lockActionButton(btn, `Verified (${data.score}%) ✓`);
-        showToast(data.message, data.level);
+function runSimilarityCheck() {
+    const title = document.getElementById('propTitle').value;
+    const abstract = document.getElementById('propAbstract').value;
+    const btn = document.getElementById('btnSimCheck');
+    if (!title || !abstract) {
+        alert('Please enter both your Project Title and Abstract first.');
+        return;
     }
-}
+    btn.disabled = true;
+    btn.innerText = 'Scanning Department Corpus...';
 
-async function saveProposalRealtime(e) {
-    e.preventDefault();
-    const btn = document.getElementById('btnSaveProposal');
-    setButtonLoading(btn, 'Saving Proposal...');
-    const form = document.getElementById('proposalForm');
-    const res = await fetch("{% url 'submit_proposal' %}", {
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('abstract', abstract);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    fetch("{% url 'api_check_similarity' %}", {
         method: 'POST',
-        headers: { 'X-CSRFToken': getCSRFToken() },
-        body: new FormData(form)
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="sparkles"></i> Test Abstract Similarity';
+        lucide.createIcons();
+
+        const box = document.getElementById('simResultBox');
+        const badge = document.getElementById('simBadge');
+        const match = document.getElementById('simMatch');
+        box.classList.remove('d-none');
+        badge.innerText = data.score + '% (' + data.risk + ' RISK)';
+        match.innerText = data.closest_match;
+        badge.className = 'm3-chip ' + (data.score >= 60 ? 'chip-danger' : (data.score >= 30 ? 'chip-warning' : 'chip-success'));
     });
-    const data = await res.json();
-    if (data.ok) {
-        updateSimUI(data);
-        const pill = document.getElementById('proposal-status-pill');
-        pill.textContent = data.status_display;
-        pill.className = 'pro-chip chip-warning';
-        lockActionButton(btn, 'Proposal Saved ✓');
-        showToast(data.message, data.level);
-    }
-}
-
-function loadLogIntoEditor(week, tasks, link) {
-    document.getElementById('log_week').value = week;
-    document.getElementById('log_tasks').value = tasks;
-    document.getElementById('log_link').value = link;
-    document.getElementById('log-form-heading').textContent = `Edit Week ${week}`;
-    document.getElementById('log-mode-badge').textContent = `Editing Week ${week}`;
-    const btn = document.getElementById('btnSaveLog');
-    unlockActionButton(btn);
-    btn.innerHTML = `<i class="bi bi-check2-circle"></i> <span>Update Week ${week} Progress</span>`;
-    btn.dataset.defaultHtml = btn.innerHTML;
-    document.getElementById('log_tasks').focus();
-    showToast(`Loaded Week ${week} for editing.`, 'info');
-}
-
-async function saveLogRealtime(e) {
-    e.preventDefault();
-    const btn = document.getElementById('btnSaveLog');
-    setButtonLoading(btn, 'Saving Log...');
-    const form = document.getElementById('logForm');
-    const res = await fetch("{% url 'add_weekly_log' %}", {
-        method: 'POST',
-        headers: { 'X-CSRFToken': getCSRFToken() },
-        body: new FormData(form)
-    });
-    const data = await res.json();
-    if (data.ok) {
-        const l = data.log;
-        lockActionButton(btn, `Week ${l.week_number} Saved ✓`);
-        showToast(data.message, data.level);
-
-        const tbody = document.getElementById('logbook-tbody');
-        const existingRow = document.getElementById(`log-row-${l.week_number}`);
-        const rowHtml = `
-            <td class="fw-bold text-nowrap">Week ${l.week_number}</td>
-            <td id="log-tasks-${l.week_number}">${l.tasks_completed}</td>
-            <td>${l.commit_or_doc_link ? `<a href="${l.commit_or_doc_link}" target="_blank" class="pro-chip chip-primary text-decoration-none py-1 px-3"><span>Repo</span> <i class="bi bi-box-arrow-up-right"></i></a>` : '-'}</td>
-            <td class="small" style="color: var(--text-secondary);">${l.guide_remarks}</td>
-            <td><span class="pro-chip chip-warning">${l.status_display}</span></td>
-            <td class="text-end">
-                <button type="button" class="btn-pro-secondary py-1 px-3"
-                    onclick="loadLogIntoEditor('${l.week_number}', '${l.tasks_completed.replace(/'/g, "\'")}', '${l.commit_or_doc_link}')">
-                    <i class="bi bi-pencil-square"></i> <span>Edit</span>
-                </button>
-            </td>
-        `;
-        if (existingRow) {
-            existingRow.innerHTML = rowHtml;
-        } else {
-            const tr = document.createElement('tr');
-            tr.id = `log-row-${l.week_number}`;
-            tr.innerHTML = rowHtml;
-            tbody.appendChild(tr);
-        }
-    }
-}
-
-async function saveFinalRealtime(e) {
-    e.preventDefault();
-    const btn = document.getElementById('btnSaveFinal');
-    setButtonLoading(btn, 'Uploading...');
-    const form = document.getElementById('finalForm');
-    const res = await fetch("{% url 'upload_final_submission' %}", {
-        method: 'POST',
-        headers: { 'X-CSRFToken': getCSRFToken() },
-        body: new FormData(form)
-    });
-    const data = await res.json();
-    if (data.ok) {
-        document.getElementById('stage-text').textContent = data.stage_display;
-        if (data.file_url) {
-            document.getElementById('file-link-box').innerHTML = `
-                <a href="${data.file_url}" target="_blank" class="pro-chip chip-success text-decoration-none mt-1">
-                    <i class="bi bi-file-earmark-check-fill"></i> View ${data.file_name || 'Uploaded Deliverable'}
-                </a>`;
-        }
-        lockActionButton(btn, 'Deliverables Saved ✓');
-        showToast(data.message, data.level);
-    } else {
-        unlockActionButton(btn);
-        showToast(data.message || 'Upload failed.', 'error');
-    }
 }
 </script>
+{% endif %}
 {% endblock %}
