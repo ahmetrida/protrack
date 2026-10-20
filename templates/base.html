@@ -516,7 +516,7 @@
         lucide.createIcons();
 
         // Celebratory Web Audio Chime on Success Actions
-        function playSuccessChime() {
+        <!-- function playSuccessChime() {
             try {
                 const AudioCtx = window.AudioContext || window.webkitAudioContext;
                 if (!AudioCtx) return;
@@ -535,6 +535,12 @@
                     osc.start(ctx.currentTime + idx * 0.085);
                     osc.stop(ctx.currentTime + idx * 0.085 + 0.34);
                 });
+            } catch (e) {}
+        } -->
+        function playSuccessChime() {
+           try {
+            const audio = new Audio('/media/Success.mp3');
+            audio.play().catch(e => console.log("Audio blocked by browser auto-play policy."));
             } catch (e) {}
         }
 
