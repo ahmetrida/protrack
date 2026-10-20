@@ -3,35 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ProTrack — Academic Project & Viva Management Cloud</title>
-    <!-- Google Sans & Plus Jakarta Sans Fonts -->
+    <title>ProTrack Cloud — Academic Project & Viva Governance</title>
+    <!-- Google Sans & Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Bootstrap 5.3 Layout Grid -->
+    <!-- Bootstrap 5.3 Grid -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Lucide High-Precision Vector Icons -->
+    <!-- Lucide Open-Source Vector Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
-            --m3-bg: #F8FAFD;
+            --m3-bg: #F6F4FB;
             --m3-surface: #FFFFFF;
-            --m3-surface-tonal: #F0F4F9;
-            --m3-primary: #0B57D0;
-            --m3-primary-hover: #0842A0;
-            --m3-primary-container: #D3E3FD;
-            --m3-on-primary-container: #041E49;
-            --m3-text: #1F1F1F;
-            --m3-text-muted: #444746;
-            --m3-border: #E1E5EA;
+            --m3-surface-tonal: #EFEBF9;
+            --m3-surface-hover: #E6DFF5;
+            --m3-primary: #5E35B1;
+            --m3-primary-hover: #4527A0;
+            --m3-primary-container: #EDE7F6;
+            --m3-on-primary-container: #28115B;
+            --m3-accent: #7C4DFF;
+            --m3-text: #1B1528;
+            --m3-text-muted: #574F6B;
+            --m3-border: #DFD8EE;
             --m3-success-bg: #E6F4EA;
             --m3-success-text: #137333;
             --m3-warning-bg: #FEF7E0;
             --m3-warning-text: #B06000;
             --m3-danger-bg: #FCE8E6;
             --m3-danger-text: #C5221F;
+            --m3-whatsapp: #25D366;
+            --radius-2xl: 32px;
             --radius-xl: 24px;
-            --radius-lg: 16px;
+            --radius-lg: 18px;
             --radius-pill: 9999px;
         }
 
@@ -39,26 +43,44 @@
             font-family: 'Google Sans', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             background-color: var(--m3-bg);
             color: var(--m3-text);
-            font-size: 16px;
-            line-height: 1.6;
+            font-size: 17.5px;
+            line-height: 1.65;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             -webkit-font-smoothing: antialiased;
         }
 
-        h1, h2, h3, h4, h5, h6 {
-            font-family: 'Google Sans', 'Plus Jakarta Sans', sans-serif;
-            letter-spacing: -0.015em;
-            font-weight: 500;
+        .container-google {
+            max-width: 1540px;
+            margin: 0 auto;
+            padding: 0 28px;
+            width: 100%;
         }
 
-        /* Google Workspace Top Appbar */
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Google Sans', 'Plus Jakarta Sans', sans-serif;
+            letter-spacing: -0.02em;
+            font-weight: 600;
+            color: var(--m3-text);
+        }
+
+        /* Micro-Animations */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(14px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in {
+            animation: fadeUp 0.42s cubic-bezier(0.2, 0, 0, 1) forwards;
+        }
+
+        /* Google Workspace Frosted Appbar */
         .m3-navbar {
-            background: rgba(255, 255, 255, 0.92);
-            backdrop-filter: blur(16px);
+            background: rgba(255, 255, 255, 0.90);
+            backdrop-filter: blur(20px);
             border-bottom: 1px solid var(--m3-border);
-            padding: 14px 28px;
+            padding: 18px 0;
             position: sticky;
             top: 0;
             z-index: 1030;
@@ -67,134 +89,181 @@
         .brand-logo {
             display: inline-flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
             text-decoration: none;
             color: var(--m3-text);
             font-weight: 700;
-            font-size: 1.35rem;
+            font-size: 1.55rem;
+            transition: transform 0.2s ease;
+        }
+
+        .brand-logo:hover {
+            transform: scale(1.02);
         }
 
         .brand-icon-box {
-            width: 42px;
-            height: 42px;
-            border-radius: 12px;
-            background: var(--m3-primary);
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #5E35B1, #7C4DFF);
             color: #fff;
             display: flex;
             align-items: center;
             justify-content: center;
+            box-shadow: 0 6px 18px rgba(94, 53, 177, 0.28);
         }
 
-        /* Material 3 Elevated Cards */
+        /* Oversized Google Material 3 Cards */
         .m3-card {
             background: var(--m3-surface);
             border: 1px solid var(--m3-border);
-            border-radius: var(--radius-xl);
-            padding: 32px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 16px rgba(11, 87, 208, 0.03);
-            transition: box-shadow 0.2s ease, transform 0.2s ease;
+            border-radius: var(--radius-2xl);
+            padding: 40px;
+            box-shadow: 0 2px 6px rgba(27, 21, 40, 0.03), 0 12px 32px rgba(94, 53, 177, 0.05);
+            transition: transform 0.24s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.24s cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        .m3-card:hover {
+            box-shadow: 0 4px 12px rgba(27, 21, 40, 0.05), 0 18px 42px rgba(94, 53, 177, 0.09);
         }
 
         .m3-card-tonal {
             background: var(--m3-surface-tonal);
-            border: 1px solid transparent;
+            border: 1px solid rgba(94, 53, 177, 0.12);
             border-radius: var(--radius-xl);
-            padding: 28px;
+            padding: 32px;
+            transition: background-color 0.2s ease;
         }
 
-        /* Spacious Material 3 Controls */
+        /* Giant Google Inputs & Dropdowns */
         .form-label {
-            font-weight: 500;
-            font-size: 0.95rem;
+            font-weight: 600;
+            font-size: 1.02rem;
             color: var(--m3-text);
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
 
         .form-control, .form-select {
-            border-radius: 14px;
-            padding: 14px 18px;
-            font-size: 1rem;
-            border: 1px solid #C4C7C5;
+            border-radius: var(--radius-lg);
+            min-height: 58px;
+            padding: 15px 22px;
+            font-size: 1.06rem;
+            border: 1.5px solid #CEC4E4;
             background-color: #FFFFFF;
             color: var(--m3-text);
-            transition: all 0.18s ease;
+            transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        textarea.form-control {
+            min-height: 140px;
         }
 
         .form-control:focus, .form-select:focus {
             border-color: var(--m3-primary);
-            box-shadow: 0 0 0 3px rgba(11, 87, 208, 0.16);
+            box-shadow: 0 0 0 4px rgba(94, 53, 177, 0.18);
+            transform: translateY(-1px);
         }
 
-        /* Material 3 Pill Buttons */
+        /* Oversized Pill Buttons */
         .btn-m3-primary {
-            background-color: var(--m3-primary);
+            background: linear-gradient(135deg, #5E35B1, #4527A0);
             color: #FFFFFF;
             border: none;
             border-radius: var(--radius-pill);
-            padding: 12px 26px;
-            font-size: 0.98rem;
-            font-weight: 500;
+            min-height: 56px;
+            padding: 14px 32px;
+            font-size: 1.05rem;
+            font-weight: 600;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
-            transition: all 0.18s ease;
+            transition: all 0.22s cubic-bezier(0.2, 0, 0, 1);
+            box-shadow: 0 4px 14px rgba(94, 53, 177, 0.25);
         }
 
         .btn-m3-primary:hover {
-            background-color: var(--m3-primary-hover);
+            background: linear-gradient(135deg, #512DA8, #311B92);
             color: #FFFFFF;
-            box-shadow: 0 2px 8px rgba(11, 87, 208, 0.28);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 22px rgba(94, 53, 177, 0.36);
         }
 
         .btn-m3-tonal {
             background-color: var(--m3-primary-container);
             color: var(--m3-on-primary-container);
-            border: none;
+            border: 1px solid rgba(94, 53, 177, 0.16);
             border-radius: var(--radius-pill);
-            padding: 12px 24px;
-            font-size: 0.96rem;
-            font-weight: 500;
+            min-height: 54px;
+            padding: 13px 28px;
+            font-size: 1.02rem;
+            font-weight: 600;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            transition: all 0.18s ease;
+            gap: 10px;
+            transition: all 0.2s ease;
         }
 
         .btn-m3-tonal:hover {
-            background-color: #B8D1FC;
+            background-color: #DDD2F3;
             color: var(--m3-on-primary-container);
+            transform: translateY(-1px);
         }
 
         .btn-m3-outline {
-            background-color: transparent;
+            background-color: #FFFFFF;
             color: var(--m3-primary);
-            border: 1px solid #747775;
+            border: 1.5px solid #C5B9E0;
             border-radius: var(--radius-pill);
-            padding: 11px 24px;
-            font-size: 0.96rem;
-            font-weight: 500;
+            min-height: 52px;
+            padding: 12px 26px;
+            font-size: 1rem;
+            font-weight: 600;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            transition: all 0.2s ease;
         }
 
         .btn-m3-outline:hover {
             background-color: var(--m3-surface-tonal);
             border-color: var(--m3-primary);
+            color: var(--m3-primary);
         }
 
-        /* Status & Context Chips */
+        .btn-whatsapp {
+            background-color: #E8FBF0;
+            color: #0F6E36;
+            border: 1px solid #A8EBC4;
+            border-radius: var(--radius-pill);
+            padding: 8px 18px;
+            font-size: 0.94rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-whatsapp:hover {
+            background-color: #25D366;
+            color: #FFFFFF;
+            border-color: #25D366;
+            transform: translateY(-1px);
+        }
+
+        /* Status & Role Chips */
         .m3-chip {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 6px 14px;
+            gap: 7px;
+            padding: 8px 18px;
             border-radius: var(--radius-pill);
-            font-size: 0.875rem;
-            font-weight: 500;
+            font-size: 0.94rem;
+            font-weight: 600;
             white-space: nowrap;
         }
 
@@ -204,63 +273,109 @@
         .chip-danger { background: var(--m3-danger-bg); color: var(--m3-danger-text); }
         .chip-neutral { background: var(--m3-surface-tonal); color: var(--m3-text-muted); }
 
+        /* Avatar Circle */
+        .avatar-circle {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--m3-primary-container);
+            color: var(--m3-on-primary-container);
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+            border: 2px solid #FFFFFF;
+            box-shadow: 0 2px 8px rgba(94, 53, 177, 0.16);
+        }
+
+        .avatar-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
         .lucide {
-            width: 20px;
-            height: 20px;
+            width: 21px;
+            height: 21px;
             stroke-width: 2px;
         }
 
         /* Floating Toast Snackbar */
         .toast-stack {
             position: fixed;
-            bottom: 28px;
-            right: 28px;
+            bottom: 32px;
+            right: 32px;
             z-index: 1090;
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            max-width: 420px;
+            gap: 14px;
+            max-width: 460px;
         }
 
         .m3-snackbar {
-            background: #1F1F1F;
+            background: #24183E;
             color: #FFFFFF;
-            padding: 16px 22px;
-            border-radius: 16px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+            padding: 18px 26px;
+            border-radius: 20px;
+            box-shadow: 0 12px 32px rgba(27, 21, 40, 0.26);
             display: flex;
             align-items: center;
-            gap: 12px;
-            font-size: 0.95rem;
+            gap: 14px;
+            font-size: 1.02rem;
+            animation: fadeUp 0.3s ease forwards;
         }
     </style>
 </head>
 <body>
     {% if user.is_authenticated %}
     <nav class="m3-navbar">
-        <div class="container-fluid d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div class="container-google d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div class="d-flex align-items-center gap-3 flex-wrap">
                 <a href="{% url 'dashboard_router' %}" class="brand-logo">
                     <span class="brand-icon-box"><i data-lucide="graduation-cap"></i></span>
                     <span>ProTrack</span>
                 </a>
                 {% if user.profile.department %}
-                <span class="m3-chip chip-neutral d-none d-lg-inline-flex">
-                    <i data-lucide="building-2" style="width:16px;height:16px;"></i>
+                <span class="m3-chip chip-neutral d-none d-xl-inline-flex">
+                    <i data-lucide="building-2" style="width:17px;height:17px;"></i>
                     {{ user.profile.university.name }} &bull; {{ user.profile.college.name }} &bull; <strong class="text-dark">{{ user.profile.department.name }}</strong>
                 </span>
                 {% endif %}
             </div>
 
-            <div class="d-flex align-items-center gap-3">
+            <!-- Navigation Switchers & Profile Controls -->
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                {% if user.profile.role == 'ADMIN' %}
+                <a href="{% url 'admin_dashboard' %}" class="btn-m3-tonal py-2 px-3 text-decoration-none" style="min-height:46px;">
+                    <i data-lucide="shield"></i> Admin Console
+                </a>
+                <a href="{% url 'examiner_dashboard' %}" class="btn-m3-outline py-2 px-3 text-decoration-none" style="min-height:46px;">
+                    <i data-lucide="bar-chart-3"></i> Examiner & HOD View
+                </a>
+                {% elif user.profile.role == 'GUIDE' and user.profile.is_examiner %}
+                <a href="{% url 'guide_dashboard' %}" class="btn-m3-tonal py-2 px-3 text-decoration-none" style="min-height:46px;">
+                    <i data-lucide="users"></i> Guide Console
+                </a>
+                <a href="{% url 'examiner_dashboard' %}" class="btn-m3-primary py-2 px-3 text-decoration-none" style="min-height:46px;">
+                    <i data-lucide="award"></i> Examiner & HOD Portal
+                </a>
+                {% else %}
                 <span class="m3-chip chip-tonal">
-                    <i data-lucide="shield-check" style="width:16px;height:16px;"></i>
+                    <i data-lucide="badge-check" style="width:17px;height:17px;"></i>
                     {{ user.profile.get_role_display }}
                 </span>
+                {% endif %}
+
+                <!-- Universal Settings & People Directory Button -->
+                <a href="{% url 'profile_settings' %}" class="btn-m3-outline py-2 px-3 text-decoration-none" style="min-height:46px;" title="Profile, Settings & WhatsApp Directory">
+                    <i data-lucide="settings"></i> <span class="d-none d-md-inline">Profile & Directory</span>
+                </a>
 
                 <!-- Notifications Bell -->
                 <div class="dropdown">
-                    <button class="btn btn-m3-outline position-relative py-2 px-3" data-bs-toggle="dropdown" aria-expanded="false">
+                    <button class="btn-m3-outline position-relative py-2 px-3" style="min-height:46px;" data-bs-toggle="dropdown" aria-expanded="false">
                         <i data-lucide="bell"></i>
                         {% if notifications %}
                         <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
@@ -268,34 +383,41 @@
                         </span>
                         {% endif %}
                     </button>
-                    <div class="dropdown-menu dropdown-menu-end p-3 shadow-lg border-0" style="width: 360px; border-radius: 20px;">
-                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-                            <span class="fw-bold">Department Alerts</span>
+                    <div class="dropdown-menu dropdown-menu-end p-4 shadow-lg border-0" style="width: 390px; border-radius: 24px;">
+                        <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                            <span class="fw-bold fs-5">Workspace Alerts</span>
                             {% if notifications %}
-                            <a href="{% url 'mark_notifications_read' %}" class="small text-decoration-none fw-medium">Mark all read</a>
+                            <a href="{% url 'mark_notifications_read' %}" class="small text-decoration-none fw-bold" style="color:var(--m3-primary);">Mark all read</a>
                             {% endif %}
                         </div>
                         {% for n in notifications %}
-                        <div class="py-2 border-bottom small">
+                        <div class="py-2 border-bottom">
                             <div class="text-dark fw-medium">{{ n.message }}</div>
-                            <div class="text-muted" style="font-size: 0.78rem;">{{ n.created_at|timesince }} ago</div>
+                            <div class="text-muted small">{{ n.created_at|timesince }} ago</div>
                         </div>
                         {% empty %}
-                        <div class="text-center py-4 text-muted small">
-                            <i data-lucide="check-circle-2" class="mb-2 text-success"></i>
-                            <div>All caught up! No new notifications.</div>
+                        <div class="text-center py-4 text-muted">
+                            <i data-lucide="check-circle-2" class="mb-2 text-success" style="width:32px;height:32px;"></i>
+                            <div>All caught up! Zero unread alerts.</div>
                         </div>
                         {% endfor %}
                     </div>
                 </div>
 
-                <!-- User Identity & Logout -->
+                <!-- User Avatar & Sign Out -->
                 <div class="d-flex align-items-center gap-2 ps-2 border-start">
-                    <div class="text-end d-none d-sm-block">
-                        <div class="fw-medium" style="line-height:1.2;">{{ user.get_full_name|default:user.username }}</div>
-                        <div class="text-muted small" style="font-size:0.8rem;">{{ user.profile.identifier }}</div>
+                    <a href="{% url 'profile_settings' %}" class="avatar-circle text-decoration-none" title="Edit Profile">
+                        {% if user.profile.avatar %}
+                        <img src="{{ user.profile.avatar.url }}" alt="Avatar">
+                        {% else %}
+                        {{ user.profile.initials }}
+                        {% endif %}
+                    </a>
+                    <div class="text-end d-none d-lg-block me-1">
+                        <div class="fw-bold" style="line-height:1.2;">{{ user.get_full_name|default:user.username }}</div>
+                        <div class="text-muted small">{{ user.profile.identifier }}</div>
                     </div>
-                    <a href="{% url 'logout' %}" class="btn btn-m3-outline py-2 px-3" title="Sign Out">
+                    <a href="{% url 'logout' %}" class="btn-m3-outline py-2 px-3" style="min-height:46px;" title="Sign Out">
                         <i data-lucide="log-out"></i>
                     </a>
                 </div>
@@ -304,18 +426,17 @@
     </nav>
     {% endif %}
 
-    <main class="flex-grow-1 py-4 py-md-5">
-        <div class="container">
+    <main class="flex-grow-1 py-5">
+        <div class="container-google animate-in">
             {% block content %}{% endblock %}
         </div>
     </main>
 
-    <!-- Floating Material 3 Snackbars -->
     {% if messages %}
     <div class="toast-stack" id="toastStack">
         {% for message in messages %}
         <div class="m3-snackbar">
-            <i data-lucide="sparkles" class="text-info flex-shrink-0"></i>
+            <i data-lucide="sparkles" class="text-warning flex-shrink-0"></i>
             <div class="flex-grow-1">{{ message }}</div>
         </div>
         {% endfor %}
@@ -323,9 +444,9 @@
     {% endif %}
 
     <footer class="py-4 border-top bg-white mt-auto">
-        <div class="container d-flex flex-wrap justify-content-between align-items-center text-muted small">
-            <div><strong>ProTrack Cloud v4.0</strong> &mdash; Dynamic Multi-Tenant Academic Project & Viva Portal</div>
-            <div>Powered by Django &bull; Scikit-Learn TF-IDF &bull; Google Material 3</div>
+        <div class="container-google d-flex flex-wrap justify-content-between align-items-center text-muted">
+            <div><strong>ProTrack Cloud v5.0</strong> &mdash; Role-Gated Academic Project & Viva Governance</div>
+            <div>Google Material 3 Royal-Violet &bull; Scikit-Learn TF-IDF &bull; Lucide Vector UI</div>
         </div>
     </footer>
 
@@ -335,7 +456,7 @@
         setTimeout(() => {
             const stack = document.getElementById('toastStack');
             if (stack) stack.style.display = 'none';
-        }, 5000);
+        }, 5500);
     </script>
 </body>
 </html>

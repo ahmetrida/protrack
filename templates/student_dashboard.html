@@ -2,90 +2,83 @@
 {% block content %}
 
 {% if not group %}
-<!-- ======================================================================= -->
-<!-- STATE A: DYNAMIC GROUP CREATION & TEAMMATE PAIRING WIZARD               -->
-<!-- ======================================================================= -->
 <div class="m3-card mb-4">
-    <div class="d-flex align-items-center gap-3 mb-3">
+    <div class="d-flex align-items-center gap-3 mb-4">
         <div class="brand-icon-box"><i data-lucide="users"></i></div>
         <div>
-            <h2 class="mb-0 fw-bold">Welcome to {{ user.profile.department.name }}!</h2>
-            <div class="text-muted">Set up your academic project group or join your teammates using a group code.</div>
+            <h2 class="mb-0 fw-bold">Initialize Your Project Group</h2>
+            <div class="text-muted">{{ user.profile.university.name }} &bull; {{ user.profile.college.name }} &bull; <strong>{{ user.profile.department.name }}</strong></div>
         </div>
     </div>
 
-    <div class="row g-4 mt-2">
-        <!-- Create New Group Card -->
+    <div class="row g-4">
         <div class="col-lg-7">
             <div class="m3-card-tonal h-100">
                 <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                    <i data-lucide="plus-circle" class="text-primary"></i> Option 1: Create a New Project Group
+                    <i data-lucide="plus-circle" style="color:var(--m3-primary);"></i> Option 1: Create New Project Group
                 </h4>
                 <form method="POST">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="create_group">
-                    <div class="mb-3">
-                        <label class="form-label">Project Group Name / Number</label>
-                        <input type="text" name="group_name" class="form-control" placeholder="e.g. G-01: Team Horizon" required>
+                    <div class="mb-4">
+                        <label class="form-label">Project Group Name</label>
+                        <input type="text" name="group_name" class="form-control" placeholder="e.g. Group-01: Cloud Pioneers" required>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Select Faculty Guide (from {{ user.profile.department.name }})</label>
+                    <div class="mb-4">
+                        <label class="form-label">Assigned Project Guide ({{ user.profile.department.name }})</label>
                         <select name="guide_id" class="form-select">
-                            <option value="">-- Choose Registered Faculty Guide (or assign later) --</option>
+                            <option value="">-- Select Faculty Guide --</option>
                             {% for g in dept_guides %}
-                            <option value="{{ g.id }}">Prof. {{ g.get_full_name|default:g.username }} ({{ g.profile.identifier }})</option>
+                            <option value="{{ g.id }}" {% if user.profile.preferred_guide_id == g.id %}selected{% endif %}>
+                                {{ g.get_full_name|default:g.username }} (ID: {{ g.profile.identifier }})
+                            </option>
                             {% endfor %}
                         </select>
-                        {% if not dept_guides %}
-                        <div class="small text-muted mt-1">No Faculty Guides have registered in {{ user.profile.department.name }} yet. You can create your group now and assign your guide once they register!</div>
-                        {% endif %}
                     </div>
                     {% if dept_students %}
                     <div class="mb-4">
                         <label class="form-label">Add Classmates from {{ user.profile.department.name }} (Optional)</label>
-                        <select name="teammate_ids" class="form-select" multiple style="height: 110px;">
+                        <select name="teammate_ids" class="form-select" multiple style="min-height: 130px;">
                             {% for s in dept_students %}
-                            <option value="{{ s.id }}">{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})</option>
+                            <option value="{{ s.id }}">{{ s.get_full_name|default:s.username }} (Roll: {{ s.profile.identifier }})</option>
                             {% endfor %}
                         </select>
-                        <div class="small text-muted mt-1">Hold Ctrl/Cmd to select multiple teammates, or share your Join Code after creating.</div>
                     </div>
                     {% endif %}
                     <button type="submit" class="btn-m3-primary w-100">
-                        <i data-lucide="rocket"></i> Create Project Group
+                        <i data-lucide="rocket"></i> Launch Project Group Workspace
                     </button>
                 </form>
             </div>
         </div>
 
-        <!-- Join Existing Group Card -->
         <div class="col-lg-5">
             <div class="m3-card-tonal h-100 d-flex flex-column justify-content-between">
                 <div>
                     <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                        <i data-lucide="key-round" class="text-primary"></i> Option 2: Join Existing Group
+                        <i data-lucide="key-round" style="color:var(--m3-primary);"></i> Option 2: Join Teammate's Group
                     </h4>
-                    <p class="text-muted">If your teammate already created a group in <strong>{{ user.profile.department.name }}</strong>, enter the 6-character Group Join Code below:</p>
-                    <form method="POST" class="mb-4">
+                    <p class="text-muted mb-4">Have a 6-character Group Join Code from a classmate in <strong>{{ user.profile.department.name }}</strong>? Enter it below:</p>
+                    <form method="POST">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="join_group">
-                        <div class="mb-3">
+                        <div class="mb-4">
                             <label class="form-label">Group Join Code</label>
-                            <input type="text" name="join_code" class="form-control text-uppercase fw-bold" placeholder="e.g. PT-8X2A" required>
+                            <input type="text" name="join_code" class="form-control text-uppercase fw-bold" placeholder="e.g. PT-9A4B" required>
                         </div>
                         <button type="submit" class="btn-m3-tonal w-100">
-                            <i data-lucide="user-check"></i> Join Teammate's Group
+                            <i data-lucide="user-check"></i> Join Existing Group
                         </button>
                     </form>
                 </div>
 
                 {% if open_groups %}
-                <div class="border-top pt-3">
-                    <div class="small fw-bold text-muted mb-2">Active Groups in {{ user.profile.department.name }}:</div>
+                <div class="border-top pt-3 mt-4">
+                    <div class="small fw-bold text-muted mb-2">Department Groups:</div>
                     {% for og in open_groups|slice:":4" %}
                     <div class="d-flex justify-content-between align-items-center py-1 small">
                         <span><strong>{{ og.name }}</strong> ({{ og.students.count }} members)</span>
-                        <span class="m3-chip chip-tonal py-1 px-2">{{ og.join_code }}</span>
+                        <span class="m3-chip chip-tonal py-1 px-3">{{ og.join_code }}</span>
                     </div>
                     {% endfor %}
                 </div>
@@ -96,78 +89,73 @@
 </div>
 
 {% else %}
-<!-- ======================================================================= -->
-<!-- STATE B: ACTIVE GROUP WORKSPACE (PROPOSAL, AI SIMILARITY & LOGBOOK)     -->
-<!-- ======================================================================= -->
+<!-- ACTIVE STUDENT GROUP WORKSPACE -->
 <div class="m3-card mb-4">
     <div class="row align-items-center g-4">
         <div class="col-lg-7">
-            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                <span class="m3-chip chip-tonal"><i data-lucide="users" style="width:15px;height:15px;"></i> {{ group.name }}</span>
-                <span class="m3-chip chip-neutral" title="Share this code with teammates to join">
-                    <i data-lucide="hash" style="width:15px;height:15px;"></i> Join Code: <strong>{{ group.join_code }}</strong>
-                </span>
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                <span class="m3-chip chip-tonal"><i data-lucide="users" style="width:16px;height:16px;"></i> {{ group.name }}</span>
+                <span class="m3-chip chip-neutral"><i data-lucide="hash" style="width:16px;height:16px;"></i> Join Code: <strong>{{ group.join_code }}</strong></span>
                 {% if proposal %}
                     {% if proposal.status == 'APPROVED' %}
-                    <span class="m3-chip chip-success"><i data-lucide="check-circle" style="width:15px;height:15px;"></i> Proposal Approved</span>
+                    <span class="m3-chip chip-success"><i data-lucide="check-circle" style="width:16px;height:16px;"></i> Approved</span>
                     {% elif proposal.status == 'CHANGES' %}
-                    <span class="m3-chip chip-danger"><i data-lucide="alert-circle" style="width:15px;height:15px;"></i> Changes Requested</span>
+                    <span class="m3-chip chip-danger"><i data-lucide="alert-circle" style="width:16px;height:16px;"></i> Revisions Requested</span>
                     {% else %}
-                    <span class="m3-chip chip-warning"><i data-lucide="clock" style="width:15px;height:15px;"></i> Pending Guide Review</span>
+                    <span class="m3-chip chip-warning"><i data-lucide="clock" style="width:16px;height:16px;"></i> Pending Review</span>
                     {% endif %}
                 {% endif %}
             </div>
             <h2 class="fw-bold mb-2">{{ proposal.title|default:"Project Proposal Not Submitted Yet" }}</h2>
-            <div class="text-muted d-flex flex-wrap gap-3">
-                <span><strong>Team Members:</strong> {% for s in group.students.all %}{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }}){% if not forloop.last %}, {% endif %}{% endfor %}</span>
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                <span class="text-muted fw-medium me-1">Team Roster:</span>
+                {% for s in group.students.all %}
+                <span class="m3-chip chip-neutral py-1 px-3">
+                    {{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})
+                    {% if s.profile.clean_whatsapp %}
+                    <a href="https://wa.me/{{ s.profile.clean_whatsapp }}?text=Hi%20{{ s.get_full_name|urlencode }},%20connecting%20from%20ProTrack" target="_blank" class="text-success ms-1" title="Chat on WhatsApp"><i data-lucide="message-circle" style="width:15px;height:15px;"></i></a>
+                    {% endif %}
+                </span>
+                {% endfor %}
             </div>
         </div>
 
         <div class="col-lg-5">
-            <div class="m3-card-tonal p-3">
-                <div class="d-flex justify-content-between align-items-center">
+            <div class="m3-card-tonal p-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div>
-                        <div class="small text-muted">Assigned Faculty Guide</div>
+                        <div class="small text-muted">Project Guide</div>
                         {% if group.guide %}
-                        <div class="fw-bold fs-5">Prof. {{ group.guide.get_full_name|default:group.guide.username }}</div>
+                        <div class="fw-bold fs-5">{{ group.guide.get_full_name|default:group.guide.username }}</div>
+                        {% if group.guide.profile.clean_whatsapp %}
+                        <a href="https://wa.me/{{ group.guide.profile.clean_whatsapp }}?text=Hello%20{{ group.guide.get_full_name|urlencode }},%20we%20are%20from%20{{ group.name|urlencode }}" target="_blank" class="btn-whatsapp mt-2">
+                            <i data-lucide="message-circle" style="width:16px;height:16px;"></i> WhatsApp Guide
+                        </a>
+                        {% endif %}
                         {% else %}
-                        <div class="text-danger fw-medium">No Guide Selected Yet</div>
+                        <div class="text-danger fw-bold">Unassigned</div>
                         {% endif %}
                     </div>
                     {% if viva %}
                     <div class="text-end">
                         <div class="small text-muted">Final Viva Grade</div>
-                        <span class="m3-chip chip-success fs-6">{{ viva.total_score }}/100 &bull; {{ viva.grade_badge }}</span>
+                        <span class="m3-chip chip-success fs-5">{{ viva.total_score }}/100 &bull; {{ viva.grade_badge }}</span>
                     </div>
                     {% endif %}
                 </div>
-
-                {% if not group.guide and dept_guides %}
-                <form method="POST" class="mt-3 d-flex gap-2">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="assign_guide">
-                    <select name="guide_id" class="form-select form-select-sm" required>
-                        <option value="">-- Select Registered Department Guide --</option>
-                        {% for g in dept_guides %}
-                        <option value="{{ g.id }}">Prof. {{ g.get_full_name|default:g.username }}</option>
-                        {% endfor %}
-                    </select>
-                    <button type="submit" class="btn-m3-primary py-1 px-3">Assign</button>
-                </form>
-                {% endif %}
             </div>
         </div>
     </div>
 </div>
 
 <div class="row g-4">
-    <!-- LEFT COLUMN: PROPOSAL SUBMISSION & LIVE TF-IDF SIMILARITY ENGINE -->
+    <!-- Proposal & TF-IDF Originality Scanner -->
     <div class="col-lg-7">
         <div class="m3-card h-100">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="fw-bold mb-0 d-flex align-items-center gap-2">
-                    <i data-lucide="file-text" class="text-primary"></i> Project Proposal & AI Originality Check
-                </h4>
+                <h3 class="fw-bold mb-0 d-flex align-items-center gap-2">
+                    <i data-lucide="file-text" style="color:var(--m3-primary);"></i> Proposal & AI Similarity Engine
+                </h3>
                 {% if proposal %}
                 <span class="m3-chip {% if proposal.similarity_score >= 60 %}chip-danger{% elif proposal.similarity_score >= 30 %}chip-warning{% else %}chip-success{% endif %}">
                     Similarity: {{ proposal.similarity_score }}%
@@ -176,9 +164,9 @@
             </div>
 
             {% if proposal.guide_remarks %}
-            <div class="p-3 mb-4 rounded-4" style="background: var(--m3-warning-bg); color: var(--m3-warning-text);">
+            <div class="p-4 mb-4 rounded-4" style="background: var(--m3-warning-bg); color: var(--m3-warning-text);">
                 <div class="fw-bold d-flex align-items-center gap-2 mb-1">
-                    <i data-lucide="message-square-warning"></i> Faculty Guide Remarks:
+                    <i data-lucide="message-square"></i> Guide Feedback:
                 </div>
                 <div>{{ proposal.guide_remarks }}</div>
             </div>
@@ -187,37 +175,36 @@
             <form method="POST" enctype="multipart/form-data">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="submit_proposal">
-                <div class="mb-3">
+                <div class="mb-4">
                     <label class="form-label">Project Title</label>
-                    <input type="text" name="title" id="propTitle" class="form-control" value="{{ proposal.title|default:'' }}" placeholder="Enter descriptive academic project title" required>
+                    <input type="text" name="title" id="propTitle" class="form-control" value="{{ proposal.title|default:'' }}" placeholder="e.g. Cloud-Native Academic Governance Platform" required>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Technical Domain / Area</label>
-                    <input type="text" name="domain" class="form-control" value="{{ proposal.domain|default:'' }}" placeholder="e.g. Machine Learning, Cloud Computing, Cybersecurity, FinTech" required>
+                <div class="mb-4">
+                    <label class="form-label">Technical Domain</label>
+                    <input type="text" name="domain" class="form-control" value="{{ proposal.domain|default:'' }}" placeholder="e.g. Artificial Intelligence, Distributed Systems, Cybersecurity" required>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Detailed Project Abstract</label>
-                    <textarea name="abstract" id="propAbstract" rows="6" class="form-control" placeholder="Describe problem statement, methodology, architecture, and expected outcomes..." required>{{ proposal.abstract|default:'' }}</textarea>
+                <div class="mb-4">
+                    <label class="form-label">Detailed Abstract</label>
+                    <textarea name="abstract" id="propAbstract" rows="6" class="form-control" placeholder="Outline the problem statement, system architecture, algorithms, and expected deliverables..." required>{{ proposal.abstract|default:'' }}</textarea>
                 </div>
 
-                <!-- Live AI TF-IDF Similarity Result Box -->
-                <div id="simResultBox" class="m3-card-tonal p-3 mb-3 d-none">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
+                <div id="simResultBox" class="m3-card-tonal p-4 mb-4 d-none">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
                         <span class="fw-bold d-flex align-items-center gap-2">
-                            <i data-lucide="cpu" class="text-primary"></i> Scikit-Learn TF-IDF Similarity Scan
+                            <i data-lucide="cpu" style="color:var(--m3-primary);"></i> Scikit-Learn TF-IDF Similarity Result
                         </span>
                         <span id="simBadge" class="m3-chip chip-tonal">0%</span>
                     </div>
-                    <div class="small text-muted">Closest Match in Department / Archive: <strong id="simMatch" class="text-dark">None</strong></div>
+                    <div class="small text-muted">Closest Corpus Match: <strong id="simMatch" class="text-dark">None</strong></div>
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label">Attach Synopsis / Blackbook Report (PDF, DOCX, PNG)</label>
-                    <input type="file" name="report_file" class="form-control">
+                    <label class="form-label">Upload Synopsis / Blackbook Documentation (PDF, DOCX, PNG)</label>
+                    <input type="file" name="report_file" class="form-control" accept=".pdf,.docx,.doc,.png,.jpg,.jpeg">
                     {% if proposal.report_file %}
-                    <div class="small mt-2">
-                        <a href="{{ proposal.report_file.url }}" target="_blank" class="text-primary fw-medium text-decoration-none">
-                            <i data-lucide="external-link" style="width:15px;height:15px;"></i> View Currently Uploaded Report File
+                    <div class="mt-2">
+                        <a href="{{ proposal.report_file.url }}" target="_blank" class="btn-m3-outline py-2 px-3 text-decoration-none">
+                            <i data-lucide="external-link"></i> View Uploaded Document
                         </a>
                     </div>
                     {% endif %}
@@ -225,68 +212,68 @@
 
                 <div class="d-flex flex-wrap gap-3">
                     <button type="button" onclick="runSimilarityCheck()" id="btnSimCheck" class="btn-m3-tonal">
-                        <i data-lucide="sparkles"></i> Test Abstract Similarity
+                        <i data-lucide="sparkles"></i> Scan Abstract Originality
                     </button>
                     <button type="submit" class="btn-m3-primary flex-grow-1">
-                        <i data-lucide="send"></i> Save & Submit Proposal to Guide
+                        <i data-lucide="send"></i> Submit Proposal to Guide
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- RIGHT COLUMN: WEEKLY PROGRESS LOGBOOK -->
+    <!-- Weekly Progress Logbook -->
     <div class="col-lg-5">
         <div class="m3-card h-100">
-            <h4 class="fw-bold mb-4 d-flex align-items-center gap-2">
-                <i data-lucide="calendar-check-2" class="text-primary"></i> Weekly Progress Logbook
-            </h4>
+            <h3 class="fw-bold mb-4 d-flex align-items-center gap-2">
+                <i data-lucide="calendar-check" style="color:var(--m3-primary);"></i> Weekly Logbook
+            </h3>
 
-            <form method="POST" class="m3-card-tonal p-3 mb-4">
+            <form method="POST" class="m3-card-tonal p-4 mb-4">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="submit_log">
-                <div class="row g-2 mb-2">
+                <div class="row g-3 mb-3">
                     <div class="col-4">
-                        <label class="form-label small">Week #</label>
+                        <label class="form-label">Week #</label>
                         <input type="number" name="week_number" class="form-control" value="{{ next_week }}" min="1" max="52" required>
                     </div>
                     <div class="col-8">
-                        <label class="form-label small">Milestone Completed</label>
-                        <input type="text" name="tasks_completed" class="form-control" placeholder="e.g. Database schema & UI" required>
+                        <label class="form-label">Tasks Completed</label>
+                        <input type="text" name="tasks_completed" class="form-control" placeholder="e.g. ER diagram & API routes" required>
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small">Next Week Target Plan</label>
-                    <input type="text" name="next_week_plan" class="form-control" placeholder="e.g. API integration & unit tests" required>
+                    <label class="form-label">Next Week Target Plan</label>
+                    <input type="text" name="next_week_plan" class="form-control" placeholder="e.g. Frontend views & testing" required>
                 </div>
-                <button type="submit" class="btn-m3-primary w-100 py-2">
-                    <i data-lucide="plus"></i> Record Weekly Log Entry
+                <button type="submit" class="btn-m3-primary w-100">
+                    <i data-lucide="plus"></i> Add Weekly Log Entry
                 </button>
             </form>
 
-            <div class="d-flex flex-column gap-3" style="max-height: 400px; overflow-y: auto;">
+            <div class="d-flex flex-column gap-3" style="max-height: 440px; overflow-y: auto;">
                 {% for log in logs %}
-                <div class="p-3 border rounded-4 bg-white">
+                <div class="p-4 border rounded-4 bg-white">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="fw-bold">Week {{ log.week_number }}</span>
+                        <span class="fw-bold fs-5">Week {{ log.week_number }}</span>
                         {% if log.is_verified %}
-                        <span class="m3-chip chip-success py-1 px-2"><i data-lucide="check" style="width:14px;height:14px;"></i> Guide Verified</span>
+                        <span class="m3-chip chip-success py-1 px-3"><i data-lucide="check" style="width:15px;height:15px;"></i> Verified</span>
                         {% else %}
-                        <span class="m3-chip chip-warning py-1 px-2">Awaiting Sign-Off</span>
+                        <span class="m3-chip chip-warning py-1 px-3">Pending Sign-Off</span>
                         {% endif %}
                     </div>
-                    <div class="small mb-1"><strong>Completed:</strong> {{ log.tasks_completed }}</div>
-                    <div class="small text-muted"><strong>Next Plan:</strong> {{ log.next_week_plan }}</div>
+                    <div class="mb-1"><strong>Completed:</strong> {{ log.tasks_completed }}</div>
+                    <div class="text-muted"><strong>Next Plan:</strong> {{ log.next_week_plan }}</div>
                     {% if log.guide_feedback %}
-                    <div class="small text-primary mt-2 pt-2 border-top">
-                        <strong>Guide Note:</strong> {{ log.guide_feedback }}
+                    <div class="mt-2 pt-2 border-top" style="color:var(--m3-primary);">
+                        <strong>Guide Remark:</strong> {{ log.guide_feedback }}
                     </div>
                     {% endif %}
                 </div>
                 {% empty %}
-                <div class="text-center py-4 text-muted">
-                    <i data-lucide="clipboard-list" class="mb-2"></i>
-                    <div>No weekly logs recorded yet. Submit Week 1 above!</div>
+                <div class="text-center py-5 text-muted">
+                    <i data-lucide="clipboard-list" class="mb-2" style="width:36px;height:36px;"></i>
+                    <div>No weekly progress logs recorded yet.</div>
                 </div>
                 {% endfor %}
             </div>
@@ -304,21 +291,18 @@ function runSimilarityCheck() {
         return;
     }
     btn.disabled = true;
-    btn.innerText = 'Scanning Department Corpus...';
+    btn.innerText = 'Analyzing Corpus...';
 
     const formData = new FormData();
     formData.append('title', title);
     formData.append('abstract', abstract);
     formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-    fetch("{% url 'api_check_similarity' %}", {
-        method: 'POST',
-        body: formData
-    })
+    fetch("{% url 'api_check_similarity' %}", { method: 'POST', body: formData })
     .then(r => r.json())
     .then(data => {
         btn.disabled = false;
-        btn.innerHTML = '<i data-lucide="sparkles"></i> Test Abstract Similarity';
+        btn.innerHTML = '<i data-lucide="sparkles"></i> Scan Abstract Originality';
         lucide.createIcons();
 
         const box = document.getElementById('simResultBox');

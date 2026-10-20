@@ -1,0 +1,308 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <div class="m3-chip chip-tonal mb-2">
+            <i data-lucide="shield-check" style="width:16px;height:16px;"></i>
+            Verified Institution Admin &bull; ID: {{ user.profile.identifier }}
+        </div>
+        <h1 class="fw-bold mb-1">Institution Governance & Role Command Center</h1>
+        <div class="text-muted">Manage Descending Hierarchy (University &rarr; College &rarr; Department), Promote Guides to Examiners, and Audit Datasets</div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'examiner_dashboard' %}" class="btn-m3-tonal text-decoration-none">
+            <i data-lucide="bar-chart-3"></i> Open Examiner & HOD Analytics
+        </a>
+        <a href="{% url 'export_department_csv' %}" class="btn-m3-primary text-decoration-none">
+            <i data-lucide="download"></i> Export Master CSV
+        </a>
+    </div>
+</div>
+
+<!-- 1. DESCENDING INSTITUTIONAL HIERARCHY BUILDER -->
+<div class="m3-card mb-5">
+    <h3 class="fw-bold mb-2 d-flex align-items-center gap-2">
+        <i data-lucide="git-branch-plus" style="color:var(--m3-primary);"></i> 1. Descending Hierarchy Engine (University &rarr; College &rarr; Department)
+    </h3>
+    <p class="text-muted mb-4">Any University, College, or Department added here is immediately reflected in descending order on Student and Faculty Guide registration dropdowns.</p>
+
+    <div class="row g-4">
+        <!-- Add University -->
+        <div class="col-lg-4">
+            <div class="m3-card-tonal h-100">
+                <h5 class="fw-bold mb-3">Step A: Register University</h5>
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_university">
+                    <div class="mb-3">
+                        <label class="form-label">University Name</label>
+                        <input type="text" name="university_name" class="form-control" placeholder="e.g. State Technological University" required>
+                    </div>
+                    <button type="submit" class="btn-m3-primary w-100">
+                        <i data-lucide="plus"></i> Add University
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add College -->
+        <div class="col-lg-4">
+            <div class="m3-card-tonal h-100">
+                <h5 class="fw-bold mb-3">Step B: Add College under University</h5>
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_college">
+                    <div class="mb-3">
+                        <label class="form-label">Select Parent University</label>
+                        <select name="university_id" class="form-select" required>
+                            {% for u in all_universities %}
+                            <option value="{{ u.id }}">{{ u.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">College / Institute Name</label>
+                        <input type="text" name="college_name" class="form-control" placeholder="e.g. Institute of Engineering & Science" required>
+                    </div>
+                    <button type="submit" class="btn-m3-primary w-100">
+                        <i data-lucide="plus"></i> Add College
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add Department -->
+        <div class="col-lg-4">
+            <div class="m3-card-tonal h-100">
+                <h5 class="fw-bold mb-3">Step C: Add Department under College</h5>
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_department">
+                    <div class="mb-3">
+                        <label class="form-label">Select Parent College</label>
+                        <select name="college_id" class="form-select" required>
+                            {% for c in all_colleges %}
+                            <option value="{{ c.id }}">{{ c.name }} ({{ c.university.name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Department Name</label>
+                        <input type="text" name="department_name" class="form-control" placeholder="e.g. Department of Computer Science" required>
+                    </div>
+                    <button type="submit" class="btn-m3-primary w-100">
+                        <i data-lucide="plus"></i> Publish Department
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- GLOBAL DATASET FILTER BAR -->
+<div class="m3-card-tonal p-4 mb-4">
+    <form method="GET" class="row g-3 align-items-end">
+        <div class="col-md-5">
+            <label class="form-label">Filter Datasets by Department</label>
+            <select name="dept_id" class="form-select" onchange="this.form.submit()">
+                <option value="">All Departments ({{ all_departments.count }})</option>
+                {% for d in all_departments %}
+                <option value="{{ d.id }}" {% if dept_filter == d.id|stringformat:"s" %}selected{% endif %}>
+                    {{ d.university.name }} {{ d.college.name }} &rarr; {{ d.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-5">
+            <label class="form-label">Search by Name or ID</label>
+            <input type="text" name="q" class="form-control" value="{{ search_q }}" placeholder="e.g. John Doe, FAC-101, CS-2026-01...">
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn-m3-primary w-100">
+                <i data-lucide="search"></i> Filter
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- 2. FACULTY GUIDES & EXAMINER PROMOTION / DEMOTION TABLE -->
+<div class="m3-card mb-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                <i data-lucide="award" style="color:var(--m3-primary);"></i> 2. Faculty Guides & Examiner Role Assignment
+            </h3>
+            <div class="text-muted">Promote any registered Faculty Guide to External Examiner (unlocks HOD Analytics & Viva Grading) or demote them in one click.</div>
+        </div>
+        <span class="m3-chip chip-tonal">Active Examiners: {{ examiners_count }}</span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead class="text-muted">
+                <tr>
+                    <th>Faculty Guide</th>
+                    <th>Faculty ID</th>
+                    <th>University &rarr; College &rarr; Department</th>
+                    <th>WhatsApp & Socials</th>
+                    <th>Current Role Status</th>
+                    <th class="text-end">Examiner Governance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in guides_qs %}
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="avatar-circle">
+                                {% if g.avatar %}<img src="{{ g.avatar.url }}" alt="Avatar">{% else %}{{ g.initials }}{% endif %}
+                            </span>
+                            <div>
+                                <div class="fw-bold">{{ g.user.get_full_name|default:g.user.username }}</div>
+                                <div class="small text-muted">@{{ g.user.username }} &bull; {{ g.user.email }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="m3-chip chip-neutral">{{ g.identifier }}</span></td>
+                    <td>
+                        <div class="fw-medium">{{ g.department.name }}</div>
+                        <div class="small text-muted">{{ g.college.name }} ({{ g.university.name }})</div>
+                    </td>
+                    <td>
+                        {% if g.clean_whatsapp %}
+                        <a href="https://wa.me/{{ g.clean_whatsapp }}" target="_blank" class="btn-whatsapp py-1 px-3">
+                            <i data-lucide="message-circle" style="width:15px;height:15px;"></i> Chat
+                        </a>
+                        {% else %}
+                        <span class="text-muted small">Not linked</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if g.is_examiner %}
+                        <span class="m3-chip chip-success"><i data-lucide="check-circle" style="width:15px;height:15px;"></i> Guide + External Examiner</span>
+                        {% else %}
+                        <span class="m3-chip chip-tonal">Faculty Guide</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <form method="POST" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="toggle_examiner">
+                            <input type="hidden" name="profile_id" value="{{ g.id }}">
+                            {% if g.is_examiner %}
+                            <button type="submit" class="btn-m3-outline text-danger border-danger py-2 px-3" style="min-height:44px;">
+                                <i data-lucide="arrow-down-circle"></i> Demote from Examiner
+                            </button>
+                            {% else %}
+                            <button type="submit" class="btn-m3-primary py-2 px-3" style="min-height:44px;">
+                                <i data-lucide="arrow-up-circle"></i> Promote to Examiner
+                            </button>
+                            {% endif %}
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">No Faculty Guides registered matching this filter yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 3. COMPREHENSIVE STUDENT ROSTER & ADMIN ID VERIFICATION LOG -->
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="m3-card h-100">
+            <h3 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="graduation-cap" style="color:var(--m3-primary);"></i> 3. Enrolled Students Dataset
+            </h3>
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead class="text-muted">
+                        <tr>
+                            <th>Student</th>
+                            <th>Roll Call & Class</th>
+                            <th>Department</th>
+                            <th>Selected Guide</th>
+                            <th>WhatsApp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in students_qs %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold">{{ s.user.get_full_name|default:s.user.username }}</div>
+                                <div class="small text-muted">@{{ s.user.username }}</div>
+                            </td>
+                            <td>
+                                <span class="m3-chip chip-neutral py-1 px-2">{{ s.identifier }}</span>
+                                <span class="small text-muted ms-1">{{ s.class_division }}</span>
+                            </td>
+                            <td>
+                                <div class="fw-medium">{{ s.department.name }}</div>
+                                <div class="small text-muted">{{ s.college.name }}</div>
+                            </td>
+                            <td>
+                                {% if s.preferred_guide %}
+                                <span class="fw-medium">{{ s.preferred_guide.get_full_name|default:s.preferred_guide.username }}</span>
+                                {% else %}
+                                <span class="text-muted small">Unassigned</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if s.clean_whatsapp %}
+                                <a href="https://wa.me/{{ s.clean_whatsapp }}" target="_blank" class="btn-whatsapp py-1 px-2">
+                                    <i data-lucide="message-circle" style="width:15px;height:15px;"></i> WhatsApp
+                                </a>
+                                {% else %}
+                                <span class="text-muted small">&mdash;</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">No students registered matching this filter yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Verified Admins & ID Proof Audit -->
+    <div class="col-lg-4">
+        <div class="m3-card h-100">
+            <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="shield-alert" style="color:var(--m3-primary);"></i> Verified Admin ID Proofs
+            </h4>
+            <p class="small text-muted mb-3">Every Admin account requires Front & Back official ID verification.</p>
+            <div class="d-flex flex-column gap-3">
+                {% for adm in admins_qs %}
+                <div class="p-3 border rounded-4 bg-white">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="fw-bold">{{ adm.user.get_full_name|default:adm.user.username }}</div>
+                        <span class="m3-chip chip-success py-1 px-2 small">ID: {{ adm.identifier }}</span>
+                    </div>
+                    <div class="small text-muted mb-2">{{ adm.university.name }} &bull; {{ adm.college.name }}</div>
+                    <div class="d-flex gap-2">
+                        {% if adm.id_proof_front %}
+                        <a href="{{ adm.id_proof_front.url }}" target="_blank" class="btn-m3-outline py-1 px-3 small text-decoration-none" style="min-height:38px;">
+                            <i data-lucide="eye" style="width:15px;height:15px;"></i> Front ID
+                        </a>
+                        {% endif %}
+                        {% if adm.id_proof_back %}
+                        <a href="{{ adm.id_proof_back.url }}" target="_blank" class="btn-m3-outline py-1 px-3 small text-decoration-none" style="min-height:38px;">
+                            <i data-lucide="eye" style="width:15px;height:15px;"></i> Back ID
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

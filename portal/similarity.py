@@ -5,24 +5,24 @@ from .models import PastProjectArchive, ProjectProposal
 
 FALLBACK_CORPUS = [
     {
-        "title": "Automated Student Attendance System Using Facial Recognition (2024)",
-        "abstract": "An automated classroom attendance monitoring application built with OpenCV, Haar cascades, and deep metric face encodings to mark student attendance in real time via webcam feeds and export CSV sheets."
+        "title": "Automated Attendance System Using Computer Vision (2024)",
+        "abstract": "An automated classroom attendance monitoring application built with OpenCV and deep metric facial encodings to mark student attendance in real time via camera feeds and export CSV sheets."
     },
     {
-        "title": "Smart Campus Placement & Alumni Recruitment Portal (2024)",
-        "abstract": "A centralized web platform connecting final-year students with corporate recruiters, featuring resume parsing, CGPA eligibility filtering, interview scheduling, and automated placement analytics."
+        "title": "Campus Placement & Recruitment Management Portal (2024)",
+        "abstract": "A centralized web platform connecting graduating students with recruiters, featuring resume parsing, GPA eligibility filtering, interview scheduling, and placement analytics."
     },
     {
-        "title": "Blockchain-Based Academic Certificate Verification System (2025)",
-        "abstract": "A decentralized tamper-proof credential verification portal using smart contracts and cryptographic SHA-256 hashes to eliminate fake university diplomas and enable instant employer validation."
+        "title": "Decentralized Academic Credential Verification Platform (2025)",
+        "abstract": "A tamper-proof academic certificate verification portal using cryptographic SHA-256 hashes and smart contracts to eliminate counterfeit diplomas and enable instant employer validation."
     },
     {
-        "title": "Hospital Patient Queue & E-Prescription Management System (2025)",
-        "abstract": "A healthcare web application enabling patients to book OPD appointments online, track live doctor consultation queues, and generate digital prescriptions with pharmacy inventory alerts."
+        "title": "Smart Hospital Outpatient Queue & E-Prescription System (2025)",
+        "abstract": "A clinical web application enabling patients to book appointments online, track live consultation queues, and generate digital prescriptions with automated inventory alerts."
     },
     {
-        "title": "AI-Powered Crop Disease Detection and Farmer Advisory App (2025)",
-        "abstract": "A machine learning agricultural support portal where farmers upload leaf images to detect plant diseases using convolutional neural networks and receive localized fertilizer treatment recommendations."
+        "title": "Machine Learning Crop Disease Detection Advisory System (2025)",
+        "abstract": "An agricultural support portal where users upload plant leaf images to classify diseases using convolutional neural networks and receive localized treatment recommendations."
     }
 ]
 
@@ -43,11 +43,10 @@ def jaccard_token_overlap(t1, t2):
 def check_abstract_similarity(new_title, new_abstract, department=None, exclude_group_id=None):
     query_combined = clean_text(f"{new_title} {new_title} {new_abstract}")
     if len(query_combined.split()) < 4:
-        return {"score": 0.0, "closest_match": "Insufficient text length", "risk": "LOW"}
+        return {"score": 0.0, "closest_match": "Provide at least 4 words for analysis", "risk": "LOW"}
 
     corpus_records = []
 
-    # 1. Department Past Archives
     archives = PastProjectArchive.objects.filter(department=department) if department else PastProjectArchive.objects.all()
     for a in archives:
         corpus_records.append({
@@ -56,7 +55,6 @@ def check_abstract_similarity(new_title, new_abstract, department=None, exclude_
             "raw_title": a.title
         })
 
-    # 2. Existing Peer Proposals in the same Department
     proposals = ProjectProposal.objects.all()
     if department:
         proposals = proposals.filter(group__department=department)
@@ -70,16 +68,12 @@ def check_abstract_similarity(new_title, new_abstract, department=None, exclude_
             "raw_title": p.title
         })
 
-    # 3. Fallback Baseline Benchmark Corpus so fresh departments still get instant AI analysis
     for item in FALLBACK_CORPUS:
         corpus_records.append({
             "title": item["title"],
             "text": clean_text(f"{item['title']} {item['title']} {item['abstract']}"),
             "raw_title": item["title"]
         })
-
-    if not corpus_records:
-        return {"score": 0.0, "closest_match": "No matches found", "risk": "LOW"}
 
     documents = [r["text"] for r in corpus_records] + [query_combined]
 
@@ -114,7 +108,7 @@ def check_abstract_similarity(new_title, new_abstract, department=None, exclude_
 
         return {
             "score": best_score,
-            "closest_match": best_match if best_score >= 8.0 else "Unique Concept (No significant overlap)",
+            "closest_match": best_match if best_score >= 8.0 else "Unique Concept (Low Overlap)",
             "risk": risk
         }
     except Exception:

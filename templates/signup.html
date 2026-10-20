@@ -1,14 +1,45 @@
 {% extends 'base.html' %}
 {% block content %}
+<style>
+    .role-tab-btn {
+        cursor: pointer;
+        border: 2px solid var(--m3-border);
+        border-radius: 24px;
+        padding: 24px;
+        background: #FFFFFF;
+        transition: all 0.22s ease;
+    }
+    .role-tab-btn.active {
+        border-color: var(--m3-primary);
+        background: var(--m3-primary-container);
+        box-shadow: 0 8px 24px rgba(94, 53, 177, 0.15);
+    }
+    .suggestion-pill {
+        cursor: pointer;
+        background: var(--m3-primary-container);
+        color: var(--m3-on-primary-container);
+        padding: 6px 16px;
+        border-radius: 999px;
+        font-size: 0.92rem;
+        font-weight: 600;
+        border: 1px solid rgba(94, 53, 177, 0.2);
+        transition: all 0.15s ease;
+    }
+    .suggestion-pill:hover {
+        background: var(--m3-primary);
+        color: #FFFFFF;
+    }
+</style>
+
 <div class="row justify-content-center">
-    <div class="col-xl-9">
+    <div class="col-xl-10">
         <div class="m3-card">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-3 border-bottom">
                 <div class="d-flex align-items-center gap-3">
                     <div class="brand-icon-box"><i data-lucide="user-plus"></i></div>
                     <div>
                         <h2 class="mb-0 fw-bold">Create Your ProTrack Account</h2>
-                        <div class="text-muted">Select your role and connect to your University &rarr; College &rarr; Department</div>
+                        <div class="text-muted">Role-tailored onboarding with cascading institutional verification</div>
                     </div>
                 </div>
                 <a href="{% url 'login' %}" class="btn-m3-outline text-decoration-none">
@@ -16,130 +47,193 @@
                 </a>
             </div>
 
-            <form method="POST" id="signupForm">
+            <form method="POST" enctype="multipart/form-data" id="signupForm">
                 {% csrf_token %}
+                <input type="hidden" name="role" id="selectedRole" value="STUDENT">
 
-                <!-- STEP 1: ROLE SELECTION -->
-                <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                    <i data-lucide="badge-check" class="text-primary"></i> 1. Choose Your Academic Role
-                </h5>
-                <div class="row g-3 mb-4">
-                    <div class="col-md-3 col-sm-6">
-                        <label class="m3-card-tonal p-3 w-100 h-100 d-block" style="cursor:pointer;">
-                            <input type="radio" name="role" value="STUDENT" class="form-check-input me-2" checked>
-                            <strong class="d-block mt-1">Student</strong>
-                            <span class="small text-muted">Create/join groups, test abstracts & log tasks</span>
-                        </label>
+                <!-- 1. ROLE SELECTOR CARDS -->
+                <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                    <i data-lucide="layers" style="color:var(--m3-primary);"></i> 1. Select Your Role
+                </h4>
+                <div class="row g-3 mb-5">
+                    <div class="col-md-4">
+                        <div class="role-tab-btn active h-100" id="tab_STUDENT" onclick="selectRole('STUDENT')">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="m3-chip chip-tonal py-1 px-3">Student</span>
+                                <i data-lucide="graduation-cap" style="color:var(--m3-primary);"></i>
+                            </div>
+                            <h5 class="fw-bold mb-1">Student</h5>
+                            <div class="small text-muted">Select your Admin-registered University, College, Department & Project Guide.</div>
+                        </div>
                     </div>
-                    <div class="col-md-3 col-sm-6">
-                        <label class="m3-card-tonal p-3 w-100 h-100 d-block" style="cursor:pointer;">
-                            <input type="radio" name="role" value="GUIDE" class="form-check-input me-2">
-                            <strong class="d-block mt-1">Faculty Guide</strong>
-                            <span class="small text-muted">Mentor student groups, approve proposals & logs</span>
-                        </label>
+                    <div class="col-md-4">
+                        <div class="role-tab-btn h-100" id="tab_GUIDE" onclick="selectRole('GUIDE')">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="m3-chip chip-tonal py-1 px-3">Faculty Guide</span>
+                                <i data-lucide="book-open-check" style="color:var(--m3-primary);"></i>
+                            </div>
+                            <h5 class="fw-bold mb-1">Faculty Guide</h5>
+                            <div class="small text-muted">Join your Department to mentor students. Can be promoted to Examiner by Admin.</div>
+                        </div>
                     </div>
-                    <div class="col-md-3 col-sm-6">
-                        <label class="m3-card-tonal p-3 w-100 h-100 d-block" style="cursor:pointer;">
-                            <input type="radio" name="role" value="COORDINATOR" class="form-check-input me-2">
-                            <strong class="d-block mt-1">Coordinator / HOD</strong>
-                            <span class="small text-muted">Manage department, AI archives & analytics</span>
-                        </label>
-                    </div>
-                    <div class="col-md-3 col-sm-6">
-                        <label class="m3-card-tonal p-3 w-100 h-100 d-block" style="cursor:pointer;">
-                            <input type="radio" name="role" value="EXAMINER" class="form-check-input me-2">
-                            <strong class="d-block mt-1">External Examiner</strong>
-                            <span class="small text-muted">Evaluate projects & grade final viva rubrics</span>
-                        </label>
+                    <div class="col-md-4">
+                        <div class="role-tab-btn h-100" id="tab_ADMIN" onclick="selectRole('ADMIN')">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="m3-chip chip-tonal py-1 px-3">Verified Admin</span>
+                                <i data-lucide="shield-check" style="color:var(--m3-primary);"></i>
+                            </div>
+                            <h5 class="fw-bold mb-1">Institution Admin</h5>
+                            <div class="small text-muted">Register Universities, Colleges & Departments. Requires Front & Back ID Proof.</div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- STEP 2: DESCENDING INSTITUTIONAL HIERARCHY -->
-                <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                    <i data-lucide="building-2" class="text-primary"></i> 2. Institution Hierarchy (University &rarr; College &rarr; Department)
-                </h5>
+                <!-- 2. PERSONAL & ACCOUNT CREDENTIALS (WITH LIVE USERNAME SUGGESTIONS) -->
+                <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                    <i data-lucide="user-check" style="color:var(--m3-primary);"></i> 2. Personal & Account Details
+                </h4>
+                <div class="row g-4 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" name="full_name" id="fullNameInput" class="form-control" placeholder="e.g. John Doe" oninput="generateUsernameSuggestions()" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Email Address</label>
+                        <input type="email" name="email" class="form-control" placeholder="e.g. johndoe@example.com" required>
+                    </div>
+
+                    <!-- Dynamic ID Label based on Role -->
+                    <div class="col-md-4">
+                        <label class="form-label" id="idFieldLabel">Roll Call Number</label>
+                        <input type="text" name="identifier" id="idFieldInput" class="form-control" placeholder="e.g. CS-2026-01" oninput="generateUsernameSuggestions()" required>
+                    </div>
+
+                    <!-- Student-Only Class/Division Field -->
+                    <div class="col-md-4" id="studentClassWrap">
+                        <label class="form-label">Class / Division</label>
+                        <input type="text" name="class_division" class="form-control" placeholder="e.g. TY-BSc-CS" value="TY-CS-A">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">WhatsApp Number (Optional)</label>
+                        <input type="text" name="whatsapp_number" class="form-control" placeholder="e.g. +1 555 234 5678">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Username</label>
+                        <input type="text" name="username" id="usernameInput" class="form-control" placeholder="e.g. johndoe" required>
+                        <div class="mt-2 d-flex flex-wrap align-items-center gap-2" id="suggestionBar">
+                            <span class="small text-muted">Suggested:</span>
+                            <span class="suggestion-pill" onclick="pickUsername('johndoe')">@johndoe</span>
+                            <span class="suggestion-pill" onclick="pickUsername('john.doe01')">@john.doe01</span>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Password (Min. 6 characters)</label>
+                        <input type="password" name="password" class="form-control" placeholder="Create a strong password" minlength="6" required>
+                    </div>
+                </div>
+
+                <!-- 3. INSTITUTION HIERARCHY (UNIVERSITY -> COLLEGE -> DEPARTMENT) -->
+                <h4 class="fw-bold mb-3 mt-5 d-flex align-items-center gap-2">
+                    <i data-lucide="building-2" style="color:var(--m3-primary);"></i> 3. Institution Hierarchy (University &rarr; College &rarr; Department)
+                </h4>
+
+                {% if not departments %}
+                <div class="p-4 rounded-4 mb-4" id="noInstAlert" style="background: var(--m3-warning-bg); color: var(--m3-warning-text);">
+                    <div class="fw-bold d-flex align-items-center gap-2">
+                        <i data-lucide="alert-triangle"></i> No Universities or Departments Registered Yet
+                    </div>
+                    <div class="small mt-1">If you are the Institution Admin setting up ProTrack for the first time, select <strong>Institution Admin</strong> in Step 1 above to create your University, College, and Department.</div>
+                </div>
+                {% endif %}
+
                 <div class="m3-card-tonal mb-4">
                     <div class="row g-4">
                         <!-- University -->
                         <div class="col-md-4">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="form-label mb-0">University</label>
-                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" onclick="toggleNewField('uni')">+ Add New</button>
-                            </div>
-                            <select name="university_id" id="uniSelect" class="form-select mb-2" onchange="filterColleges()">
+                            <label class="form-label">University</label>
+                            <select name="university_id" id="uniSelect" class="form-select" onchange="filterColleges()">
                                 <option value="">-- Select University --</option>
                                 {% for u in universities %}
                                 <option value="{{ u.id }}">{{ u.name }}</option>
                                 {% endfor %}
                             </select>
-                            <input type="text" name="new_university" id="uniInput" class="form-control {% if universities %}d-none{% endif %}" placeholder="Or type new University name...">
+                            <div class="mt-2 d-none" id="adminNewUniWrap">
+                                <input type="text" name="new_university" class="form-control" placeholder="Or register new University name...">
+                            </div>
                         </div>
 
                         <!-- College -->
                         <div class="col-md-4">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="form-label mb-0">College / Institute</label>
-                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" onclick="toggleNewField('col')">+ Add New</button>
-                            </div>
-                            <select name="college_id" id="colSelect" class="form-select mb-2" onchange="filterDepartments()">
+                            <label class="form-label">College / Institute</label>
+                            <select name="college_id" id="colSelect" class="form-select" onchange="filterDepartments()">
                                 <option value="">-- Select College --</option>
                                 {% for c in colleges %}
                                 <option value="{{ c.id }}" data-uni="{{ c.university_id }}">{{ c.name }}</option>
                                 {% endfor %}
                             </select>
-                            <input type="text" name="new_college" id="colInput" class="form-control {% if colleges %}d-none{% endif %}" placeholder="Or type new College name...">
+                            <div class="mt-2 d-none" id="adminNewColWrap">
+                                <input type="text" name="new_college" class="form-control" placeholder="Or register new College name...">
+                            </div>
                         </div>
 
                         <!-- Department -->
                         <div class="col-md-4">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="form-label mb-0">Department</label>
-                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" onclick="toggleNewField('dept')">+ Add New</button>
-                            </div>
-                            <select name="department_id" id="deptSelect" class="form-select mb-2">
+                            <label class="form-label">Department</label>
+                            <select name="department_id" id="deptSelect" class="form-select" onchange="filterGuides()">
                                 <option value="">-- Select Department --</option>
                                 {% for d in departments %}
                                 <option value="{{ d.id }}" data-col="{{ d.college_id }}">{{ d.name }}</option>
                                 {% endfor %}
                             </select>
-                            <input type="text" name="new_department" id="deptInput" class="form-control {% if departments %}d-none{% endif %}" placeholder="e.g. Computer Science">
+                            <div class="mt-2 d-none" id="adminNewDeptWrap">
+                                <input type="text" name="new_department" class="form-control" placeholder="Or register new Department name...">
+                            </div>
+                        </div>
+
+                        <!-- Student-Only: Select Project Guide from Department -->
+                        <div class="col-md-12" id="studentGuideWrap">
+                            <label class="form-label">Select Project Guide (Filtered by Your Chosen Department)</label>
+                            <select name="preferred_guide_id" id="guideSelect" class="form-select">
+                                <option value="">-- Select Your Faculty Project Guide (or assign later) --</option>
+                                {% for g in guides_list %}
+                                <option value="{{ g.user.id }}" data-dept="{{ g.department_id }}">
+                                    {{ g.user.get_full_name|default:g.user.username }} (ID: {{ g.identifier }} &bull; {{ g.department.name }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="small text-muted mt-2">
+                                <i data-lucide="info" style="width:15px;height:15px;"></i>
+                                Only Faculty Guides registered under your selected Department appear here.
+                            </div>
                         </div>
                     </div>
-                    <div class="small text-muted mt-3">
-                        <i data-lucide="info" style="width:15px;height:15px;"></i>
-                        If your University, College, or Department isn't listed yet, click <strong>+ Add New</strong> above to register it dynamically. All students and faculty who select the same department are automatically linked.
+                </div>
+
+                <!-- 4. ADMIN-ONLY: MANDATORY FRONT & BACK ID PROOF VERIFICATION -->
+                <div class="m3-card-tonal mb-4 d-none" id="adminProofSection">
+                    <h5 class="fw-bold mb-2 d-flex align-items-center gap-2" style="color:var(--m3-primary);">
+                        <i data-lucide="IdCard"></i> 4. Mandatory Admin Identity Verification (Front & Back ID Proof)
+                    </h5>
+                    <p class="text-muted small mb-3">
+                        To verify your authenticity as an authorized Institution Admin and prevent unauthorized role access, please upload both the Front and Back of your official institution ID card.
+                    </p>
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Official Admin ID Proof — Front Side (Image/PDF)</label>
+                            <input type="file" name="id_proof_front" id="proofFront" class="form-control" accept=".jpg,.jpeg,.png,.webp,.pdf">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Official Admin ID Proof — Back Side (Image/PDF)</label>
+                            <input type="file" name="id_proof_back" id="proofBack" class="form-control" accept=".jpg,.jpeg,.png,.webp,.pdf">
+                        </div>
                     </div>
                 </div>
 
-                <!-- STEP 3: PERSONAL CREDENTIALS -->
-                <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                    <i data-lucide="user-check" class="text-primary"></i> 3. Personal & Login Details
-                </h5>
-                <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <label class="form-label">Full Name</label>
-                        <input type="text" name="full_name" class="form-control" placeholder="e.g. Prof. Saurabh Pagar or Ahmed Raza" required>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Roll No. / Faculty ID</label>
-                        <input type="text" name="identifier" class="form-control" placeholder="e.g. TY-CS-01 or FAC-101" required>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Class / Division</label>
-                        <input type="text" name="class_division" class="form-control" value="TY-CS-A">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Choose Username</label>
-                        <input type="text" name="username" class="form-control" placeholder="e.g. ahmed_cs" required>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Create Password</label>
-                        <input type="password" name="password" class="form-control" placeholder="Minimum 6 characters" required>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn-m3-primary w-100 py-3">
-                    <i data-lucide="sparkles"></i> Complete Registration & Launch Workspace
+                <button type="submit" class="btn-m3-primary w-100 py-3 mt-2 fs-5">
+                    <i data-lucide="sparkles"></i> Complete Role-Verified Registration
                 </button>
             </form>
         </div>
@@ -147,10 +241,70 @@
 </div>
 
 <script>
-function toggleNewField(prefix) {
-    const input = document.getElementById(prefix + 'Input');
-    input.classList.toggle('d-none');
-    if (!input.classList.contains('d-none')) input.focus();
+function selectRole(role) {
+    document.getElementById('selectedRole').value = role;
+    ['STUDENT', 'GUIDE', 'ADMIN'].forEach(r => {
+        document.getElementById('tab_' + r).classList.toggle('active', r === role);
+    });
+
+    const idLabel = document.getElementById('idFieldLabel');
+    const idInput = document.getElementById('idFieldInput');
+    const studentClassWrap = document.getElementById('studentClassWrap');
+    const studentGuideWrap = document.getElementById('studentGuideWrap');
+    const adminProofSection = document.getElementById('adminProofSection');
+    const adminNewUniWrap = document.getElementById('adminNewUniWrap');
+    const adminNewColWrap = document.getElementById('adminNewColWrap');
+    const adminNewDeptWrap = document.getElementById('adminNewDeptWrap');
+
+    if (role === 'STUDENT') {
+        idLabel.innerText = 'Roll Call Number';
+        idInput.placeholder = 'e.g. CS-2026-01';
+        studentClassWrap.classList.remove('d-none');
+        studentGuideWrap.classList.remove('d-none');
+        adminProofSection.classList.add('d-none');
+        adminNewUniWrap.classList.add('d-none');
+        adminNewColWrap.classList.add('d-none');
+        adminNewDeptWrap.classList.add('d-none');
+    } else if (role === 'GUIDE') {
+        idLabel.innerText = 'Faculty / Department ID';
+        idInput.placeholder = 'e.g. FAC-101';
+        studentClassWrap.classList.add('d-none');
+        studentGuideWrap.classList.add('d-none');
+        adminProofSection.classList.add('d-none');
+        adminNewUniWrap.classList.add('d-none');
+        adminNewColWrap.classList.add('d-none');
+        adminNewDeptWrap.classList.add('d-none');
+    } else if (role === 'ADMIN') {
+        idLabel.innerText = 'Official Admin ID';
+        idInput.placeholder = 'e.g. ADM-001';
+        studentClassWrap.classList.add('d-none');
+        studentGuideWrap.classList.add('d-none');
+        adminProofSection.classList.remove('d-none');
+        adminNewUniWrap.classList.remove('d-none');
+        adminNewColWrap.classList.remove('d-none');
+        adminNewDeptWrap.classList.remove('d-none');
+    }
+    generateUsernameSuggestions();
+}
+
+function generateUsernameSuggestions() {
+    const rawName = document.getElementById('fullNameInput').value.trim().toLowerCase().replace(/[^a-z0-9\s]/g, '');
+    const rawId = document.getElementById('idFieldInput').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const parts = rawName.split(/\s+/).filter(Boolean);
+
+    let base = parts.length > 0 ? parts.join('') : 'johndoe';
+    let dotName = parts.length > 1 ? (parts[0] + '.' + parts[parts.length - 1]) : (base + '.user');
+    let idCombo = (parts[0] || 'user') + '_' + (rawId || '2026');
+
+    const bar = document.getElementById('suggestionBar');
+    bar.innerHTML = '<span class="small text-muted">Click to use:</span>' +
+        `<span class="suggestion-pill" onclick="pickUsername('${base}')">@${base}</span>` +
+        `<span class="suggestion-pill" onclick="pickUsername('${dotName}')">@${dotName}</span>` +
+        `<span class="suggestion-pill" onclick="pickUsername('${idCombo}')">@${idCombo}</span>`;
+}
+
+function pickUsername(val) {
+    document.getElementById('usernameInput').value = val;
 }
 
 function filterColleges() {
@@ -172,6 +326,18 @@ function filterDepartments() {
         opt.hidden = colId && opt.getAttribute('data-col') !== colId;
     });
     deptSelect.value = '';
+    filterGuides();
+}
+
+function filterGuides() {
+    const deptId = document.getElementById('deptSelect').value;
+    const guideSelect = document.getElementById('guideSelect');
+    if (!guideSelect) return;
+    Array.from(guideSelect.options).forEach(opt => {
+        if (!opt.value) return;
+        opt.hidden = deptId && opt.getAttribute('data-dept') !== deptId;
+    });
+    guideSelect.value = '';
 }
 </script>
 {% endblock %}

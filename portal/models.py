@@ -1,3 +1,4 @@
+import re
 import random
 import string
 from django.db import models
@@ -6,8 +7,26 @@ from django.contrib.auth.models import User
 def generate_join_code():
     return 'PT-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
 
+def normalize_whatsapp(raw_phone):
+    if not raw_phone:
+        return ''
+    digits = re.sub(r'[^0-9]', '', str(raw_phone))
+    if len(digits) == 10:
+        return '91' + digits
+    return digits
+
+def format_social_url(handle_or_url, base_domain):
+    if not handle_or_url:
+        return ''
+    val = handle_or_url.strip()
+    if val.startswith('http://') or val.startswith('https://'):
+        return val
+    val = val.lstrip('@').strip('/')
+    return f"https://{base_domain}/{val}"
+
 class University(models.Model):
     name = models.CharField(max_length=200, unique=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -45,16 +64,67 @@ class UserProfile(models.Model):
     ROLE_CHOICES = [
         ('STUDENT', 'Student'),
         ('GUIDE', 'Faculty Guide'),
-        ('COORDINATOR', 'Department Coordinator'),
-        ('EXAMINER', 'External Examiner'),
+        ('ADMIN', 'Institution Admin'),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='STUDENT')
+    is_examiner = models.BooleanField(default=False, help_text="Assigned by Admin to Faculty Guides")
+
     university = models.ForeignKey(University, on_delete=models.SET_NULL, null=True, blank=True)
     college = models.ForeignKey(College, on_delete=models.SET_NULL, null=True, blank=True)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True)
-    identifier = models.CharField(max_length=50, blank=True, help_text="Roll Number or Faculty ID")
-    class_division = models.CharField(max_length=50, blank=True, default="TY-A")
+
+    # Student-specific selection at registration
+    preferred_guide = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='registered_students'
+    )
+
+    identifier = models.CharField(max_length=60, blank=True, help_text="Roll Call, Faculty ID, or Admin ID")
+    class_division = models.CharField(max_length=60, blank=True, default="Class-A")
+
+    # Admin Identity Verification Proofs (Front & Back)
+    id_proof_front = models.FileField(upload_to='admin_proofs/', null=True, blank=True)
+    id_proof_back = models.FileField(upload_to='admin_proofs/', null=True, blank=True)
+    is_verified_admin = models.BooleanField(default=False)
+
+    # Profile & Social Handles
+    avatar = models.FileField(upload_to='avatars/', null=True, blank=True)
+    bio = models.CharField(max_length=280, blank=True, default='')
+    whatsapp_number = models.CharField(max_length=25, blank=True, default='')
+    github_handle = models.CharField(max_length=200, blank=True, default='')
+    youtube_handle = models.CharField(max_length=200, blank=True, default='')
+    instagram_handle = models.CharField(max_length=200, blank=True, default='')
+
+    @property
+    def initials(self):
+        full = self.user.get_full_name().strip()
+        if full:
+            parts = full.split()
+            return (parts[0][0] + (parts[-1][0] if len(parts) > 1 else '')).upper()
+        return self.user.username[:2].upper()
+
+    @property
+    def clean_whatsapp(self):
+        return normalize_whatsapp(self.whatsapp_number)
+
+    @property
+    def github_url(self):
+        return format_social_url(self.github_handle, 'github.com')
+
+    @property
+    def youtube_url(self):
+        val = self.youtube_handle.strip()
+        if not val:
+            return ''
+        if val.startswith('http'):
+            return val
+        val = val.lstrip('@')
+        return f"https://youtube.com/@{val}"
+
+    @property
+    def instagram_url(self):
+        return format_social_url(self.instagram_handle, 'instagram.com')
 
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username} ({self.get_role_display()})"
@@ -105,9 +175,6 @@ class WeeklyLog(models.Model):
     class Meta:
         ordering = ['-week_number', '-logged_at']
 
-    def __str__(self):
-        return f"{self.group.name} - Week {self.week_number}"
-
 class VivaEvaluation(models.Model):
     group = models.OneToOneField(ProjectGroup, on_delete=models.CASCADE, related_name='viva')
     examiner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='evaluations')
@@ -144,7 +211,7 @@ class PastProjectArchive(models.Model):
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='archives', null=True, blank=True)
     title = models.CharField(max_length=250)
     year = models.CharField(max_length=10, default='2025')
-    domain = models.CharField(max_length=120, default='Computer Science')
+    domain = models.CharField(max_length=120, default='Software Engineering')
     abstract = models.TextField()
 
     def __str__(self):

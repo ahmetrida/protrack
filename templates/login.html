@@ -1,53 +1,61 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="row justify-content-center align-items-center g-5 py-3">
-    <div class="col-lg-6">
-        <div class="m3-chip chip-tonal mb-3">
-            <i data-lucide="globe" style="width:16px;height:16px;"></i>
-            Multi-University Dynamic Cloud
+<div class="row justify-content-center align-items-center g-5 py-4">
+    <div class="col-xl-6 col-lg-6">
+        <div class="m3-chip chip-tonal mb-4">
+            <i data-lucide="sparkles" style="width:18px;height:18px;"></i>
+            ProTrack Enterprise Academic Cloud
         </div>
-        <h1 class="display-5 fw-bold mb-3" style="color: #041E49;">Academic Project & Viva Lifecycle, Simplified.</h1>
-        <p class="lead text-muted mb-4" style="font-size: 1.15rem;">
-            A unified workspace for Universities, Colleges, and Departments. Submit proposals with real-time Scikit-Learn TF-IDF similarity detection, track weekly mentor sign-offs, and grade viva evaluations seamlessly.
+        <h1 class="display-4 fw-bold mb-4" style="color: #28115B; line-height: 1.15;">
+            Academic Projects & Viva Governance, Reimagined.
+        </h1>
+        <p class="lead text-muted mb-5" style="font-size: 1.25rem;">
+            A unified, role-verified workspace where Admins govern Universities, Colleges, and Departments, Faculty Guides mentor teams, Examiners grade live rubrics, and Students verify originality with Scikit-Learn TF-IDF AI.
         </p>
 
-        <div class="row g-3 mb-4">
-            <div class="col-sm-4">
-                <div class="m3-card-tonal text-center py-3">
-                    <div class="h3 fw-bold text-primary mb-0">{{ total_universities }}</div>
-                    <div class="small text-muted">Universities</div>
+        <div class="row g-3">
+            <div class="col-sm-3 col-6">
+                <div class="m3-card-tonal text-center py-4 px-2">
+                    <div class="h2 fw-bold mb-0" style="color:var(--m3-primary);">{{ total_universities }}</div>
+                    <div class="small text-muted fw-medium">Universities</div>
                 </div>
             </div>
-            <div class="col-sm-4">
-                <div class="m3-card-tonal text-center py-3">
-                    <div class="h3 fw-bold text-primary mb-0">{{ total_departments }}</div>
-                    <div class="small text-muted">Departments</div>
+            <div class="col-sm-3 col-6">
+                <div class="m3-card-tonal text-center py-4 px-2">
+                    <div class="h2 fw-bold mb-0" style="color:var(--m3-primary);">{{ total_colleges }}</div>
+                    <div class="small text-muted fw-medium">Colleges</div>
                 </div>
             </div>
-            <div class="col-sm-4">
-                <div class="m3-card-tonal text-center py-3">
-                    <div class="h3 fw-bold text-primary mb-0">{{ total_users }}</div>
-                    <div class="small text-muted">Registered Users</div>
+            <div class="col-sm-3 col-6">
+                <div class="m3-card-tonal text-center py-4 px-2">
+                    <div class="h2 fw-bold mb-0" style="color:var(--m3-primary);">{{ total_departments }}</div>
+                    <div class="small text-muted fw-medium">Departments</div>
+                </div>
+            </div>
+            <div class="col-sm-3 col-6">
+                <div class="m3-card-tonal text-center py-4 px-2">
+                    <div class="h2 fw-bold mb-0" style="color:var(--m3-primary);">{{ total_users }}</div>
+                    <div class="small text-muted fw-medium">Verified Users</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="col-lg-5">
+    <div class="col-xl-5 col-lg-6">
         <div class="m3-card">
             <div class="d-flex align-items-center gap-3 mb-4">
                 <div class="brand-icon-box"><i data-lucide="graduation-cap"></i></div>
                 <div>
-                    <h3 class="mb-0 fw-bold">Sign in to ProTrack</h3>
-                    <div class="text-muted small">Use your student or faculty account</div>
+                    <h2 class="mb-0 fw-bold">Sign in</h2>
+                    <div class="text-muted">Continue to your ProTrack Workspace</div>
                 </div>
             </div>
 
             <form method="POST">
                 {% csrf_token %}
-                <div class="mb-3">
+                <div class="mb-4">
                     <label class="form-label">Username</label>
-                    <input type="text" name="username" class="form-control" placeholder="Enter your username" required autofocus>
+                    <input type="text" name="username" class="form-control" placeholder="e.g. johndoe" required autofocus>
                 </div>
                 <div class="mb-4">
                     <label class="form-label">Password</label>
@@ -60,9 +68,9 @@
 
             <hr class="my-4">
             <div class="text-center">
-                <p class="text-muted mb-3">First time here from your college or department?</p>
+                <p class="text-muted mb-3">New Student, Faculty Guide, or Institution Admin?</p>
                 <a href="{% url 'signup' %}" class="btn-m3-tonal w-100 text-decoration-none">
-                    <i data-lucide="user-plus"></i> Create New Account (Student / Faculty)
+                    <i data-lucide="user-plus"></i> Create Role-Verified Account
                 </a>
             </div>
         </div>

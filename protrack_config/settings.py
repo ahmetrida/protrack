@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = 'django-insecure-protrack-v4-enterprise-edition-secret-key'
+SECRET_KEY = 'django-insecure-protrack-v5-royal-violet-enterprise-edition'
 DEBUG = True
 ALLOWED_HOSTS = ['*']
 
@@ -56,7 +56,7 @@ DATABASES = {
 AUTH_PASSWORD_VALIDATORS = []
 
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'Asia/Kolkata'
+TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 

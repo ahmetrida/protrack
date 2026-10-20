@@ -1,30 +1,139 @@
 {% extends 'base.html' %}
 {% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
-        <h2 class="fw-bold mb-1">External Examiner Viva Assessment Portal</h2>
-        <div class="text-muted">Live 100-Point Rubric Grading for <strong>{{ user.profile.department.name }}</strong> ({{ user.profile.college.name }})</div>
+        <div class="m3-chip chip-tonal mb-2"><i data-lucide="award" style="width:16px;height:16px;"></i> Examiner & HOD Analytics Workspace</div>
+        <h1 class="fw-bold mb-1">Department Assessment & Viva Grading Center</h1>
+        <div class="text-muted">{{ user.profile.university.name }} &bull; {{ user.profile.college.name }} &bull; <strong>{{ user.profile.department.name }}</strong></div>
     </div>
-    <span class="m3-chip chip-tonal"><i data-lucide="award"></i> Total Groups: {{ groups.count }}</span>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'export_department_csv' %}" class="btn-m3-primary text-decoration-none">
+            <i data-lucide="download"></i> Export Master Gradebook (CSV)
+        </a>
+    </div>
 </div>
+
+<!-- HOD Analytics KPIs -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3 col-6">
+        <div class="m3-card p-4">
+            <div class="text-muted small mb-1">Department Groups</div>
+            <div class="display-5 fw-bold" style="color:var(--m3-primary);">{{ groups.count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="m3-card p-4">
+            <div class="text-muted small mb-1">Enrolled Students</div>
+            <div class="display-5 fw-bold text-dark">{{ dept_students_count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="m3-card p-4">
+            <div class="text-muted small mb-1">Approved Proposals</div>
+            <div class="display-5 fw-bold text-success">{{ approved_count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="m3-card p-4">
+            <div class="text-muted small mb-1">Vivas Graded</div>
+            <div class="display-5 fw-bold" style="color:var(--m3-primary);">{{ evaluated_count }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- HOD Analytics Chart + TF-IDF Corpus Manager -->
+<div class="row g-4 mb-5">
+    <div class="col-lg-4">
+        <div class="m3-card h-100">
+            <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="pie-chart" style="color:var(--m3-primary);"></i> Proposal Status Distribution
+            </h4>
+            <canvas id="examinerChart" height="220"></canvas>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="m3-card h-100">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <div>
+                    <h4 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                        <i data-lucide="database" style="color:var(--m3-primary);"></i> Department TF-IDF Archive Corpus ({{ archives.count }} Records)
+                    </h4>
+                    <div class="text-muted small">Manage benchmark past projects used to detect abstract similarity in {{ user.profile.department.name }}.</div>
+                </div>
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="seed_corpus">
+                    <button type="submit" class="btn-m3-tonal py-2 px-3">
+                        <i data-lucide="sparkles"></i> Load 5 Benchmark Abstracts
+                    </button>
+                </form>
+            </div>
+
+            <form method="POST" class="m3-card-tonal p-3 mb-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_archive">
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <input type="text" name="title" class="form-control" placeholder="Past Project Title" required>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" name="year" class="form-control" value="2025" required>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" name="abstract" class="form-control" placeholder="Paste project abstract summary..." required>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn-m3-primary w-100 h-100">Add</button>
+                    </div>
+                </div>
+            </form>
+
+            <div class="row g-2" style="max-height: 180px; overflow-y: auto;">
+                {% for a in archives %}
+                <div class="col-md-6">
+                    <div class="p-3 border rounded-4 bg-white small">
+                        <div class="fw-bold">{{ a.title }} ({{ a.year }})</div>
+                        <div class="text-muted">{{ a.abstract|truncatechars:100 }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 100-Point 4-Pillar Viva Rubric Evaluation Cards -->
+<h3 class="fw-bold mb-4 d-flex align-items-center gap-2">
+    <i data-lucide="clipboard-check" style="color:var(--m3-primary);"></i> Live 100-Point Viva Voce Evaluation Rubrics
+</h3>
 
 {% for g in groups %}
 <div class="m3-card mb-4">
     <div class="row g-4">
         <div class="col-lg-6">
-            <div class="d-flex align-items-center gap-2 mb-2">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                 <span class="m3-chip chip-tonal">{{ g.name }}</span>
-                <span class="m3-chip chip-neutral">Guide: {% if g.guide %}Prof. {{ g.guide.get_full_name|default:g.guide.username }}{% else %}Unassigned{% endif %}</span>
+                <span class="m3-chip chip-neutral">Guide: {% if g.guide %}{{ g.guide.get_full_name|default:g.guide.username }}{% else %}Unassigned{% endif %}</span>
                 <span class="m3-chip chip-neutral">Verified Logs: {{ g.logs.count }}</span>
+                {% if g.proposal %}
+                <span class="m3-chip {% if g.proposal.similarity_score >= 60 %}chip-danger{% elif g.proposal.similarity_score >= 30 %}chip-warning{% else %}chip-success{% endif %}">
+                    Similarity: {{ g.proposal.similarity_score }}%
+                </span>
+                {% endif %}
             </div>
-            <h4 class="fw-bold mb-2">{{ g.proposal.title|default:"Proposal Pending" }}</h4>
-            <p class="text-muted mb-3">{{ g.proposal.abstract|default:"No abstract uploaded yet." }}</p>
-            <div class="small text-muted mb-3">
-                <strong>Examinees:</strong> {% for s in g.students.all %}{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }}){% if not forloop.last %}, {% endif %}{% endfor %}
+            <h3 class="fw-bold mb-2">{{ g.proposal.title|default:"Proposal Pending Submission" }}</h3>
+            <p class="text-muted mb-3">{{ g.proposal.abstract|default:"No abstract submitted yet." }}</p>
+            <div class="mb-3">
+                <strong>Examinees:</strong>
+                {% for s in g.students.all %}
+                <span class="m3-chip chip-neutral py-1 px-3 me-1 mb-1">{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})</span>
+                {% endfor %}
             </div>
             {% if g.proposal and g.proposal.report_file %}
             <a href="{{ g.proposal.report_file.url }}" target="_blank" class="btn-m3-tonal text-decoration-none">
-                <i data-lucide="file-text"></i> Inspect Uploaded Project Report
+                <i data-lucide="file-text"></i> Open Submitted Project Report
             </a>
             {% endif %}
         </div>
@@ -32,36 +141,37 @@
         <div class="col-lg-6">
             <form method="POST" class="m3-card-tonal p-4">
                 {% csrf_token %}
+                <input type="hidden" name="action" value="grade_viva">
                 <input type="hidden" name="group_id" value="{{ g.id }}">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="fw-bold mb-0">4-Pillar Viva Rubric</h5>
-                    <span class="m3-chip chip-success fs-6" id="totalBadge_{{ g.id }}">
-                        Total: {{ g.viva.total_score|default:0 }} / 100
+                    <h4 class="fw-bold mb-0">4-Pillar Viva Rubric</h4>
+                    <span class="m3-chip chip-success fs-5" id="totalBadge_{{ g.id }}">
+                        Total: {{ g.viva.total_score|default:80 }} / 100
                     </span>
                 </div>
 
                 <div class="row g-3 mb-3">
                     <div class="col-sm-6">
-                        <label class="form-label small">1. Problem Formulation (0-25)</label>
+                        <label class="form-label">1. Problem Clarity (0–25)</label>
                         <input type="number" name="problem_clarity" class="form-control rubric-{{ g.id }}" min="0" max="25" value="{{ g.viva.problem_clarity|default:20 }}" oninput="calcViva({{ g.id }})" required>
                     </div>
                     <div class="col-sm-6">
-                        <label class="form-label small">2. System Implementation (0-25)</label>
+                        <label class="form-label">2. Implementation (0–25)</label>
                         <input type="number" name="implementation" class="form-control rubric-{{ g.id }}" min="0" max="25" value="{{ g.viva.implementation|default:20 }}" oninput="calcViva({{ g.id }})" required>
                     </div>
                     <div class="col-sm-6">
-                        <label class="form-label small">3. Presentation & Defense (0-25)</label>
+                        <label class="form-label">3. Presentation & Defense (0–25)</label>
                         <input type="number" name="presentation" class="form-control rubric-{{ g.id }}" min="0" max="25" value="{{ g.viva.presentation|default:20 }}" oninput="calcViva({{ g.id }})" required>
                     </div>
                     <div class="col-sm-6">
-                        <label class="form-label small">4. Blackbook Documentation (0-25)</label>
+                        <label class="form-label">4. Documentation (0–25)</label>
                         <input type="number" name="documentation" class="form-control rubric-{{ g.id }}" min="0" max="25" value="{{ g.viva.documentation|default:20 }}" oninput="calcViva({{ g.id }})" required>
                     </div>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label small">Examiner Evaluation Remarks</label>
-                    <input type="text" name="examiner_comments" class="form-control" value="{{ g.viva.examiner_comments|default:'' }}" placeholder="Enter official viva remarks...">
+                    <label class="form-label">Examiner Evaluation Remarks</label>
+                    <input type="text" name="examiner_comments" class="form-control" value="{{ g.viva.examiner_comments|default:'' }}" placeholder="Enter official examiner remarks...">
                 </div>
 
                 <button type="submit" class="btn-m3-primary w-100">
@@ -73,11 +183,24 @@
 </div>
 {% empty %}
 <div class="m3-card text-center py-5 text-muted">
-    No project groups found in {{ user.profile.department.name }} for evaluation yet.
+    No project groups registered in {{ user.profile.department.name }} yet.
 </div>
 {% endfor %}
 
 <script>
+new Chart(document.getElementById('examinerChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Approved', 'Pending Review', 'Changes Requested'],
+        datasets: [{
+            data: [{{ approved_count }}, {{ pending_count }}, {{ changes_count }}],
+            backgroundColor: ['#137333', '#F9AB00', '#C5221F'],
+            borderWidth: 0
+        }]
+    },
+    options: { plugins: { legend: { position: 'bottom' } }, cutout: '68%' }
+});
+
 function calcViva(gid) {
     let sum = 0;
     document.querySelectorAll('.rubric-' + gid).forEach(el => {

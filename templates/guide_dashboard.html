@@ -2,34 +2,49 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
-        <h2 class="fw-bold mb-1">Faculty Guide Mentoring Console</h2>
-        <div class="text-muted">Review proposals, verify weekly student logbooks, and mentor groups in <strong>{{ user.profile.department.name }}</strong></div>
+        <h1 class="fw-bold mb-1">Faculty Guide Mentoring Console</h1>
+        <div class="text-muted">Review proposals, verify weekly logs, and connect with mentees in <strong>{{ user.profile.department.name }}</strong></div>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex flex-wrap gap-2">
         <span class="m3-chip chip-tonal">Mentored Groups: {{ my_groups.count }}</span>
         <span class="m3-chip chip-warning">Pending Proposals: {{ pending_proposals }}</span>
         <span class="m3-chip chip-neutral">Unverified Logs: {{ unverified_logs }}</span>
     </div>
 </div>
 
+{% if user.profile.is_examiner %}
+<div class="m3-card-tonal p-4 mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="d-flex align-items-center gap-3">
+        <div class="brand-icon-box"><i data-lucide="award"></i></div>
+        <div>
+            <h5 class="fw-bold mb-0">You Have Active External Examiner & HOD Privileges</h5>
+            <div class="text-muted small">Assigned by your Institution Admin. You can switch to the Examiner & HOD Analytics Portal at any time.</div>
+        </div>
+    </div>
+    <a href="{% url 'examiner_dashboard' %}" class="btn-m3-primary text-decoration-none">
+        <i data-lucide="arrow-up-right"></i> Open Examiner & HOD Portal
+    </a>
+</div>
+{% endif %}
+
 {% if unassigned_groups %}
 <div class="m3-card-tonal mb-4">
-    <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
-        <i data-lucide="user-plus" class="text-primary"></i> Unassigned Student Groups in {{ user.profile.department.name }}
-    </h5>
+    <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+        <i data-lucide="user-plus" style="color:var(--m3-primary);"></i> Unassigned Student Groups in {{ user.profile.department.name }}
+    </h4>
     <div class="row g-3">
         {% for ug in unassigned_groups %}
         <div class="col-md-6">
-            <div class="bg-white p-3 rounded-4 border d-flex justify-content-between align-items-center">
+            <div class="bg-white p-4 rounded-4 border d-flex justify-content-between align-items-center">
                 <div>
-                    <div class="fw-bold">{{ ug.name }} <span class="text-muted small">({{ ug.join_code }})</span></div>
-                    <div class="small text-muted">Members: {% for s in ug.students.all %}{{ s.get_full_name|default:s.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+                    <div class="fw-bold fs-5">{{ ug.name }} <span class="text-muted small">({{ ug.join_code }})</span></div>
+                    <div class="small text-muted">Students: {% for s in ug.students.all %}{{ s.get_full_name|default:s.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
                 </div>
                 <form method="POST">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="claim_group">
                     <input type="hidden" name="group_id" value="{{ ug.id }}">
-                    <button type="submit" class="btn-m3-tonal py-2 px-3">Accept Group</button>
+                    <button type="submit" class="btn-m3-tonal">Accept Group</button>
                 </form>
             </div>
         </div>
@@ -42,14 +57,23 @@
 <div class="m3-card mb-4">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 pb-3 mb-4 border-bottom">
         <div>
-            <div class="d-flex align-items-center gap-2 mb-1">
+            <div class="d-flex align-items-center gap-2 mb-2">
                 <span class="m3-chip chip-tonal">{{ g.name }}</span>
-                <span class="m3-chip chip-neutral">Code: {{ g.join_code }}</span>
+                <span class="m3-chip chip-neutral">Join Code: {{ g.join_code }}</span>
             </div>
-            <div class="text-muted small">
-                <strong>Students:</strong> {% for s in g.students.all %}{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }}){% if not forloop.last %}, {% endif %}{% endfor %}
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <strong class="me-1">Students:</strong>
+                {% for s in g.students.all %}
+                <span class="m3-chip chip-neutral py-1 px-3">
+                    {{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})
+                    {% if s.profile.clean_whatsapp %}
+                    <a href="https://wa.me/{{ s.profile.clean_whatsapp }}?text=Hello%20{{ s.get_full_name|urlencode }},%20regarding%20your%20project%20in%20ProTrack" target="_blank" class="text-success ms-1" title="WhatsApp Student"><i data-lucide="message-circle" style="width:16px;height:16px;"></i></a>
+                    {% endif %}
+                </span>
+                {% endfor %}
             </div>
         </div>
+
         {% if g.proposal %}
         <div class="d-flex align-items-center gap-2">
             <span class="m3-chip {% if g.proposal.similarity_score >= 60 %}chip-danger{% elif g.proposal.similarity_score >= 30 %}chip-warning{% else %}chip-success{% endif %}">
@@ -63,77 +87,77 @@
     </div>
 
     <div class="row g-4">
-        <!-- Proposal Evaluation -->
         <div class="col-lg-7">
-            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                <i data-lucide="file-check" class="text-primary"></i> Project Proposal Review
-            </h5>
+            <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="file-check" style="color:var(--m3-primary);"></i> Proposal Evaluation
+            </h4>
             {% if g.proposal %}
             <div class="m3-card-tonal p-4">
-                <h5 class="fw-bold mb-1">{{ g.proposal.title }}</h5>
-                <div class="small text-primary fw-medium mb-3">Domain: {{ g.proposal.domain }} &bull; Closest Match: {{ g.proposal.closest_match_title }}</div>
-                <p class="mb-3">{{ g.proposal.abstract }}</p>
+                <h4 class="fw-bold mb-1">{{ g.proposal.title }}</h4>
+                <div class="small fw-bold mb-3" style="color:var(--m3-primary);">
+                    Domain: {{ g.proposal.domain }} &bull; Closest Match: {{ g.proposal.closest_match_title }}
+                </div>
+                <p class="mb-4">{{ g.proposal.abstract }}</p>
 
                 {% if g.proposal.report_file %}
-                <div class="mb-3">
-                    <a href="{{ g.proposal.report_file.url }}" target="_blank" class="btn-m3-outline py-2 px-3 text-decoration-none">
-                        <i data-lucide="download"></i> Open Student Uploaded Synopsis / Report
+                <div class="mb-4">
+                    <a href="{{ g.proposal.report_file.url }}" target="_blank" class="btn-m3-outline text-decoration-none">
+                        <i data-lucide="download"></i> Inspect Uploaded Synopsis / Report
                     </a>
                 </div>
                 {% endif %}
 
-                <form method="POST" class="border-top pt-3 mt-3">
+                <form method="POST" class="border-top pt-4">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="review_proposal">
                     <input type="hidden" name="proposal_id" value="{{ g.proposal.id }}">
                     <div class="mb-3">
-                        <label class="form-label small">Mentor Feedback / Remarks for Students</label>
-                        <input type="text" name="guide_remarks" class="form-control" value="{{ g.proposal.guide_remarks }}" placeholder="Add feedback or instructions for the team...">
+                        <label class="form-label">Guide Review Remarks</label>
+                        <input type="text" name="guide_remarks" class="form-control" value="{{ g.proposal.guide_remarks }}" placeholder="Provide constructive instructions or approval notes...">
                     </div>
-                    <div class="d-flex flex-wrap gap-2">
+                    <div class="d-flex flex-wrap gap-3">
                         <button type="submit" name="decision" value="APPROVED" class="btn-m3-primary">
                             <i data-lucide="check-circle"></i> Approve Proposal
                         </button>
                         <button type="submit" name="decision" value="CHANGES" class="btn-m3-outline text-danger border-danger">
-                            <i data-lucide="refresh-cw"></i> Request Revisions
+                            <i data-lucide="refresh-cw"></i> Request Changes
                         </button>
                     </div>
                 </form>
             </div>
             {% else %}
             <div class="m3-card-tonal text-center py-5 text-muted">
-                <i data-lucide="file-clock" class="mb-2"></i>
-                <div>This group has not submitted their project proposal yet.</div>
+                <i data-lucide="file-clock" class="mb-2" style="width:36px;height:36px;"></i>
+                <div>This group has not submitted their proposal yet.</div>
             </div>
             {% endif %}
         </div>
 
-        <!-- Weekly Log Sign-off -->
         <div class="col-lg-5">
-            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                <i data-lucide="list-checks" class="text-primary"></i> Weekly Logbook Sign-Off
-            </h5>
-            <div class="d-flex flex-column gap-3" style="max-height: 420px; overflow-y: auto;">
+            <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="list-checks" style="color:var(--m3-primary);"></i> Weekly Logbook Sign-Off
+            </h4>
+            <div class="d-flex flex-column gap-3" style="max-height: 460px; overflow-y: auto;">
                 {% for log in g.logs.all %}
-                <div class="p-3 border rounded-4 bg-white">
+                <div class="p-4 border rounded-4 bg-white">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="fw-bold">Week {{ log.week_number }}</span>
+                        <span class="fw-bold fs-5">Week {{ log.week_number }}</span>
                         {% if log.is_verified %}
-                        <span class="m3-chip chip-success py-1 px-2">Verified</span>
+                        <span class="m3-chip chip-success py-1 px-3">Verified</span>
                         {% else %}
-                        <span class="m3-chip chip-warning py-1 px-2">Pending Sign-Off</span>
+                        <span class="m3-chip chip-warning py-1 px-3">Needs Sign-Off</span>
                         {% endif %}
                     </div>
-                    <div class="small mb-1"><strong>Completed:</strong> {{ log.tasks_completed }}</div>
-                    <div class="small text-muted mb-2"><strong>Next Plan:</strong> {{ log.next_week_plan }}</div>
+                    <div class="mb-1"><strong>Completed:</strong> {{ log.tasks_completed }}</div>
+                    <div class="text-muted mb-2"><strong>Next Plan:</strong> {{ log.next_week_plan }}</div>
 
                     {% if not log.is_verified %}
-                    <form method="POST" class="d-flex gap-2 mt-2 pt-2 border-top">
+                    <form method="POST" class="d-flex gap-2 mt-3 pt-3 border-top">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="verify_log">
                         <input type="hidden" name="log_id" value="{{ log.id }}">
-                        <input type="text" name="guide_feedback" class="form-control form-control-sm" placeholder="Optional mentor note...">
-                        <button type="submit" class="btn-m3-primary py-1 px-3">Verify</button>
+                        <input type="text" name="guide_feedback" class="form-control" placeholder="Add mentor comment...">
+                        <button type="submit" class="btn-m3-primary px-4">Verify</button>
                     </form>
                     {% endif %}
                 </div>
@@ -148,9 +172,9 @@
 </div>
 {% empty %}
 <div class="m3-card text-center py-5">
-    <i data-lucide="users" class="text-primary mb-3" style="width:44px;height:44px;"></i>
-    <h4 class="fw-bold">No Mentored Groups Yet</h4>
-    <p class="text-muted mb-0">When students in <strong>{{ user.profile.department.name }}</strong> create a group and select you as their Faculty Guide, their proposals and weekly logs will appear right here automatically.</p>
+    <i data-lucide="users" style="width:48px;height:48px;color:var(--m3-primary);" class="mb-3"></i>
+    <h3 class="fw-bold">No Active Groups Under Your Mentorship Yet</h3>
+    <p class="text-muted mb-0">Students who selected you during registration ({{ registered_mentees.count }} students) will appear here as soon as they initialize their project group.</p>
 </div>
 {% endfor %}
 {% endblock %}
