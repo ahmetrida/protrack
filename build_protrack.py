@@ -2303,26 +2303,11 @@ BASE_HTML = """
     <script>
         lucide.createIcons();
 
-        // Celebratory Web Audio Chime on Success Actions
+        // Celebratory Audio Chime using the uploaded Success.mp3 file
         function playSuccessChime() {
-            try {
-                const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                if (!AudioCtx) return;
-                const ctx = new AudioCtx();
-                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-                notes.forEach((freq, idx) => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.085);
-                    gain.gain.setValueAtTime(0.001, ctx.currentTime + idx * 0.085);
-                    gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + idx * 0.085 + 0.02);
-                    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + idx * 0.085 + 0.32);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start(ctx.currentTime + idx * 0.085);
-                    osc.stop(ctx.currentTime + idx * 0.085 + 0.34);
-                });
+           try {
+               const audio = new Audio('/media/Success.mp3');
+               audio.play().catch(e => console.log("Audio blocked by browser auto-play policy."));
             } catch (e) {}
         }
 
