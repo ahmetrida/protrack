@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center align-items-center my-4">
+    <div class="col-lg-5 col-md-7">
+        <div class="bento-card p-4 p-md-5">
+            <div class="text-center mb-4">
+                <div class="brand-icon-box mx-auto mb-3" style="width: 56px; height: 56px; border-radius: 16px;">
+                    <i class="bi bi-layers-half fs-3"></i>
+                </div>
+                <h2 class="fw-bold mb-1">Sign in to ProTrack</h2>
+                <p class="small mb-0" style="color: var(--text-secondary);">Academic Project & Viva Lifecycle Platform</p>
+            </div>
+
+            <form method="POST" id="loginForm" onsubmit="handleLoginSubmit(event)">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <input type="text" name="username" id="id_username" class="form-control" placeholder="Enter your username" required>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Password</label>
+                    <div class="position-relative">
+                        <input type="password" name="password" id="id_password" class="form-control pe-5" placeholder="Enter your password" required>
+                        <button type="button" onclick="togglePassword()" class="btn border-0 position-absolute top-50 end-0 translate-middle-y me-2" style="color: var(--p-primary);" title="Show or Hide Password">
+                            <i id="eye_icon" class="bi bi-eye-slash fs-5"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" id="loginBtn" class="btn-pro w-100 py-3">
+                    <span>Sign In to Portal</span> <i class="bi bi-arrow-right"></i>
+                </button>
+            </form>
+        </div>
+
+        <!-- 1-Click Role Switcher with Real Faculty & Student Names -->
+        <div class="bento-card mt-3 p-4">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <span class="small fw-bold text-uppercase" style="color: var(--text-secondary);">1-Click Role Demo</span>
+                <span class="pro-chip chip-primary">Instant Access</span>
+            </div>
+            <div class="row g-2">
+                <div class="col-6">
+                    <button class="btn-pro-secondary w-100 py-2" onclick="instantLogin(this, 'student1','Student@123')">
+                        <i class="bi bi-person-workspace"></i> <span>Student</span>
+                    </button>
+                </div>
+                <div class="col-6">
+                    <button class="btn-pro-secondary w-100 py-2" onclick="instantLogin(this, 'guide1','Guide@123')">
+                        <i class="bi bi-person-check"></i> <span>Prof. Saurabh</span>
+                    </button>
+                </div>
+                <div class="col-6">
+                    <button class="btn-pro-secondary w-100 py-2" onclick="instantLogin(this, 'coordinator1','Admin@123')">
+                        <i class="bi bi-pie-chart"></i> <span>Prof. Prajakta</span>
+                    </button>
+                </div>
+                <div class="col-6">
+                    <button class="btn-pro-secondary w-100 py-2" onclick="instantLogin(this, 'examiner1','Viva@123')">
+                        <i class="bi bi-award"></i> <span>Examiner</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePassword() {
+    const input = document.getElementById('id_password');
+    const icon = document.getElementById('eye_icon');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'bi bi-eye fs-5';
+    } else {
+        input.type = 'password';
+        icon.className = 'bi bi-eye-slash fs-5';
+    }
+}
+
+function handleLoginSubmit(e) {
+    const btn = document.getElementById('loginBtn');
+    setButtonLoading(btn, 'Authenticating...');
+}
+
+function instantLogin(clickedBtn, u, p) {
+    document.getElementById('id_username').value = u;
+    document.getElementById('id_password').value = p;
+    setButtonLoading(clickedBtn, 'Signing in...');
+    setButtonLoading(document.getElementById('loginBtn'), 'Authenticating...');
+    showToast(`Signing in as ${u}...`, 'info');
+    setTimeout(() => document.getElementById('loginForm').submit(), 300);
+}
+</script>
+{% endblock %}

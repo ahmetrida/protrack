@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProTrack — Academic Project & Viva Lifecycle Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            /* Primary Brand Family */
+            --p-primary: #604A8B;
+            --p-secondary: #8066A6;
+            --p-dark: #503A76;
+            --p-muted: #A88EC5;
+            --p-tint: #DCCFEB;
+            --p-wash: #E9E1F7;
+
+            /* Semantic Alert Palette */
+            --s-error: #B03A3A;
+            --s-error-bg: rgba(176, 58, 58, 0.12);
+            --s-success: #2F7D57;
+            --s-success-bg: rgba(47, 125, 87, 0.12);
+            --s-info: #3B6FA3;
+            --s-info-bg: rgba(59, 111, 163, 0.12);
+            --s-warning: #9A6514;
+            --s-warning-bg: rgba(154, 101, 20, 0.14);
+
+            /* Neutrals & Surfaces */
+            --surface-bg: #F6F4FA;
+            --surface-card: #FFFFFF;
+            --text-main: #1E192B;
+            --text-secondary: #5E5473;
+            --border-subtle: rgba(96, 74, 139, 0.14);
+
+            /* Strict 8pt Spacing Scale */
+            --sp-1: 8px;
+            --sp-2: 16px;
+            --sp-3: 24px;
+            --sp-4: 32px;
+            --sp-5: 40px;
+            --Radius-card: 24px;
+            --Radius-input: 16px;
+            --Radius-pill: 999px;
+        }
+
+        body {
+            background-color: var(--surface-bg);
+            background-image: radial-gradient(at 0% 0%, var(--p-wash) 0px, transparent 55%);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Frosted Navigation on 8pt Grid */
+        .protrack-nav {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid var(--border-subtle);
+            padding: var(--sp-2) 0;
+            position: sticky;
+            top: 0;
+            z-index: 1030;
+        }
+
+        .brand-logo {
+            font-weight: 700;
+            font-size: 1.35rem;
+            letter-spacing: -0.025em;
+            color: var(--p-dark);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: var(--sp-1);
+            white-space: nowrap;
+        }
+
+        .brand-icon-box {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--p-primary), var(--p-dark));
+            color: #FFFFFF;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(96, 74, 139, 0.25);
+        }
+
+        /* 8pt Grid Bento Cards */
+        .bento-card {
+            background: var(--surface-card);
+            border-radius: var(--Radius-card);
+            border: 1px solid var(--border-subtle);
+            box-shadow: 0 8px 24px rgba(80, 58, 118, 0.05);
+            padding: var(--sp-3);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .bento-card:hover {
+            box-shadow: 0 12px 32px rgba(80, 58, 118, 0.09);
+        }
+
+        /* Form Controls on 8pt Scale */
+        .form-label {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: var(--sp-1);
+        }
+
+        .form-control, .form-select {
+            background-color: var(--p-wash);
+            border: 1.5px solid transparent;
+            border-radius: var(--Radius-input);
+            padding: 12px 16px;
+            font-size: 0.98rem;
+            color: var(--text-main);
+            transition: all 0.2s ease;
+        }
+
+        .form-control:focus, .form-select:focus {
+            background-color: #FFFFFF;
+            border-color: var(--p-primary);
+            box-shadow: 0 0 0 4px rgba(96, 74, 139, 0.16);
+            color: var(--text-main);
+        }
+
+        /* Non-Breaking Buttons & Interactive States */
+        .btn-pro {
+            background-color: var(--p-primary);
+            color: #FFFFFF;
+            border-radius: var(--Radius-pill);
+            padding: 12px 24px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            border: 1px solid transparent;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            white-space: nowrap !important;
+            flex-shrink: 0;
+            transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+            cursor: pointer;
+        }
+
+        .btn-pro:hover:not(:disabled) {
+            background-color: var(--p-dark);
+            color: #FFFFFF;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(80, 58, 118, 0.28);
+        }
+
+        .btn-pro:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-pro-secondary {
+            background-color: var(--p-tint);
+            color: var(--p-dark);
+            border-radius: var(--Radius-pill);
+            padding: 12px 24px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            border: 1px solid rgba(96, 74, 139, 0.15);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            white-space: nowrap !important;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .btn-pro-secondary:hover:not(:disabled) {
+            background-color: var(--p-muted);
+            color: #FFFFFF;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(96, 74, 139, 0.2);
+        }
+
+        /* Completed / Locked Button State (Prevents Duplicate Actions) */
+        .btn-pro.btn-locked,
+        .btn-pro-secondary.btn-locked,
+        button:disabled.btn-locked {
+            background-color: var(--s-success-bg) !important;
+            color: var(--s-success) !important;
+            border: 1.5px solid rgba(47, 125, 87, 0.35) !important;
+            box-shadow: none !important;
+            transform: none !important;
+            cursor: not-allowed !important;
+            opacity: 1 !important;
+        }
+
+        /* Non-Breaking Chips & Status Pills */
+        .pro-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            border-radius: var(--Radius-pill);
+            font-size: 0.85rem;
+            font-weight: 600;
+            white-space: nowrap !important;
+            flex-shrink: 0;
+            line-height: 1.2;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .pro-chip:hover {
+            transform: translateY(-1px);
+        }
+
+        .chip-primary { background: var(--p-wash); color: var(--p-dark); border: 1px solid var(--p-tint); }
+        .chip-member { background: var(--p-tint); color: var(--p-dark); }
+        .chip-success { background: var(--s-success-bg); color: var(--s-success); }
+        .chip-warning { background: var(--s-warning-bg); color: var(--s-warning); }
+        .chip-error { background: var(--s-error-bg); color: var(--s-error); }
+        .chip-info { background: var(--s-info-bg); color: var(--s-info); }
+
+        /* Floating Toast Engine with Reverse Progress Bar */
+        #toast-stack {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 380px;
+            max-width: calc(100vw - 32px);
+            pointer-events: none;
+        }
+
+        .pro-toast {
+            pointer-events: auto;
+            background: rgba(255, 255, 255, 0.97);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            box-shadow: 0 16px 40px rgba(80, 58, 118, 0.18);
+            border: 1px solid var(--border-subtle);
+            overflow: hidden;
+            transform: translateX(120%);
+            opacity: 0;
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
+        }
+
+        .pro-toast.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        .pro-toast-body {
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.94rem;
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
+        .toast-reverse-bar {
+            height: 4px;
+            width: 100%;
+            animation: shrinkReverse 4.2s linear forwards;
+        }
+
+        .bar-success { background: var(--s-success); }
+        .bar-warning { background: var(--s-warning); }
+        .bar-error, .bar-danger { background: var(--s-error); }
+        .bar-info { background: var(--s-info); }
+
+        @keyframes shrinkReverse {
+            0% { width: 100%; }
+            100% { width: 0%; }
+        }
+
+        /* Clean Tables */
+        .table-pro th {
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 12px 16px;
+            white-space: nowrap;
+        }
+
+        .table-pro td {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+    <!-- Floating Animated Reverse-Progress Toast Stack -->
+    <div id="toast-stack"></div>
+
+    <!-- Sticky Header -->
+    <nav class="protrack-nav">
+        <div class="container d-flex justify-content-between align-items-center gap-3">
+            <a class="brand-logo" href="{% url 'dashboard' %}">
+                <span class="brand-icon-box"><i class="bi bi-layers-half"></i></span>
+                <span>ProTrack</span>
+            </a>
+
+            {% if user.is_authenticated %}
+            <div class="d-flex align-items-center gap-2 gap-md-3 flex-nowrap">
+                <!-- Notification Bell -->
+                <div class="dropdown">
+                    <button class="btn-pro-secondary py-2 px-3 position-relative" data-bs-toggle="dropdown" onclick="markNotificationsRead()">
+                        <i class="bi bi-bell-fill"></i>
+                        {% if unread_count > 0 %}
+                        <span id="notif-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill" style="background: var(--s-error);">
+                            {{ unread_count }}
+                        </span>
+                        {% endif %}
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end p-3 shadow-lg border-0" style="width: 350px; border-radius: 20px;">
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <span class="fw-bold small text-uppercase" style="color: var(--p-primary);">Activity Center</span>
+                            <span class="pro-chip chip-info py-1 px-2" style="font-size: 0.75rem;">Real-Time</span>
+                        </div>
+                        <div id="notif-list">
+                            {% for n in notifications %}
+                            <div class="py-2 border-bottom small d-flex align-items-start gap-2">
+                                <i class="bi bi-circle-fill mt-1" style="font-size: 7px; color: {% if n.level == 'success' %}var(--s-success){% elif n.level == 'warning' %}var(--s-warning){% elif n.level == 'error' %}var(--s-error){% else %}var(--s-info){% endif %};"></i>
+                                <span>{{ n.message }}</span>
+                            </div>
+                            {% empty %}
+                            <div class="text-muted small py-3 text-center">No new notifications</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <span class="pro-chip chip-primary d-none d-sm-inline-flex">
+                    <i class="bi bi-person-badge"></i> {{ user.profile.get_role_display }}
+                </span>
+                <span class="fw-semibold d-none d-lg-inline text-nowrap">{{ user.first_name|default:user.username }}</span>
+                <a href="{% url 'logout' %}" class="btn-pro-secondary py-2 px-3 text-decoration-none">
+                    <i class="bi bi-box-arrow-right"></i> <span>Sign Out</span>
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- Main Container on 8pt Grid -->
+    <main class="container my-4 flex-grow-1">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Updated Official Footer -->
+    <footer class="py-4 mt-auto border-top" style="background: rgba(255, 255, 255, 0.75); border-color: var(--border-subtle) !important;">
+        <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2 small" style="color: var(--text-secondary);">
+            <span><strong>ProTrack</strong> — Academic Project & Viva Lifecycle Platform.</span>
+            <span>ProTrack © 2026. All rights reserved.</span>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function getCSRFToken() {
+            const el = document.querySelector('[name=csrfmiddlewaretoken]');
+            return el ? el.value : '';
+        }
+
+        // Reverse-Progress Toast Notification Engine
+        function showToast(message, level = 'success') {
+            const stack = document.getElementById('toast-stack');
+            const toast = document.createElement('div');
+            toast.className = 'pro-toast';
+
+            const iconMap = {
+                'success': '<i class="bi bi-check-circle-fill fs-5" style="color: var(--s-success);"></i>',
+                'warning': '<i class="bi bi-exclamation-triangle-fill fs-5" style="color: var(--s-warning);"></i>',
+                'error': '<i class="bi bi-x-circle-fill fs-5" style="color: var(--s-error);"></i>',
+                'danger': '<i class="bi bi-x-circle-fill fs-5" style="color: var(--s-error);"></i>',
+                'info': '<i class="bi bi-info-circle-fill fs-5" style="color: var(--s-info);"></i>'
+            };
+
+            toast.innerHTML = `
+                <div class="pro-toast-body">
+                    ${iconMap[level] || iconMap.info}
+                    <div class="flex-grow-1">${message}</div>
+                    <button type="button" class="btn-close btn-sm" onclick="this.closest('.pro-toast').remove()"></button>
+                </div>
+                <div class="toast-reverse-bar bar-${level}"></div>
+            `;
+
+            stack.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add('show'));
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 350);
+            }, 4200);
+        }
+
+        // Stateful Button Controller (Prevents Duplicate Submissions & Re-Enables on Edit)
+        function setButtonLoading(btn, loadingText = 'Processing...') {
+            if (!btn) return;
+            if (!btn.dataset.defaultHtml) {
+                btn.dataset.defaultHtml = btn.innerHTML;
+            }
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> <span>${loadingText}</span>`;
+        }
+
+        function lockActionButton(btn, completedLabel = 'Saved ✓') {
+            if (!btn) return;
+            if (!btn.dataset.defaultHtml) {
+                btn.dataset.defaultHtml = btn.innerHTML;
+            }
+            btn.disabled = true;
+            btn.classList.add('btn-locked');
+            btn.innerHTML = `<i class="bi bi-check2-circle"></i> <span>${completedLabel}</span>`;
+        }
+
+        function unlockActionButton(btn) {
+            if (!btn || !btn.classList.contains('btn-locked')) return;
+            btn.disabled = false;
+            btn.classList.remove('btn-locked');
+            if (btn.dataset.defaultHtml) {
+                btn.innerHTML = btn.dataset.defaultHtml;
+            }
+        }
+
+        // Automatically watch all forms so locked buttons wake up only when inputs change
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('form[data-watch-dirty="true"]').forEach(form => {
+                const unlockAllInForm = () => {
+                    form.querySelectorAll('.btn-locked').forEach(btn => unlockActionButton(btn));
+                };
+                form.addEventListener('input', unlockAllInForm);
+                form.addEventListener('change', unlockAllInForm);
+            });
+        });
+
+        async function markNotificationsRead() {
+            const badge = document.getElementById('notif-badge');
+            if (!badge) return;
+            badge.remove();
+            await fetch("{% url 'api_mark_notifications_read' %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCSRFToken() }
+            });
+        }
+
+        {% if messages %}
+            {% for m in messages %}
+                showToast("{{ m|escapejs }}", "{{ m.tags|default:'info' }}");
+            {% endfor %}
+        {% endif %}
+    </script>
+</body>
+</html>

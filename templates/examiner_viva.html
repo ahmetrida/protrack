@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="bento-card mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div>
+        <span class="small fw-bold text-uppercase" style="color: var(--p-primary);">External Examiner Viva Portal</span>
+        <h2 class="fw-bold mb-0">{{ user.first_name|default:"Professor Secretly Anonymous" }}</h2>
+    </div>
+    <a href="{% url 'export_marksheet_csv' %}" class="btn-pro text-decoration-none">
+        <i class="bi bi-download"></i> <span>Download Official Marksheet (CSV)</span>
+    </a>
+</div>
+
+<div class="row g-4">
+    {% for g in groups %}
+    <div class="col-12">
+        <div class="bento-card">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+                <div>
+                    <h4 class="fw-bold mb-2">{{ g.group_name }} — {{ g.proposal.proposed_title|default:"Untitled" }}</h4>
+                    <div class="d-flex flex-wrap gap-2 mb-2">
+                        {% for m in g.members.all %}
+                        <span class="pro-chip chip-member"><i class="bi bi-person"></i> {{ m.first_name|default:m.username }}</span>
+                        {% endfor %}
+                    </div>
+                    <span class="small" style="color: var(--text-secondary);">
+                        Guide: <strong>{{ g.guide.first_name|default:"Unassigned" }}</strong> •
+                        Repo: {% if g.github_repo_link %}<a href="{{ g.github_repo_link }}" target="_blank" style="color: var(--p-primary);">{{ g.github_repo_link }}</a>{% else %}N/A{% endif %}
+                    </span>
+                </div>
+                <span id="viva-badge-{{ g.id }}" class="pro-chip {% if g.viva_evaluation %}chip-success{% else %}chip-warning{% endif %} fs-6 px-3 py-2">
+                    {% if g.viva_evaluation %}
+                        Evaluated: {{ g.viva_evaluation.total_marks }}/100 (Grade {{ g.viva_evaluation.grade }})
+                    {% else %}
+                        Pending Viva Evaluation
+                    {% endif %}
+                </span>
+            </div>
+
+            <form data-watch-dirty="true" onsubmit="saveVivaRealtime(event, {{ g.id }})" oninput="calcLiveTotal({{ g.id }})" id="viva-form-{{ g.id }}">
+                {% csrf_token %}
+                <div class="row g-3 mb-3">
+                    <div class="col-md-2 col-6">
+                        <label class="form-label">Problem Def (20)</label>
+                        <input type="number" name="m1" min="0" max="20" class="form-control viva-input-{{ g.id }}" value="{{ g.viva_evaluation.problem_definition_marks|default:18 }}" required>
+                    </div>
+                    <div class="col-md-2 col-6">
+                        <label class="form-label">Implementation (20)</label>
+                        <input type="number" name="m2" min="0" max="20" class="form-control viva-input-{{ g.id }}" value="{{ g.viva_evaluation.implementation_marks|default:19 }}" required>
+                    </div>
+                    <div class="col-md-2 col-6">
+                        <label class="form-label">Presentation (20)</label>
+                        <input type="number" name="m3" min="0" max="20" class="form-control viva-input-{{ g.id }}" value="{{ g.viva_evaluation.presentation_marks|default:18 }}" required>
+                    </div>
+                    <div class="col-md-2 col-6">
+                        <label class="form-label">Q&A Defense (20)</label>
+                        <input type="number" name="m4" min="0" max="20" class="form-control viva-input-{{ g.id }}" value="{{ g.viva_evaluation.qa_defense_marks|default:18 }}" required>
+                    </div>
+                    <div class="col-md-2 col-6">
+                        <label class="form-label">Documentation (20)</label>
+                        <input type="number" name="m5" min="0" max="20" class="form-control viva-input-{{ g.id }}" value="{{ g.viva_evaluation.documentation_marks|default:19 }}" required>
+                    </div>
+                    <div class="col-md-2 col-6 d-flex flex-column justify-content-end">
+                        <div class="p-2 text-center rounded-4" style="background: var(--p-wash); border: 1px solid var(--p-tint);">
+                            <span class="small d-block" style="color: var(--text-secondary);">Live Total</span>
+                            <strong id="live-total-{{ g.id }}" class="fs-5" style="color: var(--p-dark);">{{ g.viva_evaluation.total_marks|default:92 }}/100</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-9">
+                        <input type="text" name="examiner_comments" class="form-control" value="{{ g.viva_evaluation.examiner_comments|default:'' }}" placeholder="Enter official viva remarks...">
+                    </div>
+                    <div class="col-md-3">
+                        {% if g.viva_evaluation %}
+                        <button type="submit" id="btn-viva-{{ g.id }}" class="btn-pro w-100 btn-locked" disabled
+                            data-default-html='<i class="bi bi-award"></i> <span>Update Viva Grade</span>'>
+                            <i class="bi bi-check2-circle"></i> <span>Grade Locked ✓</span>
+                        </button>
+                        {% else %}
+                        <button type="submit" id="btn-viva-{{ g.id }}" class="btn-pro w-100"
+                            data-default-html='<i class="bi bi-award"></i> <span>Submit Viva Grade</span>'>
+                            <i class="bi bi-award"></i> <span>Submit Viva Grade</span>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+function calcLiveTotal(groupId) {
+    const inputs = document.querySelectorAll(`.viva-input-${groupId}`);
+    let sum = 0;
+    inputs.forEach(inp => sum += parseInt(inp.value || 0, 10));
+    document.getElementById(`live-total-${groupId}`).textContent = `${sum}/100`;
+}
+
+async function saveVivaRealtime(e, groupId) {
+    e.preventDefault();
+    const btn = document.getElementById(`btn-viva-${groupId}`);
+    setButtonLoading(btn, 'Locking Grade...');
+    const res = await fetch(`/submit-viva/${groupId}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCSRFToken() },
+        body: new FormData(e.target)
+    });
+    const data = await res.json();
+    if (data.ok) {
+        const badge = document.getElementById(`viva-badge-${groupId}`);
+        badge.className = 'pro-chip chip-success fs-6 px-3 py-2';
+        badge.textContent = `Evaluated: ${data.total_marks}/100 (Grade ${data.grade})`;
+        lockActionButton(btn, 'Grade Locked ✓');
+        showToast(data.message, data.level);
+    }
+}
+</script>
+{% endblock %}

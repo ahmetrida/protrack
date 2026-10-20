@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="bento-card mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div>
+        <span class="small fw-bold text-uppercase" style="color: var(--p-primary);">Project Coordinator Overview</span>
+        <h2 class="fw-bold mb-0">{{ user.first_name|default:"Professor Prajakta Borse" }}</h2>
+    </div>
+    <a href="{% url 'export_marksheet_csv' %}" class="btn-pro text-decoration-none">
+        <i class="bi bi-file-earmark-spreadsheet"></i> <span>Export Official Marksheet</span>
+    </a>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-4">
+        <div class="bento-card h-100 d-flex flex-column justify-content-between">
+            <h5 class="fw-bold mb-3">Department Stage Breakdown</h5>
+            <canvas id="stageChart" height="220"></canvas>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="bento-card h-100">
+            <h5 class="fw-bold mb-3">Registered Groups & Smart Similarity Status</h5>
+            <div class="table-responsive">
+                <table class="table table-pro mb-0">
+                    <thead>
+                        <tr><th>Group & Roster</th><th>Project Title</th><th>Similarity</th><th>Guide</th><th>Stage</th><th>Marks</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for g in groups %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-nowrap">{{ g.group_name }}</div>
+                                <div class="small text-muted">
+                                    {% for m in g.members.all %}{{ m.first_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                                </div>
+                            </td>
+                            <td>{{ g.proposal.proposed_title|default:"Not Submitted" }}</td>
+                            <td>
+                                {% if g.proposal %}
+                                <span class="pro-chip {% if g.proposal.similarity_score >= 50 %}chip-error{% else %}chip-success{% endif %}">
+                                    {{ g.proposal.similarity_score }}%
+                                </span>
+                                {% else %}-{% endif %}
+                            </td>
+                            <td class="text-nowrap small fw-medium">{{ g.guide.first_name|default:"Unassigned" }}</td>
+                            <td><span class="pro-chip chip-primary">{{ g.get_current_stage_display }}</span></td>
+                            <td class="fw-bold text-nowrap">
+                                {% if g.viva_evaluation %}{{ g.viva_evaluation.total_marks }}/100 ({{ g.viva_evaluation.grade }}){% else %}Pending{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="bento-card">
+    <h5 class="fw-bold mb-3">Departmental Past Project Archive (TF-IDF Reference Corpus)</h5>
+    <div class="table-responsive">
+        <table class="table table-pro mb-0">
+            <thead><tr><th>Batch</th><th>Domain</th><th>Project Title</th><th>Abstract Summary</th></tr></thead>
+            <tbody>
+                {% for a in archives %}
+                <tr>
+                    <td><span class="pro-chip chip-primary">{{ a.batch_year }}</span></td>
+                    <td class="fw-medium text-nowrap">{{ a.domain }}</td>
+                    <td class="fw-semibold">{{ a.title }}</td>
+                    <td class="small" style="color: var(--text-secondary);">{{ a.abstract|truncatechars:100 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+new Chart(document.getElementById('stageChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Topic Pending', 'In Progress', 'Ready for Viva', 'Evaluated'],
+        datasets: [{
+            data: [{{ stage_counts.pending }}, {{ stage_counts.progress }}, {{ stage_counts.ready }}, {{ stage_counts.evaluated }}],
+            backgroundColor: ['#9A6514', '#604A8B', '#3B6FA3', '#2F7D57'],
+            borderWidth: 0
+        }]
+    },
+    options: {
+        cutout: '72%',
+        plugins: { legend: { position: 'bottom' } }
+    }
+});
+</script>
+{% endblock %}

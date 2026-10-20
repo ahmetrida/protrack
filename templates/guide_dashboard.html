@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="bento-card mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div>
+        <span class="small fw-bold text-uppercase" style="color: var(--p-primary);">Faculty Guide Workspace</span>
+        <h2 class="fw-bold mb-0">{{ user.first_name|default:"Professor Saurabh Pagar" }}</h2>
+    </div>
+    <span class="pro-chip chip-primary fs-6">{{ groups|length }} Assigned Groups</span>
+</div>
+
+<div class="row g-4">
+    {% for g in groups %}
+    <div class="col-12">
+        <div class="bento-card">
+            <div class="d-flex flex-wrap justify-content-between align-items-start border-bottom pb-3 mb-4 gap-3">
+                <div>
+                    <h3 class="fw-bold mb-2">{{ g.group_name }}</h3>
+                    <div class="d-flex flex-wrap gap-2 mb-2">
+                        {% for m in g.members.all %}
+                        <span class="pro-chip chip-member"><i class="bi bi-person"></i> {{ m.first_name|default:m.username }}</span>
+                        {% empty %}
+                        <span class="small text-muted">No members listed</span>
+                        {% endfor %}
+                    </div>
+                    <div class="small">
+                        GitHub Repo: {% if g.github_repo_link %}<a href="{{ g.github_repo_link }}" target="_blank" class="fw-semibold text-decoration-none" style="color: var(--p-primary);">{{ g.github_repo_link }}</a>{% else %}Not uploaded{% endif %}
+                    </div>
+                </div>
+                <span id="guide-stage-{{ g.id }}" class="pro-chip chip-primary fs-6">{{ g.get_current_stage_display }}</span>
+            </div>
+
+            {% if g.proposal %}
+            <div class="row g-4 align-items-center mb-4 p-3 rounded-4" style="background: var(--p-wash);">
+                <div class="col-lg-7">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <span class="pro-chip {% if g.proposal.similarity_score >= 50 %}chip-error{% else %}chip-success{% endif %}">
+                            Smart Similarity: {{ g.proposal.similarity_score }}%
+                        </span>
+                        <span id="prop-badge-{{ g.proposal.id }}" class="pro-chip {% if g.proposal.status == 'APPROVED' %}chip-success{% elif g.proposal.status == 'REJECTED' %}chip-error{% else %}chip-warning{% endif %}">
+                            {{ g.proposal.get_status_display }}
+                        </span>
+                    </div>
+                    <h5 class="fw-bold mb-1">{{ g.proposal.proposed_title }}</h5>
+                    <p class="small mb-2" style="color: var(--text-secondary);">{{ g.proposal.abstract_text }}</p>
+                    <div class="small" style="color: var(--text-secondary);">
+                        Closest Match: <strong>{{ g.proposal.closest_match_title }}</strong> ({{ g.proposal.closest_match_source }})
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <form data-watch-dirty="true" onsubmit="reviewProposalRealtime(event, {{ g.proposal.id }}, {{ g.id }})" class="bg-white p-3 rounded-4 border">
+                        {% csrf_token %}
+                        <label class="form-label">Guide Decision & Remarks</label>
+                        <input type="text" name="reviewer_remarks" class="form-control mb-2" value="{{ g.proposal.reviewer_remarks|default:'' }}" placeholder="Enter remarks for students...">
+                        <div class="d-flex gap-2">
+                            <select name="status" class="form-select">
+                                <option value="APPROVED" {% if g.proposal.status == 'APPROVED' %}selected{% endif %}>Approve Proposal</option>
+                                <option value="REJECTED" {% if g.proposal.status == 'REJECTED' %}selected{% endif %}>Request Changes</option>
+                            </select>
+                            {% if g.proposal.status == 'APPROVED' %}
+                            <button type="submit" id="btn-prop-{{ g.proposal.id }}" class="btn-pro btn-locked" disabled
+                                data-default-html='<i class="bi bi-check2-circle"></i> <span>Update Decision</span>'>
+                                <i class="bi bi-check2-circle"></i> <span>Approved ✓</span>
+                            </button>
+                            {% else %}
+                            <button type="submit" id="btn-prop-{{ g.proposal.id }}" class="btn-pro"
+                                data-default-html='<i class="bi bi-check2-circle"></i> <span>Confirm Decision</span>'>
+                                <i class="bi bi-check2-circle"></i> <span>Confirm Decision</span>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <h5 class="fw-bold mb-3">Weekly Progress Sign-Offs</h5>
+            <div class="table-responsive">
+                <table class="table table-pro mb-0">
+                    <thead>
+                        <tr><th>Week</th><th>Tasks Completed</th><th>Status</th><th>Guide Action</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for log in g.weekly_logs.all %}
+                        <tr>
+                            <td class="fw-bold text-nowrap">Week {{ log.week_number }}</td>
+                            <td>{{ log.tasks_completed }}</td>
+                            <td>
+                                <span id="log-pill-{{ log.id }}" class="pro-chip {% if log.approval_status == 'APPROVED' %}chip-success{% elif log.approval_status == 'CHANGES_NEEDED' %}chip-error{% else %}chip-warning{% endif %}">
+                                    {{ log.get_approval_status_display }}
+                                </span>
+                            </td>
+                            <td style="min-width: 360px;">
+                                <form data-watch-dirty="true" onsubmit="reviewLogRealtime(event, {{ log.id }})" class="d-flex gap-2">
+                                    {% csrf_token %}
+                                    <input type="text" name="guide_remarks" class="form-control py-2" value="{{ log.guide_remarks|default:'' }}" placeholder="Guide feedback...">
+                                    <select name="approval_status" class="form-select py-2 w-auto">
+                                        <option value="APPROVED" {% if log.approval_status == 'APPROVED' %}selected{% endif %}>Sign Off</option>
+                                        <option value="CHANGES_NEEDED" {% if log.approval_status == 'CHANGES_NEEDED' %}selected{% endif %}>Revise</option>
+                                    </select>
+                                    {% if log.approval_status == 'APPROVED' %}
+                                    <button type="submit" id="btn-log-{{ log.id }}" class="btn-pro py-2 px-3 btn-locked" disabled
+                                        data-default-html='<i class="bi bi-check2"></i> <span>Update</span>'>
+                                        <i class="bi bi-check2-circle"></i> <span>Signed Off ✓</span>
+                                    </button>
+                                    {% else %}
+                                    <button type="submit" id="btn-log-{{ log.id }}" class="btn-pro py-2 px-3"
+                                        data-default-html='<i class="bi bi-check2"></i> <span>Sign Off</span>'>
+                                        <i class="bi bi-check2"></i> <span>Sign Off</span>
+                                    </button>
+                                    {% endif %}
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-muted text-center">No weekly logs submitted yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+async function reviewProposalRealtime(e, propId, groupId) {
+    e.preventDefault();
+    const btn = document.getElementById(`btn-prop-${propId}`);
+    setButtonLoading(btn, 'Saving...');
+    const res = await fetch(`/review-proposal/${propId}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCSRFToken() },
+        body: new FormData(e.target)
+    });
+    const data = await res.json();
+    if (data.ok) {
+        const badge = document.getElementById(`prop-badge-${propId}`);
+        badge.textContent = data.status_display;
+        badge.className = `pro-chip ${data.status === 'APPROVED' ? 'chip-success' : 'chip-error'}`;
+        document.getElementById(`guide-stage-${groupId}`).textContent = data.stage_display;
+        lockActionButton(btn, `${data.status_display} ✓`);
+        showToast(data.message, data.level);
+    }
+}
+
+async function reviewLogRealtime(e, logId) {
+    e.preventDefault();
+    const btn = document.getElementById(`btn-log-${logId}`);
+    setButtonLoading(btn, 'Saving...');
+    const res = await fetch(`/review-log/${logId}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCSRFToken() },
+        body: new FormData(e.target)
+    });
+    const data = await res.json();
+    if (data.ok) {
+        const pill = document.getElementById(`log-pill-${logId}`);
+        pill.textContent = data.status_display;
+        pill.className = `pro-chip ${data.approval_status === 'APPROVED' ? 'chip-success' : 'chip-warning'}`;
+        lockActionButton(btn, `${data.status_display} ✓`);
+        showToast(data.message, data.level);
+    }
+}
+</script>
+{% endblock %}

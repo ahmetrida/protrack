@@ -1,0 +1,351 @@
+{% extends 'base.html' %}
+{% block content %}
+<!-- Top Group Summary Bento Card -->
+<div class="bento-card mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+        <div>
+            <span class="small fw-bold text-uppercase" style="color: var(--p-primary);">Student Project Workspace</span>
+            <h2 class="fw-bold mb-2">{{ group.group_name }}</h2>
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                <span class="small fw-semibold me-1" style="color: var(--text-secondary);">Team Members:</span>
+                {% for m in group.members.all %}
+                <span class="pro-chip chip-member"><i class="bi bi-person-fill"></i> {{ m.first_name|default:m.username }}</span>
+                {% endfor %}
+            </div>
+            <div class="small" style="color: var(--text-secondary);">
+                Assigned Faculty Guide: <strong class="text-dark">{{ group.guide.first_name|default:"Unassigned" }}</strong>
+            </div>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if viva %}
+            <span class="pro-chip chip-success fs-6 px-3 py-2">
+                <i class="bi bi-award-fill"></i> Score: {{ viva.total_marks }}/100 (Grade {{ viva.grade }})
+            </span>
+            {% endif %}
+            <span id="stage-pill" class="pro-chip chip-primary fs-6 px-3 py-2">
+                <i class="bi bi-disc"></i> <span id="stage-text">{{ group.get_current_stage_display }}</span>
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- 12-Column 8pt Bento Grid -->
+<div class="row g-4">
+    <!-- Left Column: Proposal & Smart Similarity (7 Columns) -->
+    <div class="col-lg-7">
+        <div class="bento-card h-100">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <h4 class="fw-bold mb-0">Project Proposal & Smart Similarity</h4>
+                <span id="proposal-status-pill" class="pro-chip {% if proposal.status == 'APPROVED' %}chip-success{% elif proposal.status == 'REJECTED' %}chip-error{% else %}chip-warning{% endif %}">
+                    {{ proposal.get_status_display|default:"Draft" }}
+                </span>
+            </div>
+            <p class="small mb-3" style="color: var(--text-secondary);">
+                Update any field below. Action buttons automatically lock once completed and unlock as soon as you edit a field.
+            </p>
+
+            <!-- Smart Similarity Meter -->
+            <div id="sim-box" class="p-3 mb-4 rounded-4 {% if proposal.similarity_score >= 50 %}chip-error{% else %}chip-success{% endif %}" style="border: 1px solid currentColor;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold"><i class="bi bi-cpu"></i> Smart Similarity Index</span>
+                    <span id="sim-score" class="fs-4 fw-bold">{{ proposal.similarity_score|default:"0.0" }}%</span>
+                </div>
+                <div class="progress my-2" style="height: 8px; border-radius: 99px; background: rgba(0,0,0,0.08);">
+                    <div id="sim-bar" class="progress-bar" style="width: {{ proposal.similarity_score|default:0 }}%; background-color: {% if proposal.similarity_score >= 50 %}var(--s-error){% else %}var(--s-success){% endif %};"></div>
+                </div>
+                <div id="sim-match" class="small">
+                    Closest Match: <strong>{{ proposal.closest_match_title|default:"None" }}</strong> ({{ proposal.closest_match_source|default:"Archive" }})
+                </div>
+                {% if proposal.reviewer_remarks %}
+                <div class="small mt-2 pt-2 border-top border-dark border-opacity-10">
+                    <strong>Guide Remarks:</strong> "{{ proposal.reviewer_remarks }}"
+                </div>
+                {% endif %}
+            </div>
+
+            <form id="proposalForm" data-watch-dirty="true" onsubmit="saveProposalRealtime(event)">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label">Proposed Project Title</label>
+                    <input type="text" name="proposed_title" id="prop_title" class="form-control" value="{{ proposal.proposed_title }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Technologies & Frameworks</label>
+                    <input type="text" name="tech_stack" id="prop_stack" class="form-control" value="{{ proposal.tech_stack }}" placeholder="Python, Django, Scikit-Learn" required>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">Project Abstract</label>
+                    <textarea name="abstract_text" id="prop_abstract" rows="4" class="form-control" required>{{ proposal.abstract_text }}</textarea>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" id="btnCheckSim" onclick="checkSimilarityRealtime()" class="btn-pro-secondary flex-grow-1">
+                        <i class="bi bi-shield-check"></i> <span>Check Similarity</span>
+                    </button>
+                    <button type="submit" id="btnSaveProposal" class="btn-pro flex-grow-1 btn-locked" disabled
+                        data-default-html='<i class="bi bi-cloud-check"></i> <span>Save Proposal Changes</span>'>
+                        <i class="bi bi-check2-circle"></i> <span>Proposal Up to Date ✓</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Column: Weekly Progress + Multi-Format Deliverable Upload (5 Columns) -->
+    <div class="col-lg-5 d-flex flex-column gap-4">
+        <!-- Weekly Progress Logger -->
+        <div class="bento-card">
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                <h4 class="fw-bold mb-0" id="log-form-heading">Weekly Progress</h4>
+                <span class="pro-chip chip-primary" id="log-mode-badge">Week {{ next_week }}</span>
+            </div>
+            <p class="small mb-3" style="color: var(--text-secondary);">
+                Log a new milestone or click <strong>Edit</strong> on any week below to patch existing progress.
+            </p>
+
+            <form id="logForm" data-watch-dirty="true" onsubmit="saveLogRealtime(event)">
+                {% csrf_token %}
+                <div class="row g-2 mb-3">
+                    <div class="col-4">
+                        <label class="form-label">Week #</label>
+                        <input type="number" name="week_number" id="log_week" class="form-control" value="{{ next_week }}" min="1" max="16" required>
+                    </div>
+                    <div class="col-8">
+                        <label class="form-label">GitHub Commit Link</label>
+                        <input type="url" name="commit_or_doc_link" id="log_link" class="form-control" value="{{ group.github_repo_link|default:'https://github.com/ahmetrida/protrack' }}">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Completed Tasks / Updates</label>
+                    <textarea name="tasks_completed" id="log_tasks" rows="2" class="form-control" placeholder="Describe what your team built or updated..." required></textarea>
+                </div>
+                <button type="submit" id="btnSaveLog" class="btn-pro w-100">
+                    <i class="bi bi-journal-plus"></i> <span>Submit Weekly Progress</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Final Repository & Multi-Format File Upload -->
+        <div class="bento-card">
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                <h4 class="fw-bold mb-0">Project Deliverables</h4>
+                <span class="pro-chip chip-info">PDF • PNG • JPG • JPEG</span>
+            </div>
+            <p class="small mb-3" style="color: var(--text-secondary);">
+                Link your GitHub repository and upload your report or architecture snapshot.
+            </p>
+            <form id="finalForm" data-watch-dirty="true" onsubmit="saveFinalRealtime(event)" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label">GitHub Repository URL</label>
+                    <input type="url" name="github_repo_link" class="form-control" value="{{ group.github_repo_link|default:'https://github.com/ahmetrida/protrack' }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Upload Report or Screenshot (PDF, PNG, JPG, JPEG)</label>
+                    <input type="file" name="final_report_pdf" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                    <div id="file-link-box" class="mt-2">
+                        {% if group.final_report_pdf %}
+                        <a href="{{ group.final_report_pdf.url }}" target="_blank" class="pro-chip chip-success text-decoration-none mt-1">
+                            <i class="bi bi-file-earmark-check-fill"></i> View Uploaded Deliverable
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                <button type="submit" id="btnSaveFinal" class="btn-pro-secondary w-100">
+                    <i class="bi bi-cloud-arrow-up-fill"></i> <span>Save Deliverables</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Weekly Progress Timeline Table -->
+<div class="bento-card mt-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h4 class="fw-bold mb-0">Weekly Progress Timeline</h4>
+        <span class="pro-chip chip-primary"><i class="bi bi-pencil-square"></i> Click Edit on any row to update</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-pro mb-0">
+            <thead>
+                <tr>
+                    <th>Week</th>
+                    <th>Progress Summary</th>
+                    <th>Repository Link</th>
+                    <th>Guide Remarks</th>
+                    <th>Status</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody id="logbook-tbody">
+                {% for log in logs %}
+                <tr id="log-row-{{ log.week_number }}">
+                    <td class="fw-bold text-nowrap">Week {{ log.week_number }}</td>
+                    <td id="log-tasks-{{ log.week_number }}">{{ log.tasks_completed }}</td>
+                    <td>
+                        {% if log.commit_or_doc_link %}
+                        <a href="{{ log.commit_or_doc_link }}" target="_blank" class="pro-chip chip-primary text-decoration-none py-1 px-3">
+                            <span>Repo</span> <i class="bi bi-box-arrow-up-right"></i>
+                        </a>
+                        {% else %}-{% endif %}
+                    </td>
+                    <td class="small" style="color: var(--text-secondary);">{{ log.guide_remarks|default:"Awaiting guide review" }}</td>
+                    <td>
+                        <span class="pro-chip {% if log.approval_status == 'APPROVED' %}chip-success{% elif log.approval_status == 'CHANGES_NEEDED' %}chip-error{% else %}chip-warning{% endif %}">
+                            {{ log.get_approval_status_display }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <button type="button" class="btn-pro-secondary py-1 px-3"
+                            onclick="loadLogIntoEditor('{{ log.week_number }}', '{{ log.tasks_completed|escapejs }}', '{{ log.commit_or_doc_link|default:''|escapejs }}')">
+                            <i class="bi bi-pencil-square"></i> <span>Edit</span>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function updateSimUI(data) {
+    const box = document.getElementById('sim-box');
+    const scoreEl = document.getElementById('sim-score');
+    const bar = document.getElementById('sim-bar');
+    const matchEl = document.getElementById('sim-match');
+
+    scoreEl.textContent = `${data.score}%`;
+    bar.style.width = `${data.score}%`;
+
+    const isHigh = data.score >= 50;
+    box.className = `p-3 mb-4 rounded-4 ${isHigh ? 'chip-error' : 'chip-success'}`;
+    bar.style.backgroundColor = isHigh ? 'var(--s-error)' : 'var(--s-success)';
+
+    const kwHtml = (data.keywords && data.keywords.length)
+        ? ` • Overlapping terms: <em>${data.keywords.join(', ')}</em>`
+        : '';
+    matchEl.innerHTML = `Closest Match: <strong>${data.match_title}</strong> (${data.match_source})${kwHtml}`;
+}
+
+async function checkSimilarityRealtime() {
+    const btn = document.getElementById('btnCheckSim');
+    setButtonLoading(btn, 'Scanning Archive...');
+    const form = document.getElementById('proposalForm');
+    const res = await fetch("{% url 'api_check_similarity' %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCSRFToken() },
+        body: new FormData(form)
+    });
+    const data = await res.json();
+    if (data.ok) {
+        updateSimUI(data);
+        lockActionButton(btn, `Verified (${data.score}%) ✓`);
+        showToast(data.message, data.level);
+    }
+}
+
+async function saveProposalRealtime(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveProposal');
+    setButtonLoading(btn, 'Saving Proposal...');
+    const form = document.getElementById('proposalForm');
+    const res = await fetch("{% url 'submit_proposal' %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCSRFToken() },
+        body: new FormData(form)
+    });
+    const data = await res.json();
+    if (data.ok) {
+        updateSimUI(data);
+        const pill = document.getElementById('proposal-status-pill');
+        pill.textContent = data.status_display;
+        pill.className = 'pro-chip chip-warning';
+        lockActionButton(btn, 'Proposal Saved ✓');
+        showToast(data.message, data.level);
+    }
+}
+
+function loadLogIntoEditor(week, tasks, link) {
+    document.getElementById('log_week').value = week;
+    document.getElementById('log_tasks').value = tasks;
+    document.getElementById('log_link').value = link;
+    document.getElementById('log-form-heading').textContent = `Edit Week ${week}`;
+    document.getElementById('log-mode-badge').textContent = `Editing Week ${week}`;
+    const btn = document.getElementById('btnSaveLog');
+    unlockActionButton(btn);
+    btn.innerHTML = `<i class="bi bi-check2-circle"></i> <span>Update Week ${week} Progress</span>`;
+    btn.dataset.defaultHtml = btn.innerHTML;
+    document.getElementById('log_tasks').focus();
+    showToast(`Loaded Week ${week} for editing.`, 'info');
+}
+
+async function saveLogRealtime(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveLog');
+    setButtonLoading(btn, 'Saving Log...');
+    const form = document.getElementById('logForm');
+    const res = await fetch("{% url 'add_weekly_log' %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCSRFToken() },
+        body: new FormData(form)
+    });
+    const data = await res.json();
+    if (data.ok) {
+        const l = data.log;
+        lockActionButton(btn, `Week ${l.week_number} Saved ✓`);
+        showToast(data.message, data.level);
+
+        const tbody = document.getElementById('logbook-tbody');
+        const existingRow = document.getElementById(`log-row-${l.week_number}`);
+        const rowHtml = `
+            <td class="fw-bold text-nowrap">Week ${l.week_number}</td>
+            <td id="log-tasks-${l.week_number}">${l.tasks_completed}</td>
+            <td>${l.commit_or_doc_link ? `<a href="${l.commit_or_doc_link}" target="_blank" class="pro-chip chip-primary text-decoration-none py-1 px-3"><span>Repo</span> <i class="bi bi-box-arrow-up-right"></i></a>` : '-'}</td>
+            <td class="small" style="color: var(--text-secondary);">${l.guide_remarks}</td>
+            <td><span class="pro-chip chip-warning">${l.status_display}</span></td>
+            <td class="text-end">
+                <button type="button" class="btn-pro-secondary py-1 px-3"
+                    onclick="loadLogIntoEditor('${l.week_number}', '${l.tasks_completed.replace(/'/g, "\'")}', '${l.commit_or_doc_link}')">
+                    <i class="bi bi-pencil-square"></i> <span>Edit</span>
+                </button>
+            </td>
+        `;
+        if (existingRow) {
+            existingRow.innerHTML = rowHtml;
+        } else {
+            const tr = document.createElement('tr');
+            tr.id = `log-row-${l.week_number}`;
+            tr.innerHTML = rowHtml;
+            tbody.appendChild(tr);
+        }
+    }
+}
+
+async function saveFinalRealtime(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveFinal');
+    setButtonLoading(btn, 'Uploading...');
+    const form = document.getElementById('finalForm');
+    const res = await fetch("{% url 'upload_final_submission' %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCSRFToken() },
+        body: new FormData(form)
+    });
+    const data = await res.json();
+    if (data.ok) {
+        document.getElementById('stage-text').textContent = data.stage_display;
+        if (data.file_url) {
+            document.getElementById('file-link-box').innerHTML = `
+                <a href="${data.file_url}" target="_blank" class="pro-chip chip-success text-decoration-none mt-1">
+                    <i class="bi bi-file-earmark-check-fill"></i> View ${data.file_name || 'Uploaded Deliverable'}
+                </a>`;
+        }
+        lockActionButton(btn, 'Deliverables Saved ✓');
+        showToast(data.message, data.level);
+    } else {
+        unlockActionButton(btn);
+        showToast(data.message || 'Upload failed.', 'error');
+    }
+}
+</script>
+{% endblock %}
