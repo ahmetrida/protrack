@@ -12,21 +12,22 @@
     </div>
 
     <div class="row g-4">
+        <!-- Option 1: Create Group with Interactive Classmate Search -->
         <div class="col-lg-7">
             <div class="m3-card-tonal h-100">
                 <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
                     <i data-lucide="plus-circle" style="color:var(--m3-primary);"></i> Option 1: Create New Project Group
                 </h4>
-                <form method="POST">
+                <form method="POST" data-autosave="student_create_group">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="create_group">
                     <div class="mb-4">
-                        <label class="form-label">Project Group Name</label>
-                        <input type="text" name="group_name" class="form-control" placeholder="e.g. Group-01: Cloud Pioneers" required>
+                        <label class="form-label" for="grpNameInput">Project Group Name</label>
+                        <input type="text" name="group_name" id="grpNameInput" class="form-control" placeholder="e.g. Group-01: Cloud Pioneers" required>
                     </div>
                     <div class="mb-4">
-                        <label class="form-label">Assigned Project Guide ({{ user.profile.department.name }})</label>
-                        <select name="guide_id" class="form-select">
+                        <label class="form-label" for="grpGuideSelect">Assigned Project Guide ({{ user.profile.department.name }})</label>
+                        <select name="guide_id" id="grpGuideSelect" class="form-select">
                             <option value="">-- Select Faculty Guide --</option>
                             {% for g in dept_guides %}
                             <option value="{{ g.id }}" {% if user.profile.preferred_guide_id == g.id %}selected{% endif %}>
@@ -35,58 +36,127 @@
                             {% endfor %}
                         </select>
                     </div>
-                    {% if dept_students %}
+
+                    <!-- Interactive Classmate Search & Selection -->
                     <div class="mb-4">
-                        <label class="form-label">Add Classmates from {{ user.profile.department.name }} (Optional)</label>
-                        <select name="teammate_ids" class="form-select" multiple style="min-height: 130px;">
-                            {% for s in dept_students %}
-                            <option value="{{ s.id }}">{{ s.get_full_name|default:s.username }} (Roll: {{ s.profile.identifier }})</option>
-                            {% endfor %}
-                        </select>
+                        <label class="form-label" for="classmateSearchInput">
+                            Add Classmates from {{ user.profile.department.name }} (Optional)
+                        </label>
+                        <div class="position-relative">
+                            <input type="text" id="classmateSearchInput" class="form-control" placeholder="Type a classmate's first name or Roll Call to search {{ user.profile.department.name }}..." autocomplete="off" oninput="searchClassmatesLive(this.value)">
+                            <div id="classmateDropdown" class="list-group shadow-lg mt-1 d-none" style="position:absolute; width:100%; z-index:1050; border-radius:18px; max-height:260px; overflow-y:auto;"></div>
+                        </div>
+
+                        <div id="selectedTeammatesBox" class="d-flex flex-wrap gap-2 mt-3"></div>
+                        <div id="selectedTeammatesInputs"></div>
+
+                        <div class="small text-muted mt-2 d-flex align-items-center gap-2">
+                            <i data-lucide="info" style="width:16px;height:16px;flex-shrink:0;"></i>
+                            <span>Can't find your teammate yet? You can continue without selecting them—unregistered classmates can join anytime using your group's unique <strong>5-character Join Code</strong> generated right after creation.</span>
+                        </div>
                     </div>
-                    {% endif %}
+
                     <button type="submit" class="btn-m3-primary w-100">
-                        <i data-lucide="rocket"></i> Launch Project Group Workspace
+                        <i data-lucide="rocket"></i> Create Group & Generate 5-Character Join Code
                     </button>
                 </form>
             </div>
         </div>
 
+        <!-- Option 2: Join Existing Group by 5-Character Code -->
         <div class="col-lg-5">
             <div class="m3-card-tonal h-100 d-flex flex-column justify-content-between">
                 <div>
                     <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
                         <i data-lucide="key-round" style="color:var(--m3-primary);"></i> Option 2: Join Teammate's Group
                     </h4>
-                    <p class="text-muted mb-4">Have a 6-character Group Join Code from a classmate in <strong>{{ user.profile.department.name }}</strong>? Enter it below:</p>
-                    <form method="POST">
+                    <p class="text-muted mb-4">
+                        Have an existing <strong>5-character alphanumeric Group Join Code</strong> from a classmate in <strong>{{ user.profile.department.name }}</strong>? Enter it below:
+                    </p>
+                    <form method="POST" data-autosave="student_join_group">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="join_group">
                         <div class="mb-4">
-                            <label class="form-label">Group Join Code</label>
-                            <input type="text" name="join_code" class="form-control text-uppercase fw-bold" placeholder="e.g. PT-9A4B" required>
+                            <label class="form-label" for="joinCodeInput">5-Character Group Join Code</label>
+                            <input type="text" name="join_code" id="joinCodeInput" class="form-control text-uppercase fw-bold fs-4 text-center" style="letter-spacing: 0.2em;" maxlength="5" minlength="5" pattern="[A-Za-z0-9]{5}" placeholder="A8K2P" required>
                         </div>
                         <button type="submit" class="btn-m3-tonal w-100">
-                            <i data-lucide="user-check"></i> Join Existing Group
+                            <i data-lucide="user-check"></i> Validate Code & Join Group
                         </button>
                     </form>
                 </div>
 
-                {% if open_groups %}
-                <div class="border-top pt-3 mt-4">
-                    <div class="small fw-bold text-muted mb-2">Department Groups:</div>
-                    {% for og in open_groups|slice:":4" %}
-                    <div class="d-flex justify-content-between align-items-center py-1 small">
-                        <span><strong>{{ og.name }}</strong> ({{ og.students.count }} members)</span>
-                        <span class="m3-chip chip-tonal py-1 px-3">{{ og.join_code }}</span>
-                    </div>
-                    {% endfor %}
+                <div class="border-top pt-3 mt-4 small text-muted">
+                    <i data-lucide="shield-check" style="width:15px;height:15px;"></i>
+                    Join codes are strictly validated on the backend and restricted to eligible students in <strong>{{ user.profile.department.name }}</strong>.
                 </div>
-                {% endif %}
             </div>
         </div>
     </div>
 </div>
+
+<script>
+const selectedTeammates = new Map();
+
+function searchClassmatesLive(query) {
+    const box = document.getElementById('classmateDropdown');
+    const q = query.trim();
+    if (!q) {
+        box.classList.add('d-none');
+        box.innerHTML = '';
+        return;
+    }
+    fetch(`{% url 'api_search_classmates' %}?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(data => {
+            const list = (data.results || []).filter(item => !selectedTeammates.has(item.user_id));
+            box.classList.remove('d-none');
+            if (list.length === 0) {
+                box.innerHTML = `<div class="list-group-item p-3 text-muted small">No matching unassigned student found in {{ user.profile.department.name }}. You can proceed and share your 5-character Group Join Code after creating the group!</div>`;
+                return;
+            }
+            box.innerHTML = list.map(item => `
+                <button type="button" class="list-group-item list-group-item-action p-3 d-flex align-items-center justify-content-between" onclick="addTeammate(${item.user_id}, '${item.full_name.replace(/'/g, "\'")}', '${item.identifier.replace(/'/g, "\'")}')">
+                    <div>
+                        <div class="fw-bold text-dark">${item.full_name}</div>
+                        <div class="small text-muted">Roll Call: ${item.identifier} &bull; ${item.class_division}</div>
+                    </div>
+                    <span class="m3-chip chip-tonal py-1 px-3">+ Select</span>
+                </button>
+            `).join('');
+        });
+}
+
+function addTeammate(uid, fullName, ident) {
+    selectedTeammates.set(uid, { fullName, ident });
+    document.getElementById('classmateSearchInput').value = '';
+    document.getElementById('classmateDropdown').classList.add('d-none');
+    renderSelectedTeammates();
+}
+
+function removeTeammate(uid) {
+    selectedTeammates.delete(uid);
+    renderSelectedTeammates();
+}
+
+function renderSelectedTeammates() {
+    const chipBox = document.getElementById('selectedTeammatesBox');
+    const inputBox = document.getElementById('selectedTeammatesInputs');
+    let chipsHtml = '';
+    let inputsHtml = '';
+    selectedTeammates.forEach((info, uid) => {
+        chipsHtml += `
+            <span class="m3-chip chip-tonal py-2 px-3">
+                ${info.fullName} (${info.ident})
+                <button type="button" class="btn-close ms-2" style="font-size:0.65rem;" onclick="removeTeammate(${uid})"></button>
+            </span>
+        `;
+        inputsHtml += `<input type="hidden" name="teammate_ids" value="${uid}">`;
+    });
+    chipBox.innerHTML = chipsHtml;
+    inputBox.innerHTML = inputsHtml;
+}
+</script>
 
 {% else %}
 <!-- ACTIVE STUDENT GROUP WORKSPACE -->
@@ -95,7 +165,9 @@
         <div class="col-lg-7">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                 <span class="m3-chip chip-tonal"><i data-lucide="users" style="width:16px;height:16px;"></i> {{ group.name }}</span>
-                <span class="m3-chip chip-neutral"><i data-lucide="hash" style="width:16px;height:16px;"></i> Join Code: <strong>{{ group.join_code }}</strong></span>
+                <span class="m3-chip chip-neutral" style="letter-spacing:0.06em;">
+                    <i data-lucide="key-round" style="width:16px;height:16px;"></i> 5-Char Join Code: <strong class="text-dark">{{ group.join_code }}</strong>
+                </span>
                 {% if proposal %}
                     {% if proposal.status == 'APPROVED' %}
                     <span class="m3-chip chip-success"><i data-lucide="check-circle" style="width:16px;height:16px;"></i> Approved</span>
@@ -107,13 +179,17 @@
                 {% endif %}
             </div>
             <h2 class="fw-bold mb-2">{{ proposal.title|default:"Project Proposal Not Submitted Yet" }}</h2>
-            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                <span class="text-muted fw-medium me-1">Team Roster:</span>
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                <span class="text-muted fw-medium me-1">Team Members:</span>
                 {% for s in group.students.all %}
                 <span class="m3-chip chip-neutral py-1 px-3">
-                    {{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})
+                    <a href="{% url 'public_profile' s.username %}" class="text-dark text-decoration-none fw-bold">{{ s.get_full_name|default:s.username }}</a>
+                    <span class="text-muted">({{ s.profile.identifier }})</span>
+                    {% if s.email %}
+                    <a href="mailto:{{ s.email }}" class="text-primary ms-1" title="Email {{ s.email }}"><i data-lucide="mail" style="width:15px;height:15px;"></i></a>
+                    {% endif %}
                     {% if s.profile.clean_whatsapp %}
-                    <a href="https://wa.me/{{ s.profile.clean_whatsapp }}?text=Hi%20{{ s.get_full_name|urlencode }},%20connecting%20from%20ProTrack" target="_blank" class="text-success ms-1" title="Chat on WhatsApp"><i data-lucide="message-circle" style="width:15px;height:15px;"></i></a>
+                    <a href="https://wa.me/{{ s.profile.clean_whatsapp }}?text=Hi%20{{ s.get_full_name|urlencode }},%20connecting%20from%20ProTrack" target="_blank" class="text-success ms-1" title="WhatsApp Chat"><i data-lucide="message-circle" style="width:15px;height:15px;"></i></a>
                     {% endif %}
                 </span>
                 {% endfor %}
@@ -123,17 +199,36 @@
         <div class="col-lg-5">
             <div class="m3-card-tonal p-4">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div>
-                        <div class="small text-muted">Project Guide</div>
+                    <div class="d-flex align-items-center gap-3">
                         {% if group.guide %}
-                        <div class="fw-bold fs-5">{{ group.guide.get_full_name|default:group.guide.username }}</div>
-                        {% if group.guide.profile.clean_whatsapp %}
-                        <a href="https://wa.me/{{ group.guide.profile.clean_whatsapp }}?text=Hello%20{{ group.guide.get_full_name|urlencode }},%20we%20are%20from%20{{ group.name|urlencode }}" target="_blank" class="btn-whatsapp mt-2">
-                            <i data-lucide="message-circle" style="width:16px;height:16px;"></i> WhatsApp Guide
+                        <a href="{% url 'public_profile' group.guide.username %}" class="avatar-circle">
+                            {% if group.guide.profile.has_avatar %}
+                            <img src="{{ group.guide.profile.avatar_url }}" alt="Guide">
+                            {% else %}
+                            {{ group.guide.profile.initials }}
+                            {% endif %}
                         </a>
-                        {% endif %}
+                        <div>
+                            <div class="small text-muted">Assigned Project Guide</div>
+                            <a href="{% url 'public_profile' group.guide.username %}" class="fw-bold fs-5 text-dark text-decoration-none">{{ group.guide.get_full_name|default:group.guide.username }}</a>
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                {% if group.guide.email %}
+                                <a href="mailto:{{ group.guide.email }}" class="btn-m3-outline py-1 px-3 text-decoration-none" style="min-height:34px;font-size:0.85rem;">
+                                    <i data-lucide="mail" style="width:14px;height:14px;"></i> Email
+                                </a>
+                                {% endif %}
+                                {% if group.guide.profile.clean_whatsapp %}
+                                <a href="https://wa.me/{{ group.guide.profile.clean_whatsapp }}?text=Hello%20{{ group.guide.get_full_name|urlencode }},%20we%20are%20from%20{{ group.name|urlencode }}" target="_blank" class="btn-whatsapp py-1 px-3">
+                                    <i data-lucide="message-circle" style="width:14px;height:14px;"></i> WhatsApp
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
                         {% else %}
-                        <div class="text-danger fw-bold">Unassigned</div>
+                        <div>
+                            <div class="small text-muted">Project Guide</div>
+                            <div class="text-danger fw-bold">Unassigned</div>
+                        </div>
                         {% endif %}
                     </div>
                     {% if viva %}
@@ -172,19 +267,19 @@
             </div>
             {% endif %}
 
-            <form method="POST" enctype="multipart/form-data">
+            <form method="POST" enctype="multipart/form-data" data-autosave="student_proposal_form">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="submit_proposal">
                 <div class="mb-4">
-                    <label class="form-label">Project Title</label>
+                    <label class="form-label" for="propTitle">Project Title</label>
                     <input type="text" name="title" id="propTitle" class="form-control" value="{{ proposal.title|default:'' }}" placeholder="e.g. Cloud-Native Academic Governance Platform" required>
                 </div>
                 <div class="mb-4">
-                    <label class="form-label">Technical Domain</label>
-                    <input type="text" name="domain" class="form-control" value="{{ proposal.domain|default:'' }}" placeholder="e.g. Artificial Intelligence, Distributed Systems, Cybersecurity" required>
+                    <label class="form-label" for="propDomain">Technical Domain</label>
+                    <input type="text" name="domain" id="propDomain" class="form-control" value="{{ proposal.domain|default:'' }}" placeholder="e.g. Artificial Intelligence, Distributed Systems, Cybersecurity" required>
                 </div>
                 <div class="mb-4">
-                    <label class="form-label">Detailed Abstract</label>
+                    <label class="form-label" for="propAbstract">Detailed Abstract</label>
                     <textarea name="abstract" id="propAbstract" rows="6" class="form-control" placeholder="Outline the problem statement, system architecture, algorithms, and expected deliverables..." required>{{ proposal.abstract|default:'' }}</textarea>
                 </div>
 
@@ -199,8 +294,8 @@
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label">Upload Synopsis / Blackbook Documentation (PDF, DOCX, PNG)</label>
-                    <input type="file" name="report_file" class="form-control" accept=".pdf,.docx,.doc,.png,.jpg,.jpeg">
+                    <label class="form-label" for="propFile">Upload Synopsis / Blackbook Documentation (Optional — PDF, DOCX, PNG)</label>
+                    <input type="file" name="report_file" id="propFile" class="form-control" accept=".pdf,.docx,.doc,.png,.jpg,.jpeg">
                     {% if proposal.report_file %}
                     <div class="mt-2">
                         <a href="{{ proposal.report_file.url }}" target="_blank" class="btn-m3-outline py-2 px-3 text-decoration-none">
@@ -229,22 +324,22 @@
                 <i data-lucide="calendar-check" style="color:var(--m3-primary);"></i> Weekly Logbook
             </h3>
 
-            <form method="POST" class="m3-card-tonal p-4 mb-4">
+            <form method="POST" class="m3-card-tonal p-4 mb-4" data-autosave="student_weekly_log_form">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="submit_log">
                 <div class="row g-3 mb-3">
                     <div class="col-4">
-                        <label class="form-label">Week #</label>
-                        <input type="number" name="week_number" class="form-control" value="{{ next_week }}" min="1" max="52" required>
+                        <label class="form-label" for="logWeek">Week #</label>
+                        <input type="number" name="week_number" id="logWeek" class="form-control" value="{{ next_week }}" min="1" max="52" required>
                     </div>
                     <div class="col-8">
-                        <label class="form-label">Tasks Completed</label>
-                        <input type="text" name="tasks_completed" class="form-control" placeholder="e.g. ER diagram & API routes" required>
+                        <label class="form-label" for="logTasks">Tasks Completed</label>
+                        <input type="text" name="tasks_completed" id="logTasks" class="form-control" placeholder="e.g. ER diagram & API routes" required>
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Next Week Target Plan</label>
-                    <input type="text" name="next_week_plan" class="form-control" placeholder="e.g. Frontend views & testing" required>
+                    <label class="form-label" for="logPlan">Next Week Target Plan</label>
+                    <input type="text" name="next_week_plan" id="logPlan" class="form-control" placeholder="e.g. Frontend views & testing" required>
                 </div>
                 <button type="submit" class="btn-m3-primary w-100">
                     <i data-lucide="plus"></i> Add Weekly Log Entry

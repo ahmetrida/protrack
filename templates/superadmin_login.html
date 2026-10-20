@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center py-5">
+    <div class="col-lg-5">
+        <div class="m3-card" style="border-top: 6px solid #5E35B1;">
+            <div class="d-flex align-items-center gap-3 mb-4">
+                <div class="brand-icon-box"><i data-lucide="terminal"></i></div>
+                <div>
+                    <h3 class="mb-0 fw-bold">Superadmin Access</h3>
+                    <div class="text-muted small">Dedicated Private Governance Authentication</div>
+                </div>
+            </div>
+
+            <form method="POST">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label class="form-label" for="saUsername">Authorized Superadmin Username</label>
+                    <input type="text" name="username" id="saUsername" class="form-control" required autofocus>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label" for="saPassword">Superadmin Password</label>
+                    <input type="password" name="password" id="saPassword" class="form-control" required>
+                </div>
+                <button type="submit" class="btn-m3-primary w-100">
+                    <i data-lucide="shield"></i> Authenticate Superadmin Session
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

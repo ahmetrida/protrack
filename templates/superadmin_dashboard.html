@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <span class="m3-chip chip-tonal mb-2"><i data-lucide="lock" style="width:15px;height:15px;"></i> Strictly Isolated Root Session</span>
+        <h1 class="fw-bold mb-1">Superadmin Global Infrastructure & Data Console</h1>
+        <div class="text-muted">Full cross-university oversight. Invisible to all regular administrators, faculty guides, examiners, and students.</div>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'export_department_csv' %}" class="btn-m3-primary text-decoration-none">
+            <i data-lucide="download"></i> Export Global Master CSV
+        </a>
+    </div>
+</div>
+
+<!-- Global KPIs -->
+<div class="row g-4 mb-5">
+    <div class="col-md-3 col-6">
+        <div class="m3-card p-4">
+            <div class="text-muted small">Universities</div>
+            <div class="display-5 fw-bold" style="color:var(--m3-primary);">{{ universities.count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="m3-card p-4">
+            <div class="text-muted small">Colleges</div>
+            <div class="display-5 fw-bold" style="color:var(--m3-primary);">{{ colleges.count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="m3-card p-4">
+            <div class="text-muted small">Departments</div>
+            <div class="display-5 fw-bold" style="color:var(--m3-primary);">{{ departments.count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="m3-card p-4">
+            <div class="text-muted small">Registered Role Users</div>
+            <div class="display-5 fw-bold text-success">{{ profiles.count }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Private Superadmin Profile & Credentials Settings -->
+<div class="row g-4 mb-5">
+    <div class="col-lg-6">
+        <div class="m3-card h-100">
+            <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="user-cog" style="color:var(--m3-primary);"></i> Private Superadmin Profile Settings
+            </h4>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_superadmin_profile">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Superadmin Username</label>
+                        <input type="text" name="username" class="form-control" value="{{ user.username }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Superadmin Email</label>
+                        <input type="email" name="email" class="form-control" value="{{ user.email }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">First Name</label>
+                        <input type="text" name="first_name" class="form-control" value="{{ user.first_name }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" name="last_name" class="form-control" value="{{ user.last_name }}">
+                    </div>
+                </div>
+                <button type="submit" class="btn-m3-primary w-100">Save Private Superadmin Profile</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="m3-card h-100">
+            <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="key" style="color:var(--m3-primary);"></i> Rotate Superadmin Password
+            </h4>
+            <p class="text-muted small mb-3">Your Superadmin credentials are isolated from regular user accounts and cannot be viewed or modified by ordinary administrators.</p>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_superadmin_password">
+                <div class="mb-4">
+                    <label class="form-label">New Superadmin Password</label>
+                    <input type="password" name="new_password" class="form-control" minlength="6" placeholder="Minimum 6 characters" required>
+                </div>
+                <button type="submit" class="btn-m3-tonal w-100">Update Superadmin Password</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Master Global Users Table -->
+<div class="m3-card mb-5">
+    <h3 class="fw-bold mb-3">Global User Directory (All Universities, Colleges & Roles)</h3>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead class="text-muted">
+                <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>ID</th>
+                    <th>University &rarr; College &rarr; Department</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in profiles %}
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center gap-3">
+                            <a href="{% url 'public_profile' p.user.username %}" class="avatar-circle">
+                                {% if p.has_avatar %}<img src="{{ p.avatar_url }}" alt="Avatar">{% else %}{{ p.initials }}{% endif %}
+                            </a>
+                            <div>
+                                <a href="{% url 'public_profile' p.user.username %}" class="fw-bold text-dark text-decoration-none">{{ p.user.get_full_name|default:p.user.username }}</a>
+                                <div class="small text-muted">@{{ p.user.username }} &bull; {{ p.user.email }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="m3-chip chip-tonal py-1 px-2">{{ p.get_role_display }}</span>
+                        {% if p.is_examiner %}<span class="m3-chip chip-success py-1 px-2">Examiner</span>{% endif %}
+                    </td>
+                    <td>{{ p.identifier }}</td>
+                    <td>{{ p.university.name }} &bull; {{ p.college.name }} &bull; <strong>{{ p.department.name }}</strong></td>
+                    <td class="text-end">
+                        <form method="POST" class="d-inline no-legend">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_user">
+                            <input type="hidden" name="user_id" value="{{ p.user.id }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center py-4 text-muted">No regular users registered yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

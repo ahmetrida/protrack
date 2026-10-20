@@ -2,12 +2,17 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
-        <h1 class="fw-bold mb-1">Profile Settings & Community Contact Directory</h1>
-        <div class="text-muted">Manage your photo, credentials, WhatsApp direct chat link, social handles, and browse department contacts</div>
+        <h1 class="fw-bold mb-1">Profile Settings & Authorized Contact Directory</h1>
+        <div class="text-muted">Manage your avatar photo, credentials, clickable contact handles, and browse contacts within your authorized scope</div>
     </div>
-    <a href="{% url 'dashboard_router' %}" class="btn-m3-outline text-decoration-none">
-        <i data-lucide="arrow-left"></i> Back to My Dashboard
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{% url 'public_profile' user.username %}" class="btn-m3-tonal text-decoration-none">
+            <i data-lucide="external-link"></i> View My Public Profile
+        </a>
+        <a href="{% url 'dashboard_router' %}" class="btn-m3-outline text-decoration-none">
+            <i data-lucide="arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
 </div>
 
 <div class="row g-4 mb-5">
@@ -15,13 +20,13 @@
     <div class="col-lg-7">
         <div class="m3-card h-100">
             <div class="d-flex align-items-center gap-4 mb-4 pb-4 border-bottom">
-                <div class="avatar-circle" style="width: 88px; height: 88px; font-size: 2rem;">
-                    {% if user.profile.avatar %}
-                    <img src="{{ user.profile.avatar.url }}" alt="Avatar">
+                <a href="{% url 'public_profile' user.username %}" class="avatar-circle" style="width: 92px; height: 92px; font-size: 2rem;">
+                    {% if user.profile.has_avatar %}
+                    <img src="{{ user.profile.avatar_url }}" alt="{{ user.get_full_name|default:user.username }}" onerror="this.style.display='none';this.parentElement.innerText='{{ user.profile.initials }}';">
                     {% else %}
                     {{ user.profile.initials }}
                     {% endif %}
-                </div>
+                </a>
                 <div>
                     <h3 class="fw-bold mb-1">{{ user.get_full_name|default:user.username }}</h3>
                     <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -34,34 +39,34 @@
                 </div>
             </div>
 
-            <form method="POST" enctype="multipart/form-data">
+            <form method="POST" enctype="multipart/form-data" data-autosave="profile_settings_form">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="update_profile">
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
-                        <label class="form-label">Full Name</label>
-                        <input type="text" name="full_name" class="form-control" value="{{ user.get_full_name }}" placeholder="e.g. John Doe" required>
+                        <label class="form-label" for="profFullName">Full Name</label>
+                        <input type="text" name="full_name" id="profFullName" class="form-control" value="{{ user.get_full_name }}" placeholder="e.g. John Doe" required>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Email Address</label>
-                        <input type="email" name="email" class="form-control" value="{{ user.email }}" placeholder="e.g. johndoe@example.com">
+                        <label class="form-label" for="profEmail">Email Address</label>
+                        <input type="email" name="email" id="profEmail" class="form-control" value="{{ user.email }}" placeholder="e.g. johndoe@example.com" required>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Roll Call / Faculty / Admin ID</label>
-                        <input type="text" name="identifier" class="form-control" value="{{ user.profile.identifier }}">
+                        <label class="form-label" for="profId">Roll Call / Faculty / Admin ID</label>
+                        <input type="text" name="identifier" id="profId" class="form-control" value="{{ user.profile.identifier }}" required>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Upload Profile Photo (JPG, PNG, WEBP)</label>
-                        <input type="file" name="avatar" class="form-control" accept=".jpg,.jpeg,.png,.webp">
+                        <label class="form-label" for="profAvatar">Upload Profile Avatar Photo (JPG, PNG, WEBP)</label>
+                        <input type="file" name="avatar" id="profAvatar" class="form-control" accept=".jpg,.jpeg,.png,.webp">
                     </div>
                     {% if user.profile.role == 'STUDENT' %}
                     <div class="col-md-6">
-                        <label class="form-label">Class / Division</label>
-                        <input type="text" name="class_division" class="form-control" value="{{ user.profile.class_division }}">
+                        <label class="form-label" for="profClass">Class / Division</label>
+                        <input type="text" name="class_division" id="profClass" class="form-control" value="{{ user.profile.class_division }}">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Preferred Project Guide</label>
-                        <select name="preferred_guide_id" class="form-select">
+                        <label class="form-label" for="profGuide">Preferred Project Guide</label>
+                        <select name="preferred_guide_id" id="profGuide" class="form-select">
                             <option value="">-- Select Guide --</option>
                             {% for g in dept_guides %}
                             <option value="{{ g.id }}" {% if user.profile.preferred_guide_id == g.id %}selected{% endif %}>
@@ -72,53 +77,57 @@
                     </div>
                     {% endif %}
                     <div class="col-12">
-                        <label class="form-label">Short Bio / Academic Headline</label>
-                        <input type="text" name="bio" class="form-control" value="{{ user.profile.bio }}" placeholder="e.g. Final Year Computer Science Researcher | Distributed Cloud Systems">
+                        <label class="form-label" for="profBio">Short Bio / Academic Headline</label>
+                        <input type="text" name="bio" id="profBio" class="form-control" value="{{ user.profile.bio }}" placeholder="e.g. Final Year Computer Science Researcher | Distributed Cloud Systems">
                     </div>
                 </div>
 
                 <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                    <i data-lucide="share-2" style="color:var(--m3-primary);"></i> WhatsApp Direct Chat & Social Handles
+                    <i data-lucide="share-2" style="color:var(--m3-primary);"></i> Clickable Contact & Social Links
                 </h4>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
-                        <label class="form-label">WhatsApp Number (With Country Code)</label>
-                        <input type="text" name="whatsapp_number" class="form-control" value="{{ user.profile.whatsapp_number }}" placeholder="e.g. +1 555 234 5678">
+                        <label class="form-label" for="profWa">Phone / WhatsApp Number</label>
+                        <input type="text" name="whatsapp_number" id="profWa" class="form-control" value="{{ user.profile.whatsapp_number }}" placeholder="e.g. +91 98765 43210">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">GitHub Handle or URL</label>
-                        <input type="text" name="github_handle" class="form-control" value="{{ user.profile.github_handle }}" placeholder="e.g. johndoe or github.com/johndoe">
+                        <label class="form-label" for="profGh">GitHub Handle or URL</label>
+                        <input type="text" name="github_handle" id="profGh" class="form-control" value="{{ user.profile.github_handle }}" placeholder="e.g. johndoe">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">YouTube Channel Handle or URL</label>
-                        <input type="text" name="youtube_handle" class="form-control" value="{{ user.profile.youtube_handle }}" placeholder="e.g. @johndoe">
+                        <label class="form-label" for="profYt">YouTube Channel Handle or URL</label>
+                        <input type="text" name="youtube_handle" id="profYt" class="form-control" value="{{ user.profile.youtube_handle }}" placeholder="e.g. @johndoe">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Instagram Handle or URL</label>
-                        <input type="text" name="instagram_handle" class="form-control" value="{{ user.profile.instagram_handle }}" placeholder="e.g. @johndoe">
+                        <label class="form-label" for="profIg">Instagram Handle or URL</label>
+                        <input type="text" name="instagram_handle" id="profIg" class="form-control" value="{{ user.profile.instagram_handle }}" placeholder="e.g. @johndoe">
                     </div>
                 </div>
 
                 <button type="submit" class="btn-m3-primary w-100">
-                    <i data-lucide="save"></i> Save Profile & Social Links
+                    <i data-lucide="save"></i> Save Profile & Avatar
                 </button>
             </form>
         </div>
     </div>
 
-    <!-- Right Column: Live Profile Preview Card + Security + Account Deletion -->
+    <!-- Right Column: Live Contact Card + Admin ID Proofs (Admin Only) + Password + Delete -->
     <div class="col-lg-5">
         <div class="m3-card mb-4">
             <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                <i data-lucide="contact" style="color:var(--m3-primary);"></i> Your Public Contact Card
+                <i data-lucide="contact" style="color:var(--m3-primary);"></i> Your Live Public Profile Card
             </h4>
             <div class="m3-card-tonal p-4">
                 <div class="d-flex align-items-center gap-3 mb-3">
-                    <div class="avatar-circle" style="width:60px;height:60px;font-size:1.4rem;">
-                        {% if user.profile.avatar %}<img src="{{ user.profile.avatar.url }}" alt="Avatar">{% else %}{{ user.profile.initials }}{% endif %}
-                    </div>
+                    <a href="{% url 'public_profile' user.username %}" class="avatar-circle" style="width:64px;height:64px;font-size:1.4rem;">
+                        {% if user.profile.has_avatar %}
+                        <img src="{{ user.profile.avatar_url }}" alt="{{ user.get_full_name|default:user.username }}">
+                        {% else %}
+                        {{ user.profile.initials }}
+                        {% endif %}
+                    </a>
                     <div>
-                        <div class="fw-bold fs-5">{{ user.get_full_name|default:user.username }}</div>
+                        <a href="{% url 'public_profile' user.username %}" class="fw-bold fs-5 text-dark text-decoration-none">{{ user.get_full_name|default:user.username }}</a>
                         <div class="small text-muted">{{ user.profile.get_role_display }} &bull; {{ user.profile.department.name }}</div>
                     </div>
                 </div>
@@ -126,9 +135,19 @@
                 <p class="small mb-3">{{ user.profile.bio }}</p>
                 {% endif %}
                 <div class="d-flex flex-wrap gap-2">
+                    {% if user.email %}
+                    <a href="mailto:{{ user.email }}" class="btn-m3-outline py-1 px-3 text-decoration-none" style="min-height:38px;">
+                        <i data-lucide="mail" style="width:16px;height:16px;"></i> {{ user.email }}
+                    </a>
+                    {% endif %}
+                    {% if user.profile.whatsapp_number %}
+                    <a href="tel:{{ user.profile.whatsapp_number }}" class="btn-m3-outline py-1 px-3 text-decoration-none" style="min-height:38px;">
+                        <i data-lucide="phone" style="width:16px;height:16px;"></i> Call
+                    </a>
+                    {% endif %}
                     {% if user.profile.clean_whatsapp %}
                     <a href="https://wa.me/{{ user.profile.clean_whatsapp }}?text=Hi%20{{ user.get_full_name|urlencode }},%20connecting%20via%20ProTrack" target="_blank" class="btn-whatsapp">
-                        <i data-lucide="message-circle" style="width:16px;height:16px;"></i> Direct WhatsApp Chat
+                        <i data-lucide="message-circle" style="width:16px;height:16px;"></i> WhatsApp
                     </a>
                     {% endif %}
                     {% if user.profile.github_url %}
@@ -150,7 +169,39 @@
             </div>
         </div>
 
-        <!-- Update Password -->
+        {% if user.profile.role == 'ADMIN' %}
+        <!-- VERIFIED ADMIN ID PROOFS (MOVED TO ADMIN PROFILE SETTINGS) -->
+        <div class="m3-card mb-4" id="admin-id-proofs">
+            <h4 class="fw-bold mb-2 d-flex align-items-center gap-2">
+                <i data-lucide="shield-check" style="color:var(--m3-primary);"></i> Verified Admin ID Proofs
+            </h4>
+            <p class="small text-muted mb-3">Official Front & Back identity verification records for {{ user.profile.college.name }} administrators.</p>
+            <div class="d-flex flex-column gap-3">
+                {% for adm in college_admins %}
+                <div class="p-3 border rounded-4 bg-white">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="fw-bold">{{ adm.user.get_full_name|default:adm.user.username }}</div>
+                        <span class="m3-chip chip-success py-1 px-2 small">ID: {{ adm.identifier }}</span>
+                    </div>
+                    <div class="small text-muted mb-2">{{ adm.university.name }} &bull; {{ adm.college.name }}</div>
+                    <div class="d-flex gap-2">
+                        {% if adm.id_proof_front %}
+                        <a href="{{ adm.id_proof_front.url }}" target="_blank" class="btn-m3-outline py-1 px-3 small text-decoration-none" style="min-height:36px;">
+                            <i data-lucide="eye" style="width:15px;height:15px;"></i> Front ID
+                        </a>
+                        {% endif %}
+                        {% if adm.id_proof_back %}
+                        <a href="{{ adm.id_proof_back.url }}" target="_blank" class="btn-m3-outline py-1 px-3 small text-decoration-none" style="min-height:36px;">
+                            <i data-lucide="eye" style="width:15px;height:15px;"></i> Back ID
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
         <div class="m3-card mb-4">
             <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
                 <i data-lucide="lock" style="color:var(--m3-primary);"></i> Update Password
@@ -159,13 +210,13 @@
                 {% csrf_token %}
                 <input type="hidden" name="action" value="change_password">
                 <div class="mb-3">
-                    <input type="password" name="new_password" class="form-control" placeholder="Enter new password (min 6 chars)" minlength="6" required>
+                    <label class="form-label" for="newPassInput">New Password</label>
+                    <input type="password" name="new_password" id="newPassInput" class="form-control" placeholder="Enter new password (min 6 chars)" minlength="6" required>
                 </div>
                 <button type="submit" class="btn-m3-tonal w-100">Update Password</button>
             </form>
         </div>
 
-        <!-- Danger Zone: Delete Account -->
         <div class="m3-card border-danger">
             <h5 class="fw-bold text-danger mb-2 d-flex align-items-center gap-2">
                 <i data-lucide="trash-2"></i> Delete Account
@@ -181,22 +232,32 @@
     </div>
 </div>
 
-<!-- DEPARTMENT PEOPLE, WHATSAPP & SOCIAL DIRECTORY -->
+<!-- ROLE-FILTERED DEPARTMENT CONTACT & WHATSAPP DIRECTORY -->
 <div class="m3-card">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
             <h3 class="fw-bold mb-1 d-flex align-items-center gap-2">
                 <i data-lucide="users" style="color:var(--m3-primary);"></i> Department Contact & WhatsApp Directory
             </h3>
-            <div class="text-muted">Click any member's WhatsApp button to open a direct WhatsApp chat, or explore their GitHub, YouTube, and Instagram profiles.</div>
+            <div class="text-muted">
+                {% if user.profile.role == 'ADMIN' %}
+                Showing verified members across <strong>{{ user.profile.college.name }}</strong> (Students, Faculty Guides, Examiners & Admins).
+                {% elif user.profile.role == 'GUIDE' %}
+                Showing students and faculty colleagues within <strong>{{ user.profile.department.name }}</strong>.
+                {% else %}
+                Showing your assigned Project Group members, Faculty Guide, and Department Examiner.
+                {% endif %}
+            </div>
         </div>
-        <form method="GET" class="d-flex flex-wrap gap-2">
+        <form method="GET" class="d-flex flex-wrap gap-2 no-legend">
             <select name="role_filter" class="form-select" style="width:auto;" onchange="this.form.submit()">
-                <option value="ALL" {% if role_filter == 'ALL' %}selected{% endif %}>All Roles</option>
+                <option value="ALL" {% if role_filter == 'ALL' %}selected{% endif %}>All Permitted Contacts</option>
                 <option value="GUIDE" {% if role_filter == 'GUIDE' %}selected{% endif %}>Faculty Guides</option>
                 <option value="EXAMINER" {% if role_filter == 'EXAMINER' %}selected{% endif %}>Examiners</option>
                 <option value="STUDENT" {% if role_filter == 'STUDENT' %}selected{% endif %}>Students</option>
-                <option value="ADMIN" {% if role_filter == 'ADMIN' %}selected{% endif %}>Admins</option>
+                {% if user.profile.role == 'ADMIN' %}
+                <option value="ADMIN" {% if role_filter == 'ADMIN' %}selected{% endif %}>College Admins</option>
+                {% endif %}
             </select>
             <input type="text" name="q" class="form-control" style="width:240px;" value="{{ search_q }}" placeholder="Search name or ID...">
             <button type="submit" class="btn-m3-tonal px-4">Search</button>
@@ -209,11 +270,15 @@
             <div class="m3-card-tonal h-100 d-flex flex-column justify-content-between p-4">
                 <div>
                     <div class="d-flex align-items-center gap-3 mb-3">
-                        <div class="avatar-circle" style="width:56px;height:56px;font-size:1.25rem;">
-                            {% if p.avatar %}<img src="{{ p.avatar.url }}" alt="Avatar">{% else %}{{ p.initials }}{% endif %}
-                        </div>
+                        <a href="{% url 'public_profile' p.user.username %}" class="avatar-circle" style="width:60px;height:60px;font-size:1.3rem;">
+                            {% if p.has_avatar %}
+                            <img src="{{ p.avatar_url }}" alt="{{ p.user.get_full_name|default:p.user.username }}" onerror="this.style.display='none';this.parentElement.innerText='{{ p.initials }}';">
+                            {% else %}
+                            {{ p.initials }}
+                            {% endif %}
+                        </a>
                         <div>
-                            <div class="fw-bold fs-5">{{ p.user.get_full_name|default:p.user.username }}</div>
+                            <a href="{% url 'public_profile' p.user.username %}" class="fw-bold fs-5 text-dark text-decoration-none">{{ p.user.get_full_name|default:p.user.username }}</a>
                             <div class="d-flex flex-wrap gap-1 mt-1">
                                 <span class="m3-chip chip-tonal py-0 px-2 small">{{ p.get_role_display }}</span>
                                 {% if p.is_examiner %}
@@ -224,34 +289,47 @@
                         </div>
                     </div>
                     {% if p.bio %}
-                    <p class="small text-muted mb-3">{{ p.bio }}</p>
-                    {% else %}
-                    <p class="small text-muted mb-3">{{ p.department.name }} &bull; {{ p.college.name }}</p>
+                    <p class="small text-muted mb-2">{{ p.bio }}</p>
                     {% endif %}
+                    <div class="small text-muted mb-3">
+                        <i data-lucide="building-2" style="width:14px;height:14px;"></i> {{ p.department.name }} &bull; {{ p.college.name }}
+                        {% if p.user.email %}
+                        <div class="mt-1">
+                            <a href="mailto:{{ p.user.email }}" class="text-primary text-decoration-none">
+                                <i data-lucide="mail" style="width:14px;height:14px;"></i> {{ p.user.email }}
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
 
                 <div class="d-flex flex-wrap align-items-center gap-2 pt-3 border-top">
+                    <a href="{% url 'public_profile' p.user.username %}" class="btn-m3-outline py-1 px-3 text-decoration-none" style="min-height:36px;font-size:0.88rem;">
+                        <i data-lucide="user" style="width:15px;height:15px;"></i> Profile
+                    </a>
                     {% if p.clean_whatsapp %}
                     <a href="https://wa.me/{{ p.clean_whatsapp }}?text=Hello%20{{ p.user.get_full_name|urlencode }},%20connecting%20from%20ProTrack" target="_blank" class="btn-whatsapp">
-                        <i data-lucide="message-circle" style="width:16px;height:16px;"></i> WhatsApp Chat
+                        <i data-lucide="message-circle" style="width:15px;height:15px;"></i> WhatsApp
                     </a>
-                    {% else %}
-                    <span class="small text-muted">No WhatsApp registered</span>
                     {% endif %}
-
+                    {% if p.whatsapp_number %}
+                    <a href="tel:{{ p.whatsapp_number }}" class="btn-m3-outline py-1 px-2 text-decoration-none" style="min-height:36px;" title="Call {{ p.whatsapp_number }}">
+                        <i data-lucide="phone" style="width:15px;height:15px;"></i>
+                    </a>
+                    {% endif %}
                     {% if p.github_url %}
                     <a href="{{ p.github_url }}" target="_blank" class="btn-m3-outline py-1 px-2 text-decoration-none" style="min-height:36px;" title="GitHub">
-                        <i data-lucide="github" style="width:16px;height:16px;"></i>
+                        <i data-lucide="github" style="width:15px;height:15px;"></i>
                     </a>
                     {% endif %}
                     {% if p.youtube_url %}
                     <a href="{{ p.youtube_url }}" target="_blank" class="btn-m3-outline py-1 px-2 text-decoration-none" style="min-height:36px;" title="YouTube">
-                        <i data-lucide="youtube" style="width:16px;height:16px;"></i>
+                        <i data-lucide="youtube" style="width:15px;height:15px;"></i>
                     </a>
                     {% endif %}
                     {% if p.instagram_url %}
                     <a href="{{ p.instagram_url }}" target="_blank" class="btn-m3-outline py-1 px-2 text-decoration-none" style="min-height:36px;" title="Instagram">
-                        <i data-lucide="instagram" style="width:16px;height:16px;"></i>
+                        <i data-lucide="instagram" style="width:15px;height:15px;"></i>
                     </a>
                     {% endif %}
                 </div>
@@ -259,7 +337,8 @@
         </div>
         {% empty %}
         <div class="col-12 text-center py-5 text-muted">
-            No profiles found matching your search filter.
+            <i data-lucide="contact-2" class="mb-2" style="width:36px;height:36px;"></i>
+            <div>No relevant contacts found within your current role scope.</div>
         </div>
         {% endfor %}
     </div>

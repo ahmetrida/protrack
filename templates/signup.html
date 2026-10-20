@@ -20,7 +20,7 @@
         color: var(--m3-on-primary-container);
         padding: 6px 16px;
         border-radius: 999px;
-        font-size: 0.92rem;
+        font-size: 0.9rem;
         font-weight: 600;
         border: 1px solid rgba(94, 53, 177, 0.2);
         transition: all 0.15s ease;
@@ -39,15 +39,18 @@
                     <div class="brand-icon-box"><i data-lucide="user-plus"></i></div>
                     <div>
                         <h2 class="mb-0 fw-bold">Create Your ProTrack Account</h2>
-                        <div class="text-muted">Role-tailored onboarding with cascading institutional verification</div>
+                        <div class="text-muted">Role-tailored onboarding with live duplicate checks & draft auto-saving</div>
                     </div>
                 </div>
-                <a href="{% url 'login' %}" class="btn-m3-outline text-decoration-none">
-                    <i data-lucide="arrow-left"></i> Back to Sign In
-                </a>
+                <div class="d-flex align-items-center gap-2">
+                    <span id="signupDraftBadge" class="autosave-pill"><i data-lucide="check-circle-2" style="width:14px;height:14px;"></i> Draft Auto-Save Active</span>
+                    <a href="{% url 'login' %}" class="btn-m3-outline text-decoration-none">
+                        <i data-lucide="arrow-left"></i> Back to Sign In
+                    </a>
+                </div>
             </div>
 
-            <form method="POST" enctype="multipart/form-data" id="signupForm">
+            <form method="POST" enctype="multipart/form-data" id="signupForm" data-autosave="signup_form">
                 {% csrf_token %}
                 <input type="hidden" name="role" id="selectedRole" value="STUDENT">
 
@@ -88,54 +91,53 @@
                     </div>
                 </div>
 
-                <!-- 2. PERSONAL & ACCOUNT CREDENTIALS (WITH LIVE USERNAME SUGGESTIONS) -->
+                <!-- 2. PERSONAL & ACCOUNT CREDENTIALS -->
                 <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
                     <i data-lucide="user-check" style="color:var(--m3-primary);"></i> 2. Personal & Account Details
                 </h4>
                 <div class="row g-4 mb-4">
                     <div class="col-md-6">
-                        <label class="form-label">Full Name</label>
-                        <input type="text" name="full_name" id="fullNameInput" class="form-control" placeholder="e.g. John Doe" oninput="generateUsernameSuggestions()" required>
+                        <label class="form-label" for="fullNameInput">Full Name</label>
+                        <input type="text" name="full_name" id="fullNameInput" class="form-control" placeholder="e.g. John Doe" oninput="scheduleUsernameCheck()" required>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Email Address</label>
-                        <input type="email" name="email" class="form-control" placeholder="e.g. johndoe@example.com" required>
+                        <label class="form-label" for="emailInput">Email Address</label>
+                        <input type="email" name="email" id="emailInput" class="form-control" placeholder="e.g. johndoe@example.com" required>
                     </div>
 
-                    <!-- Dynamic ID Label based on Role -->
                     <div class="col-md-4">
-                        <label class="form-label" id="idFieldLabel">Roll Call Number</label>
-                        <input type="text" name="identifier" id="idFieldInput" class="form-control" placeholder="e.g. CS-2026-01" oninput="generateUsernameSuggestions()" required>
+                        <label class="form-label" id="idFieldLabel" for="idFieldInput">Roll Call Number <span class="req-star">*</span></label>
+                        <input type="text" name="identifier" id="idFieldInput" class="form-control" placeholder="e.g. CS-2026-01" oninput="scheduleUsernameCheck()" required>
                     </div>
 
-                    <!-- Student-Only Class/Division Field -->
                     <div class="col-md-4" id="studentClassWrap">
-                        <label class="form-label">Class / Division</label>
-                        <input type="text" name="class_division" class="form-control" placeholder="e.g. TY-BSc-CS" value="TY-CS-A">
+                        <label class="form-label" for="classDivInput">Class / Division</label>
+                        <input type="text" name="class_division" id="classDivInput" class="form-control" placeholder="e.g. TY-BSc-CS" value="TY-CS-A" required>
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label">WhatsApp Number (Optional)</label>
-                        <input type="text" name="whatsapp_number" class="form-control" placeholder="e.g. +1 555 234 5678">
+                        <label class="form-label" for="waInput">WhatsApp Number (Optional)</label>
+                        <input type="text" name="whatsapp_number" id="waInput" class="form-control" placeholder="e.g. +1 555 234 5678">
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Username</label>
-                        <input type="text" name="username" id="usernameInput" class="form-control" placeholder="e.g. johndoe" required>
+                        <label class="form-label" for="usernameInput">Username</label>
+                        <input type="text" name="username" id="usernameInput" class="form-control" placeholder="e.g. johndoe" oninput="scheduleUsernameCheck()" required>
+                        <div id="usernameDupError" class="small text-danger fw-bold mt-1 d-none">
+                            This username is already taken. Please choose one of the available suggestions below.
+                        </div>
                         <div class="mt-2 d-flex flex-wrap align-items-center gap-2" id="suggestionBar">
-                            <span class="small text-muted">Suggested:</span>
-                            <span class="suggestion-pill" onclick="pickUsername('johndoe')">@johndoe</span>
-                            <span class="suggestion-pill" onclick="pickUsername('john.doe01')">@john.doe01</span>
+                            <span class="small text-muted">Available suggestions:</span>
                         </div>
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Password (Min. 6 characters)</label>
-                        <input type="password" name="password" class="form-control" placeholder="Create a strong password" minlength="6" required>
+                        <label class="form-label" for="passwordInput">Password (Min. 6 characters)</label>
+                        <input type="password" name="password" id="passwordInput" class="form-control" placeholder="Create a strong password" minlength="6" required>
                     </div>
                 </div>
 
-                <!-- 3. INSTITUTION HIERARCHY (UNIVERSITY -> COLLEGE -> DEPARTMENT) -->
+                <!-- 3. INSTITUTION HIERARCHY -->
                 <h4 class="fw-bold mb-3 mt-5 d-flex align-items-center gap-2">
                     <i data-lucide="building-2" style="color:var(--m3-primary);"></i> 3. Institution Hierarchy (University &rarr; College &rarr; Department)
                 </h4>
@@ -151,51 +153,47 @@
 
                 <div class="m3-card-tonal mb-4">
                     <div class="row g-4">
-                        <!-- University -->
                         <div class="col-md-4">
-                            <label class="form-label">University</label>
-                            <select name="university_id" id="uniSelect" class="form-select" onchange="filterColleges()">
+                            <label class="form-label" for="uniSelect">University <span class="req-star">*</span></label>
+                            <select name="university_id" id="uniSelect" class="form-select" onchange="filterColleges()" required>
                                 <option value="">-- Select University --</option>
                                 {% for u in universities %}
                                 <option value="{{ u.id }}">{{ u.name }}</option>
                                 {% endfor %}
                             </select>
                             <div class="mt-2 d-none" id="adminNewUniWrap">
-                                <input type="text" name="new_university" class="form-control" placeholder="Or register new University name...">
+                                <input type="text" name="new_university" id="newUniInput" class="form-control" placeholder="Or register new University name..." oninput="syncAdminRequired()">
                             </div>
                         </div>
 
-                        <!-- College -->
                         <div class="col-md-4">
-                            <label class="form-label">College / Institute</label>
-                            <select name="college_id" id="colSelect" class="form-select" onchange="filterDepartments()">
+                            <label class="form-label" for="colSelect">College / Institute <span class="req-star">*</span></label>
+                            <select name="college_id" id="colSelect" class="form-select" onchange="filterDepartments()" required>
                                 <option value="">-- Select College --</option>
                                 {% for c in colleges %}
                                 <option value="{{ c.id }}" data-uni="{{ c.university_id }}">{{ c.name }}</option>
                                 {% endfor %}
                             </select>
                             <div class="mt-2 d-none" id="adminNewColWrap">
-                                <input type="text" name="new_college" class="form-control" placeholder="Or register new College name...">
+                                <input type="text" name="new_college" id="newColInput" class="form-control" placeholder="Or register new College name..." oninput="syncAdminRequired()">
                             </div>
                         </div>
 
-                        <!-- Department -->
                         <div class="col-md-4">
-                            <label class="form-label">Department</label>
-                            <select name="department_id" id="deptSelect" class="form-select" onchange="filterGuides()">
+                            <label class="form-label" for="deptSelect">Department <span class="req-star">*</span></label>
+                            <select name="department_id" id="deptSelect" class="form-select" onchange="filterGuides()" required>
                                 <option value="">-- Select Department --</option>
                                 {% for d in departments %}
                                 <option value="{{ d.id }}" data-col="{{ d.college_id }}">{{ d.name }}</option>
                                 {% endfor %}
                             </select>
                             <div class="mt-2 d-none" id="adminNewDeptWrap">
-                                <input type="text" name="new_department" class="form-control" placeholder="Or register new Department name...">
+                                <input type="text" name="new_department" id="newDeptInput" class="form-control" placeholder="Or register new Department name..." oninput="syncAdminRequired()">
                             </div>
                         </div>
 
-                        <!-- Student-Only: Select Project Guide from Department -->
                         <div class="col-md-12" id="studentGuideWrap">
-                            <label class="form-label">Select Project Guide (Filtered by Your Chosen Department)</label>
+                            <label class="form-label" for="guideSelect">Select Project Guide (Optional — Filtered by Department)</label>
                             <select name="preferred_guide_id" id="guideSelect" class="form-select">
                                 <option value="">-- Select Your Faculty Project Guide (or assign later) --</option>
                                 {% for g in guides_list %}
@@ -204,10 +202,6 @@
                                 </option>
                                 {% endfor %}
                             </select>
-                            <div class="small text-muted mt-2">
-                                <i data-lucide="info" style="width:15px;height:15px;"></i>
-                                Only Faculty Guides registered under your selected Department appear here.
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -215,24 +209,24 @@
                 <!-- 4. ADMIN-ONLY: MANDATORY FRONT & BACK ID PROOF VERIFICATION -->
                 <div class="m3-card-tonal mb-4 d-none" id="adminProofSection">
                     <h5 class="fw-bold mb-2 d-flex align-items-center gap-2" style="color:var(--m3-primary);">
-                        <i data-lucide="IdCard"></i> 4. Mandatory Admin Identity Verification (Front & Back ID Proof)
+                        <i data-lucide="shield-alert"></i> 4. Mandatory Admin Identity Verification (Front & Back ID Proof)
                     </h5>
                     <p class="text-muted small mb-3">
-                        To verify your authenticity as an authorized Institution Admin and prevent unauthorized role access, please upload both the Front and Back of your official institution ID card.
+                        To verify your authenticity as an authorized Institution Admin, please upload both the Front and Back of your official institution ID card.
                     </p>
                     <div class="row g-4">
                         <div class="col-md-6">
-                            <label class="form-label">Official Admin ID Proof — Front Side (Image/PDF)</label>
+                            <label class="form-label" for="proofFront">Official Admin ID Proof — Front Side <span class="req-star">*</span></label>
                             <input type="file" name="id_proof_front" id="proofFront" class="form-control" accept=".jpg,.jpeg,.png,.webp,.pdf">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Official Admin ID Proof — Back Side (Image/PDF)</label>
+                            <label class="form-label" for="proofBack">Official Admin ID Proof — Back Side <span class="req-star">*</span></label>
                             <input type="file" name="id_proof_back" id="proofBack" class="form-control" accept=".jpg,.jpeg,.png,.webp,.pdf">
                         </div>
                     </div>
                 </div>
 
-                <button type="submit" class="btn-m3-primary w-100 py-3 mt-2 fs-5">
+                <button type="submit" id="signupSubmitBtn" class="btn-m3-primary w-100 py-3 mt-2 fs-5">
                     <i data-lucide="sparkles"></i> Complete Role-Verified Registration
                 </button>
             </form>
@@ -250,61 +244,117 @@ function selectRole(role) {
     const idLabel = document.getElementById('idFieldLabel');
     const idInput = document.getElementById('idFieldInput');
     const studentClassWrap = document.getElementById('studentClassWrap');
+    const classDivInput = document.getElementById('classDivInput');
     const studentGuideWrap = document.getElementById('studentGuideWrap');
     const adminProofSection = document.getElementById('adminProofSection');
+    const proofFront = document.getElementById('proofFront');
+    const proofBack = document.getElementById('proofBack');
     const adminNewUniWrap = document.getElementById('adminNewUniWrap');
     const adminNewColWrap = document.getElementById('adminNewColWrap');
     const adminNewDeptWrap = document.getElementById('adminNewDeptWrap');
 
     if (role === 'STUDENT') {
-        idLabel.innerText = 'Roll Call Number';
+        idLabel.innerHTML = 'Roll Call Number <span class="req-star">*</span>';
         idInput.placeholder = 'e.g. CS-2026-01';
         studentClassWrap.classList.remove('d-none');
+        classDivInput.required = true;
         studentGuideWrap.classList.remove('d-none');
         adminProofSection.classList.add('d-none');
+        proofFront.required = false;
+        proofBack.required = false;
         adminNewUniWrap.classList.add('d-none');
         adminNewColWrap.classList.add('d-none');
         adminNewDeptWrap.classList.add('d-none');
     } else if (role === 'GUIDE') {
-        idLabel.innerText = 'Faculty / Department ID';
+        idLabel.innerHTML = 'Faculty / Department ID <span class="req-star">*</span>';
         idInput.placeholder = 'e.g. FAC-101';
         studentClassWrap.classList.add('d-none');
+        classDivInput.required = false;
         studentGuideWrap.classList.add('d-none');
         adminProofSection.classList.add('d-none');
+        proofFront.required = false;
+        proofBack.required = false;
         adminNewUniWrap.classList.add('d-none');
         adminNewColWrap.classList.add('d-none');
         adminNewDeptWrap.classList.add('d-none');
     } else if (role === 'ADMIN') {
-        idLabel.innerText = 'Official Admin ID';
+        idLabel.innerHTML = 'Official Admin ID <span class="req-star">*</span>';
         idInput.placeholder = 'e.g. ADM-001';
         studentClassWrap.classList.add('d-none');
+        classDivInput.required = false;
         studentGuideWrap.classList.add('d-none');
         adminProofSection.classList.remove('d-none');
+        proofFront.required = true;
+        proofBack.required = true;
         adminNewUniWrap.classList.remove('d-none');
         adminNewColWrap.classList.remove('d-none');
         adminNewDeptWrap.classList.remove('d-none');
     }
-    generateUsernameSuggestions();
+    syncAdminRequired();
+    scheduleUsernameCheck();
 }
 
-function generateUsernameSuggestions() {
-    const rawName = document.getElementById('fullNameInput').value.trim().toLowerCase().replace(/[^a-z0-9\s]/g, '');
-    const rawId = document.getElementById('idFieldInput').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-    const parts = rawName.split(/\s+/).filter(Boolean);
+function syncAdminRequired() {
+    const role = document.getElementById('selectedRole').value;
+    const uniSelect = document.getElementById('uniSelect');
+    const colSelect = document.getElementById('colSelect');
+    const deptSelect = document.getElementById('deptSelect');
+    const newUni = document.getElementById('newUniInput').value.trim();
+    const newCol = document.getElementById('newColInput').value.trim();
+    const newDept = document.getElementById('newDeptInput').value.trim();
 
-    let base = parts.length > 0 ? parts.join('') : 'johndoe';
-    let dotName = parts.length > 1 ? (parts[0] + '.' + parts[parts.length - 1]) : (base + '.user');
-    let idCombo = (parts[0] || 'user') + '_' + (rawId || '2026');
+    if (role === 'ADMIN') {
+        uniSelect.required = !newUni;
+        colSelect.required = !newCol;
+        deptSelect.required = !newDept;
+    } else {
+        uniSelect.required = true;
+        colSelect.required = true;
+        deptSelect.required = true;
+    }
+}
 
+let usernameTimer = null;
+function scheduleUsernameCheck() {
+    clearTimeout(usernameTimer);
+    usernameTimer = setTimeout(checkUsernameAndSuggestions, 220);
+}
+
+function checkUsernameAndSuggestions() {
+    const u = document.getElementById('usernameInput').value.trim();
+    const full = document.getElementById('fullNameInput').value.trim();
+    const ident = document.getElementById('idFieldInput').value.trim();
+    const errBox = document.getElementById('usernameDupError');
+    const submitBtn = document.getElementById('signupSubmitBtn');
     const bar = document.getElementById('suggestionBar');
-    bar.innerHTML = '<span class="small text-muted">Click to use:</span>' +
-        `<span class="suggestion-pill" onclick="pickUsername('${base}')">@${base}</span>` +
-        `<span class="suggestion-pill" onclick="pickUsername('${dotName}')">@${dotName}</span>` +
-        `<span class="suggestion-pill" onclick="pickUsername('${idCombo}')">@${idCombo}</span>`;
+
+    const url = `{% url 'api_check_username' %}?username=${encodeURIComponent(u)}&full_name=${encodeURIComponent(full)}&identifier=${encodeURIComponent(ident)}`;
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            if (data.exists) {
+                errBox.classList.remove('d-none');
+                document.getElementById('usernameInput').classList.add('border-danger');
+                submitBtn.disabled = true;
+            } else {
+                errBox.classList.add('d-none');
+                document.getElementById('usernameInput').classList.remove('border-danger');
+                submitBtn.disabled = false;
+            }
+            let html = '<span class="small text-muted">Available suggestions:</span>';
+            (data.suggestions || []).forEach(s => {
+                html += `<span class="suggestion-pill" onclick="pickUsername('${s}')">@${s}</span>`;
+            });
+            bar.innerHTML = html;
+        })
+        .catch(() => {});
 }
 
 function pickUsername(val) {
-    document.getElementById('usernameInput').value = val;
+    const input = document.getElementById('usernameInput');
+    input.value = val;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    checkUsernameAndSuggestions();
 }
 
 function filterColleges() {
@@ -339,5 +389,9 @@ function filterGuides() {
     });
     guideSelect.value = '';
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    checkUsernameAndSuggestions();
+});
 </script>
 {% endblock %}

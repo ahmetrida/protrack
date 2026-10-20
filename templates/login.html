@@ -4,12 +4,12 @@
     <div class="col-xl-6 col-lg-6">
         <div class="m3-chip chip-tonal mb-4">
             <i data-lucide="sparkles" style="width:18px;height:18px;"></i>
-            ProTrack Enterprise Academic Cloud
+            ProTrack Cloud v1.05 Enterprise
         </div>
         <h1 class="display-4 fw-bold mb-4" style="color: #28115B; line-height: 1.15;">
             Academic Projects & Viva Governance, Reimagined.
         </h1>
-        <p class="lead text-muted mb-5" style="font-size: 1.25rem;">
+        <p class="lead text-muted mb-5" style="font-size: 1.2rem;">
             A unified, role-verified workspace where Admins govern Universities, Colleges, and Departments, Faculty Guides mentor teams, Examiners grade live rubrics, and Students verify originality with Scikit-Learn TF-IDF AI.
         </p>
 
@@ -51,15 +51,15 @@
                 </div>
             </div>
 
-            <form method="POST">
+            <form method="POST" data-autosave="login_form">
                 {% csrf_token %}
                 <div class="mb-4">
-                    <label class="form-label">Username</label>
-                    <input type="text" name="username" class="form-control" placeholder="e.g. johndoe" required autofocus>
+                    <label class="form-label" for="loginUsername">Username</label>
+                    <input type="text" name="username" id="loginUsername" class="form-control" placeholder="e.g. johndoe" required autofocus>
                 </div>
                 <div class="mb-4">
-                    <label class="form-label">Password</label>
-                    <input type="password" name="password" class="form-control" placeholder="Enter your password" required>
+                    <label class="form-label" for="loginPassword">Password</label>
+                    <input type="password" name="password" id="loginPassword" class="form-control" placeholder="Enter your password" required>
                 </div>
                 <button type="submit" class="btn-m3-primary w-100 mb-3">
                     <i data-lucide="log-in"></i> Sign In to Workspace

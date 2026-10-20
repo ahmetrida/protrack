@@ -62,7 +62,7 @@
                     </h4>
                     <div class="text-muted small">Manage benchmark past projects used to detect abstract similarity in {{ user.profile.department.name }}.</div>
                 </div>
-                <form method="POST">
+                <form method="POST" class="no-legend">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="seed_corpus">
                     <button type="submit" class="btn-m3-tonal py-2 px-3">
@@ -71,21 +71,24 @@
                 </form>
             </div>
 
-            <form method="POST" class="m3-card-tonal p-3 mb-3">
+            <form method="POST" class="m3-card-tonal p-3 mb-3" data-autosave="examiner_add_archive">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="add_archive">
                 <div class="row g-2">
                     <div class="col-md-4">
+                        <label class="form-label small">Archive Title</label>
                         <input type="text" name="title" class="form-control" placeholder="Past Project Title" required>
                     </div>
                     <div class="col-md-2">
+                        <label class="form-label small">Year</label>
                         <input type="text" name="year" class="form-control" value="2025" required>
                     </div>
                     <div class="col-md-4">
+                        <label class="form-label small">Abstract Summary</label>
                         <input type="text" name="abstract" class="form-control" placeholder="Paste project abstract summary..." required>
                     </div>
-                    <div class="col-md-2">
-                        <button type="submit" class="btn-m3-primary w-100 h-100">Add</button>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn-m3-primary w-100">Add</button>
                     </div>
                 </div>
             </form>
@@ -115,8 +118,8 @@
         <div class="col-lg-6">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                 <span class="m3-chip chip-tonal">{{ g.name }}</span>
-                <span class="m3-chip chip-neutral">Guide: {% if g.guide %}{{ g.guide.get_full_name|default:g.guide.username }}{% else %}Unassigned{% endif %}</span>
-                <span class="m3-chip chip-neutral">Verified Logs: {{ g.logs.count }}</span>
+                <span class="m3-chip chip-neutral">5-Char Code: {{ g.join_code }}</span>
+                <span class="m3-chip chip-neutral">Guide: {% if g.guide %}<a href="{% url 'public_profile' g.guide.username %}" class="text-dark text-decoration-none">{{ g.guide.get_full_name|default:g.guide.username }}</a>{% else %}Unassigned{% endif %}</span>
                 {% if g.proposal %}
                 <span class="m3-chip {% if g.proposal.similarity_score >= 60 %}chip-danger{% elif g.proposal.similarity_score >= 30 %}chip-warning{% else %}chip-success{% endif %}">
                     Similarity: {{ g.proposal.similarity_score }}%
@@ -128,7 +131,7 @@
             <div class="mb-3">
                 <strong>Examinees:</strong>
                 {% for s in g.students.all %}
-                <span class="m3-chip chip-neutral py-1 px-3 me-1 mb-1">{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})</span>
+                <a href="{% url 'public_profile' s.username %}" class="m3-chip chip-neutral py-1 px-3 me-1 mb-1 text-decoration-none text-dark">{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})</a>
                 {% endfor %}
             </div>
             {% if g.proposal and g.proposal.report_file %}
@@ -139,7 +142,7 @@
         </div>
 
         <div class="col-lg-6">
-            <form method="POST" class="m3-card-tonal p-4">
+            <form method="POST" class="m3-card-tonal p-4" data-autosave="viva_rubric_{{ g.id }}">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="grade_viva">
                 <input type="hidden" name="group_id" value="{{ g.id }}">

@@ -5,7 +5,16 @@ from django.db import models
 from django.contrib.auth.models import User
 
 def generate_join_code():
-    return 'PT-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    """Generates a unique, exactly 5-character uppercase alphanumeric join code."""
+    chars = string.ascii_uppercase + string.digits
+    for _ in range(100):
+        code = ''.join(random.choices(chars, k=5))
+        try:
+            if not ProjectGroup.objects.filter(join_code=code).exists():
+                return code
+        except Exception:
+            return code
+    return ''.join(random.choices(chars, k=5))
 
 def normalize_whatsapp(raw_phone):
     if not raw_phone:
@@ -74,7 +83,6 @@ class UserProfile(models.Model):
     college = models.ForeignKey(College, on_delete=models.SET_NULL, null=True, blank=True)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True)
 
-    # Student-specific selection at registration
     preferred_guide = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='registered_students'
@@ -83,18 +91,31 @@ class UserProfile(models.Model):
     identifier = models.CharField(max_length=60, blank=True, help_text="Roll Call, Faculty ID, or Admin ID")
     class_division = models.CharField(max_length=60, blank=True, default="Class-A")
 
-    # Admin Identity Verification Proofs (Front & Back)
     id_proof_front = models.FileField(upload_to='admin_proofs/', null=True, blank=True)
     id_proof_back = models.FileField(upload_to='admin_proofs/', null=True, blank=True)
     is_verified_admin = models.BooleanField(default=False)
 
-    # Profile & Social Handles
     avatar = models.FileField(upload_to='avatars/', null=True, blank=True)
     bio = models.CharField(max_length=280, blank=True, default='')
     whatsapp_number = models.CharField(max_length=25, blank=True, default='')
     github_handle = models.CharField(max_length=200, blank=True, default='')
     youtube_handle = models.CharField(max_length=200, blank=True, default='')
     instagram_handle = models.CharField(max_length=200, blank=True, default='')
+    form_drafts = models.TextField(blank=True, default='{}')
+
+    @property
+    def has_avatar(self):
+        try:
+            return bool(self.avatar and self.avatar.name and self.avatar.url)
+        except Exception:
+            return False
+
+    @property
+    def avatar_url(self):
+        try:
+            return self.avatar.url if self.has_avatar else ''
+        except Exception:
+            return ''
 
     @property
     def initials(self):
@@ -139,6 +160,11 @@ class ProjectGroup(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if not self.join_code or len(self.join_code) != 5 or ProjectGroup.objects.filter(join_code=self.join_code).exclude(pk=self.pk).exists():
+            self.join_code = generate_join_code()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.name} ({self.join_code})"

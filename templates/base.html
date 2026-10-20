@@ -3,14 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ProTrack Cloud — Academic Project & Viva Governance</title>
-    <!-- Google Sans & Plus Jakarta Sans -->
+    <title>ProTrack Cloud v1.05 — Academic Project & Viva Governance</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Bootstrap 5.3 Grid -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Lucide Open-Source Vector Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
@@ -43,7 +40,7 @@
             font-family: 'Google Sans', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             background-color: var(--m3-bg);
             color: var(--m3-text);
-            font-size: 17.5px;
+            font-size: 17px;
             line-height: 1.65;
             min-height: 100vh;
             display: flex;
@@ -52,9 +49,9 @@
         }
 
         .container-google {
-            max-width: 1540px;
+            max-width: 1520px;
             margin: 0 auto;
-            padding: 0 28px;
+            padding: 0 24px;
             width: 100%;
         }
 
@@ -65,22 +62,20 @@
             color: var(--m3-text);
         }
 
-        /* Micro-Animations */
         @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(14px); }
+            from { opacity: 0; transform: translateY(12px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
         .animate-in {
-            animation: fadeUp 0.42s cubic-bezier(0.2, 0, 0, 1) forwards;
+            animation: fadeUp 0.35s cubic-bezier(0.2, 0, 0, 1) forwards;
         }
 
-        /* Google Workspace Frosted Appbar */
         .m3-navbar {
-            background: rgba(255, 255, 255, 0.90);
+            background: rgba(255, 255, 255, 0.92);
             backdrop-filter: blur(20px);
             border-bottom: 1px solid var(--m3-border);
-            padding: 18px 0;
+            padding: 16px 0;
             position: sticky;
             top: 0;
             z-index: 1030;
@@ -89,113 +84,121 @@
         .brand-logo {
             display: inline-flex;
             align-items: center;
-            gap: 14px;
+            gap: 12px;
             text-decoration: none;
             color: var(--m3-text);
             font-weight: 700;
-            font-size: 1.55rem;
-            transition: transform 0.2s ease;
-        }
-
-        .brand-logo:hover {
-            transform: scale(1.02);
+            font-size: 1.5rem;
         }
 
         .brand-icon-box {
-            width: 48px;
-            height: 48px;
-            border-radius: 16px;
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
             background: linear-gradient(135deg, #5E35B1, #7C4DFF);
             color: #fff;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 6px 18px rgba(94, 53, 177, 0.28);
+            box-shadow: 0 6px 18px rgba(94, 53, 177, 0.25);
         }
 
-        /* Oversized Google Material 3 Cards */
         .m3-card {
             background: var(--m3-surface);
             border: 1px solid var(--m3-border);
             border-radius: var(--radius-2xl);
-            padding: 40px;
+            padding: 36px;
             box-shadow: 0 2px 6px rgba(27, 21, 40, 0.03), 0 12px 32px rgba(94, 53, 177, 0.05);
-            transition: transform 0.24s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.24s cubic-bezier(0.2, 0, 0, 1);
-        }
-
-        .m3-card:hover {
-            box-shadow: 0 4px 12px rgba(27, 21, 40, 0.05), 0 18px 42px rgba(94, 53, 177, 0.09);
         }
 
         .m3-card-tonal {
             background: var(--m3-surface-tonal);
             border: 1px solid rgba(94, 53, 177, 0.12);
             border-radius: var(--radius-xl);
-            padding: 32px;
-            transition: background-color 0.2s ease;
+            padding: 28px;
         }
 
-        /* Giant Google Inputs & Dropdowns */
         .form-label {
             font-weight: 600;
-            font-size: 1.02rem;
+            font-size: 0.98rem;
             color: var(--m3-text);
-            margin-bottom: 10px;
+            margin-bottom: 8px;
+        }
+
+        .req-star {
+            color: #D93025;
+            font-weight: 700;
+            margin-left: 3px;
+        }
+
+        .req-legend {
+            font-size: 0.88rem;
+            color: var(--m3-text-muted);
+            background: var(--m3-surface-tonal);
+            padding: 6px 14px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .form-control, .form-select {
             border-radius: var(--radius-lg);
-            min-height: 58px;
-            padding: 15px 22px;
-            font-size: 1.06rem;
+            min-height: 54px;
+            padding: 13px 20px;
+            font-size: 1.02rem;
             border: 1.5px solid #CEC4E4;
             background-color: #FFFFFF;
             color: var(--m3-text);
-            transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+            transition: all 0.2s ease;
         }
 
         textarea.form-control {
-            min-height: 140px;
+            min-height: 130px;
         }
 
         .form-control:focus, .form-select:focus {
             border-color: var(--m3-primary);
-            box-shadow: 0 0 0 4px rgba(94, 53, 177, 0.18);
-            transform: translateY(-1px);
+            box-shadow: 0 0 0 4px rgba(94, 53, 177, 0.16);
         }
 
-        /* Oversized Pill Buttons */
+        /* Active-State Dashboard Navigation Tabs */
+        .nav-tab-m3 {
+            border-radius: var(--radius-pill);
+            min-height: 46px;
+            padding: 10px 22px;
+            font-size: 0.98rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            background-color: #FFFFFF;
+            color: var(--m3-primary);
+            border: 1.5px solid #C5B9E0;
+        }
+
+        .nav-tab-m3:hover {
+            background-color: var(--m3-surface-tonal);
+            color: var(--m3-primary);
+        }
+
+        .nav-tab-m3.active-tab {
+            background: linear-gradient(135deg, #5E35B1, #4527A0) !important;
+            color: #FFFFFF !important;
+            border-color: transparent !important;
+            box-shadow: 0 4px 14px rgba(94, 53, 177, 0.28);
+        }
+
         .btn-m3-primary {
             background: linear-gradient(135deg, #5E35B1, #4527A0);
             color: #FFFFFF;
             border: none;
             border-radius: var(--radius-pill);
-            min-height: 56px;
-            padding: 14px 32px;
-            font-size: 1.05rem;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            transition: all 0.22s cubic-bezier(0.2, 0, 0, 1);
-            box-shadow: 0 4px 14px rgba(94, 53, 177, 0.25);
-        }
-
-        .btn-m3-primary:hover {
-            background: linear-gradient(135deg, #512DA8, #311B92);
-            color: #FFFFFF;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 22px rgba(94, 53, 177, 0.36);
-        }
-
-        .btn-m3-tonal {
-            background-color: var(--m3-primary-container);
-            color: var(--m3-on-primary-container);
-            border: 1px solid rgba(94, 53, 177, 0.16);
-            border-radius: var(--radius-pill);
             min-height: 54px;
-            padding: 13px 28px;
+            padding: 12px 28px;
             font-size: 1.02rem;
             font-weight: 600;
             display: inline-flex;
@@ -203,12 +206,34 @@
             justify-content: center;
             gap: 10px;
             transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(94, 53, 177, 0.24);
+        }
+
+        .btn-m3-primary:hover {
+            background: linear-gradient(135deg, #512DA8, #311B92);
+            color: #FFFFFF;
+            transform: translateY(-1px);
+        }
+
+        .btn-m3-tonal {
+            background-color: var(--m3-primary-container);
+            color: var(--m3-on-primary-container);
+            border: 1px solid rgba(94, 53, 177, 0.16);
+            border-radius: var(--radius-pill);
+            min-height: 52px;
+            padding: 11px 24px;
+            font-size: 0.98rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
         }
 
         .btn-m3-tonal:hover {
             background-color: #DDD2F3;
             color: var(--m3-on-primary-container);
-            transform: translateY(-1px);
         }
 
         .btn-m3-outline {
@@ -216,9 +241,9 @@
             color: var(--m3-primary);
             border: 1.5px solid #C5B9E0;
             border-radius: var(--radius-pill);
-            min-height: 52px;
-            padding: 12px 26px;
-            font-size: 1rem;
+            min-height: 48px;
+            padding: 10px 22px;
+            font-size: 0.96rem;
             font-weight: 600;
             display: inline-flex;
             align-items: center;
@@ -238,12 +263,12 @@
             color: #0F6E36;
             border: 1px solid #A8EBC4;
             border-radius: var(--radius-pill);
-            padding: 8px 18px;
-            font-size: 0.94rem;
+            padding: 7px 16px;
+            font-size: 0.9rem;
             font-weight: 600;
             display: inline-flex;
             align-items: center;
-            gap: 7px;
+            gap: 6px;
             text-decoration: none;
             transition: all 0.2s ease;
         }
@@ -252,17 +277,15 @@
             background-color: #25D366;
             color: #FFFFFF;
             border-color: #25D366;
-            transform: translateY(-1px);
         }
 
-        /* Status & Role Chips */
         .m3-chip {
             display: inline-flex;
             align-items: center;
-            gap: 7px;
-            padding: 8px 18px;
+            gap: 6px;
+            padding: 6px 16px;
             border-radius: var(--radius-pill);
-            font-size: 0.94rem;
+            font-size: 0.9rem;
             font-weight: 600;
             white-space: nowrap;
         }
@@ -273,7 +296,6 @@
         .chip-danger { background: var(--m3-danger-bg); color: var(--m3-danger-text); }
         .chip-neutral { background: var(--m3-surface-tonal); color: var(--m3-text-muted); }
 
-        /* Avatar Circle */
         .avatar-circle {
             width: 48px;
             height: 48px;
@@ -288,48 +310,60 @@
             flex-shrink: 0;
             border: 2px solid #FFFFFF;
             box-shadow: 0 2px 8px rgba(94, 53, 177, 0.16);
+            text-decoration: none;
         }
 
         .avatar-circle img {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            display: block;
+        }
+
+        .autosave-pill {
+            font-size: 0.82rem;
+            padding: 5px 12px;
+            border-radius: 999px;
+            background: var(--m3-surface-tonal);
+            color: var(--m3-text-muted);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
         }
 
         .lucide {
-            width: 21px;
-            height: 21px;
+            width: 20px;
+            height: 20px;
             stroke-width: 2px;
         }
 
-        /* Floating Toast Snackbar */
         .toast-stack {
             position: fixed;
-            bottom: 32px;
-            right: 32px;
+            bottom: 28px;
+            right: 28px;
             z-index: 1090;
             display: flex;
             flex-direction: column;
-            gap: 14px;
-            max-width: 460px;
+            gap: 12px;
+            max-width: 440px;
         }
 
         .m3-snackbar {
             background: #24183E;
             color: #FFFFFF;
-            padding: 18px 26px;
-            border-radius: 20px;
+            padding: 16px 24px;
+            border-radius: 18px;
             box-shadow: 0 12px 32px rgba(27, 21, 40, 0.26);
             display: flex;
             align-items: center;
-            gap: 14px;
-            font-size: 1.02rem;
-            animation: fadeUp 0.3s ease forwards;
+            gap: 12px;
+            font-size: 0.98rem;
         }
     </style>
 </head>
 <body>
-    {% if user.is_authenticated %}
+    {% if user.is_authenticated and not user.is_superuser %}
     <nav class="m3-navbar">
         <div class="container-google d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div class="d-flex align-items-center gap-3 flex-wrap">
@@ -339,37 +373,41 @@
                 </a>
                 {% if user.profile.department %}
                 <span class="m3-chip chip-neutral d-none d-xl-inline-flex">
-                    <i data-lucide="building-2" style="width:17px;height:17px;"></i>
+                    <i data-lucide="building-2" style="width:16px;height:16px;"></i>
                     {{ user.profile.university.name }} &bull; {{ user.profile.college.name }} &bull; <strong class="text-dark">{{ user.profile.department.name }}</strong>
                 </span>
                 {% endif %}
+                <span id="globalAutosaveStatus" class="autosave-pill d-none">
+                    <i data-lucide="cloud" style="width:14px;height:14px;"></i> <span id="autosaveText">Saved</span>
+                </span>
             </div>
 
-            <!-- Navigation Switchers & Profile Controls -->
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 {% if user.profile.role == 'ADMIN' %}
-                <a href="{% url 'admin_dashboard' %}" class="btn-m3-tonal py-2 px-3 text-decoration-none" style="min-height:46px;">
+                <a href="{% url 'admin_dashboard' %}" class="nav-tab-m3 {% if request.resolver_match.url_name == 'admin_dashboard' %}active-tab{% endif %}">
                     <i data-lucide="shield"></i> Admin Console
                 </a>
-                <a href="{% url 'examiner_dashboard' %}" class="btn-m3-outline py-2 px-3 text-decoration-none" style="min-height:46px;">
+                <a href="{% url 'examiner_dashboard' %}" class="nav-tab-m3 {% if request.resolver_match.url_name == 'examiner_dashboard' %}active-tab{% endif %}">
                     <i data-lucide="bar-chart-3"></i> Examiner & HOD View
                 </a>
                 {% elif user.profile.role == 'GUIDE' and user.profile.is_examiner %}
-                <a href="{% url 'guide_dashboard' %}" class="btn-m3-tonal py-2 px-3 text-decoration-none" style="min-height:46px;">
+                <a href="{% url 'guide_dashboard' %}" class="nav-tab-m3 {% if request.resolver_match.url_name == 'guide_dashboard' %}active-tab{% endif %}">
                     <i data-lucide="users"></i> Guide Console
                 </a>
-                <a href="{% url 'examiner_dashboard' %}" class="btn-m3-primary py-2 px-3 text-decoration-none" style="min-height:46px;">
+                <a href="{% url 'examiner_dashboard' %}" class="nav-tab-m3 {% if request.resolver_match.url_name == 'examiner_dashboard' %}active-tab{% endif %}">
                     <i data-lucide="award"></i> Examiner & HOD Portal
                 </a>
-                {% else %}
-                <span class="m3-chip chip-tonal">
-                    <i data-lucide="badge-check" style="width:17px;height:17px;"></i>
-                    {{ user.profile.get_role_display }}
-                </span>
+                {% elif user.profile.role == 'GUIDE' %}
+                <a href="{% url 'guide_dashboard' %}" class="nav-tab-m3 {% if request.resolver_match.url_name == 'guide_dashboard' %}active-tab{% endif %}">
+                    <i data-lucide="users"></i> Guide Console
+                </a>
+                {% elif user.profile.role == 'STUDENT' %}
+                <a href="{% url 'student_dashboard' %}" class="nav-tab-m3 {% if request.resolver_match.url_name == 'student_dashboard' %}active-tab{% endif %}">
+                    <i data-lucide="layout-dashboard"></i> Student Workspace
+                </a>
                 {% endif %}
 
-                <!-- Universal Settings & People Directory Button -->
-                <a href="{% url 'profile_settings' %}" class="btn-m3-outline py-2 px-3 text-decoration-none" style="min-height:46px;" title="Profile, Settings & WhatsApp Directory">
+                <a href="{% url 'profile_settings' %}" class="nav-tab-m3 {% if request.resolver_match.url_name == 'profile_settings' or request.resolver_match.url_name == 'public_profile' %}active-tab{% endif %}">
                     <i data-lucide="settings"></i> <span class="d-none d-md-inline">Profile & Directory</span>
                 </a>
 
@@ -383,7 +421,7 @@
                         </span>
                         {% endif %}
                     </button>
-                    <div class="dropdown-menu dropdown-menu-end p-4 shadow-lg border-0" style="width: 390px; border-radius: 24px;">
+                    <div class="dropdown-menu dropdown-menu-end p-4 shadow-lg border-0" style="width: 380px; border-radius: 24px;">
                         <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
                             <span class="fw-bold fs-5">Workspace Alerts</span>
                             {% if notifications %}
@@ -397,7 +435,7 @@
                         </div>
                         {% empty %}
                         <div class="text-center py-4 text-muted">
-                            <i data-lucide="check-circle-2" class="mb-2 text-success" style="width:32px;height:32px;"></i>
+                            <i data-lucide="check-circle-2" class="mb-2 text-success" style="width:30px;height:30px;"></i>
                             <div>All caught up! Zero unread alerts.</div>
                         </div>
                         {% endfor %}
@@ -406,15 +444,15 @@
 
                 <!-- User Avatar & Sign Out -->
                 <div class="d-flex align-items-center gap-2 ps-2 border-start">
-                    <a href="{% url 'profile_settings' %}" class="avatar-circle text-decoration-none" title="Edit Profile">
-                        {% if user.profile.avatar %}
-                        <img src="{{ user.profile.avatar.url }}" alt="Avatar">
+                    <a href="{% url 'profile_settings' %}" class="avatar-circle" title="View & Edit Profile">
+                        {% if user.profile.has_avatar %}
+                        <img src="{{ user.profile.avatar_url }}" alt="{{ user.get_full_name|default:user.username }}" onerror="this.style.display='none';this.parentElement.innerText='{{ user.profile.initials }}';">
                         {% else %}
                         {{ user.profile.initials }}
                         {% endif %}
                     </a>
                     <div class="text-end d-none d-lg-block me-1">
-                        <div class="fw-bold" style="line-height:1.2;">{{ user.get_full_name|default:user.username }}</div>
+                        <a href="{% url 'public_profile' user.username %}" class="fw-bold text-dark text-decoration-none d-block" style="line-height:1.2;">{{ user.get_full_name|default:user.username }}</a>
                         <div class="text-muted small">{{ user.profile.identifier }}</div>
                     </div>
                     <a href="{% url 'logout' %}" class="btn-m3-outline py-2 px-3" style="min-height:46px;" title="Sign Out">
@@ -424,9 +462,32 @@
             </div>
         </div>
     </nav>
+    {% elif user.is_authenticated and user.is_superuser %}
+    <nav class="m3-navbar" style="background: #1B1528; color: #FFFFFF;">
+        <div class="container-google d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="brand-icon-box"><i data-lucide="terminal"></i></span>
+                <div>
+                    <div class="fw-bold fs-5 text-white">ProTrack Isolated Superadmin Console</div>
+                    <div class="small text-white-50">Private System-Wide Multi-Institution Governance</div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <a href="{% url 'superadmin_dashboard' %}" class="nav-tab-m3 active-tab">
+                    <i data-lucide="database"></i> Master Console
+                </a>
+                <a href="/django-admin/" class="btn-m3-outline py-2 px-3 text-decoration-none">
+                    <i data-lucide="sliders"></i> Raw DB Admin
+                </a>
+                <a href="{% url 'logout' %}" class="btn btn-danger rounded-pill px-4 fw-bold">
+                    <i data-lucide="log-out"></i> Sign Out
+                </a>
+            </div>
+        </div>
+    </nav>
     {% endif %}
 
-    <main class="flex-grow-1 py-5">
+    <main class="flex-grow-1 py-4 py-md-5">
         <div class="container-google animate-in">
             {% block content %}{% endblock %}
         </div>
@@ -435,7 +496,7 @@
     {% if messages %}
     <div class="toast-stack" id="toastStack">
         {% for message in messages %}
-        <div class="m3-snackbar">
+        <div class="m3-snackbar" data-tags="{{ message.tags }}">
             <i data-lucide="sparkles" class="text-warning flex-shrink-0"></i>
             <div class="flex-grow-1">{{ message }}</div>
         </div>
@@ -445,18 +506,158 @@
 
     <footer class="py-4 border-top bg-white mt-auto">
         <div class="container-google d-flex flex-wrap justify-content-between align-items-center text-muted">
-            <div><strong>ProTrack Cloud v5.0</strong> &mdash; Role-Gated Academic Project & Viva Governance</div>
-            <div>Google Material 3 Royal-Violet &bull; Scikit-Learn TF-IDF &bull; Lucide Vector UI</div>
+            <div><strong>ProTrack Cloud v1.05 by Mohammad Mustafa</strong></div>
+            <div>Google Material 3 &bull; Scikit-Learn TF-IDF &bull; Lucide Vector UI</div>
         </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         lucide.createIcons();
-        setTimeout(() => {
-            const stack = document.getElementById('toastStack');
-            if (stack) stack.style.display = 'none';
-        }, 5500);
+
+        // Celebratory Web Audio Chime on Success Actions
+        function playSuccessChime() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.085);
+                    gain.gain.setValueAtTime(0.001, ctx.currentTime + idx * 0.085);
+                    gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + idx * 0.085 + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + idx * 0.085 + 0.32);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(ctx.currentTime + idx * 0.085);
+                    osc.stop(ctx.currentTime + idx * 0.085 + 0.34);
+                });
+            } catch (e) {}
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Trigger Success Sound if a success message is present
+            const successToast = document.querySelector('.m3-snackbar[data-tags*="success"]');
+            if (successToast) {
+                playSuccessChime();
+            }
+
+            setTimeout(() => {
+                const stack = document.getElementById('toastStack');
+                if (stack) stack.style.display = 'none';
+            }, 5500);
+
+            // 2. Automatically append red asterisk (*) to required fields & inject legend
+            document.querySelectorAll('form').forEach(form => {
+                const reqInputs = form.querySelectorAll('input[required], select[required], textarea[required]');
+                if (reqInputs.length > 0 && !form.querySelector('.req-legend') && !form.classList.contains('no-legend')) {
+                    const legend = document.createElement('div');
+                    legend.className = 'mb-3';
+                    legend.innerHTML = '<span class="req-legend"><span class="req-star">*</span> Indicates a required field</span>';
+                    form.insertBefore(legend, form.firstElementChild);
+                }
+                reqInputs.forEach(input => {
+                    if (input.type === 'hidden') return;
+                    let label = form.querySelector(`label[for="${input.id}"]`);
+                    if (!label && input.parentElement) {
+                        label = input.parentElement.querySelector('label.form-label');
+                    }
+                    if (label && !label.querySelector('.req-star')) {
+                        const star = document.createElement('span');
+                        star.className = 'req-star';
+                        star.innerText = ' *';
+                        label.appendChild(star);
+                    }
+                });
+            });
+
+            // 3. Automatic Form Saving & Persistence Engine (Local + Account Sync)
+            const statusPill = document.getElementById('globalAutosaveStatus');
+            const statusText = document.getElementById('autosaveText');
+            const isAuthRegular = {{ user.is_authenticated|yesno:"true,false" }} && !{{ user.is_superuser|yesno:"true,false" }};
+            const userKeyPrefix = "protrack_v105_draft_{{ user.username|default:'guest' }}_";
+
+            function setSaveStatus(state) {
+                if (!statusPill || !statusText) return;
+                statusPill.classList.remove('d-none');
+                if (state === 'saving') {
+                    statusText.innerText = 'Saving...';
+                } else if (state === 'saved') {
+                    statusText.innerText = 'Saved';
+                } else {
+                    statusText.innerText = 'Unable to save (Offline draft kept)';
+                }
+            }
+
+            let syncTimeout = null;
+            function syncDraftToServer(formKey, fieldsObj, clearFlag) {
+                if (!isAuthRegular) return;
+                clearTimeout(syncTimeout);
+                syncTimeout = setTimeout(() => {
+                    fetch("{% url 'api_sync_drafts' %}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({
+                            form_key: formKey,
+                            fields: fieldsObj,
+                            clear: !!clearFlag
+                        })
+                    }).then(r => {
+                        if (r.ok) setSaveStatus('saved');
+                        else setSaveStatus('error');
+                    }).catch(() => setSaveStatus('error'));
+                }, 500);
+            }
+
+            document.querySelectorAll('form[data-autosave]').forEach(form => {
+                const formKey = form.getAttribute('data-autosave');
+                const storageKey = userKeyPrefix + formKey;
+
+                // Restore from localStorage if field is currently empty
+                try {
+                    const savedRaw = localStorage.getItem(storageKey);
+                    if (savedRaw) {
+                        const savedData = JSON.parse(savedRaw);
+                        Object.keys(savedData).forEach(name => {
+                            const el = form.elements[name];
+                            if (el && el.type !== 'password' && el.type !== 'file' && el.type !== 'hidden') {
+                                if (!el.value || el.getAttribute('data-allow-draft-override') === 'true') {
+                                    el.value = savedData[name];
+                                }
+                            }
+                        });
+                    }
+                } catch (e) {}
+
+                form.addEventListener('input', (ev) => {
+                    const target = ev.target;
+                    if (!target.name || target.type === 'password' || target.type === 'file' || target.type === 'hidden') return;
+                    setSaveStatus('saving');
+                    let current = {};
+                    try {
+                        current = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                    } catch (e) {}
+                    current[target.name] = target.value;
+                    localStorage.setItem(storageKey, JSON.stringify(current));
+                    if (!isAuthRegular) {
+                        setTimeout(() => setSaveStatus('saved'), 250);
+                    } else {
+                        syncDraftToServer(formKey, current, false);
+                    }
+                });
+
+                form.addEventListener('submit', () => {
+                    localStorage.removeItem(storageKey);
+                    syncDraftToServer(formKey, {}, true);
+                });
+            });
+        });
     </script>
 </body>
 </html>

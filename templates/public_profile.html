@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-9">
+        <div class="m3-card">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-4 pb-4 mb-4 border-bottom">
+                <div class="d-flex flex-wrap align-items-center gap-4">
+                    <div class="avatar-circle" style="width: 108px; height: 108px; font-size: 2.4rem;">
+                        {% if target_profile.has_avatar %}
+                        <img src="{{ target_profile.avatar_url }}" alt="{{ target_user.get_full_name|default:target_user.username }}" onerror="this.style.display='none';this.parentElement.innerText='{{ target_profile.initials }}';">
+                        {% else %}
+                        {{ target_profile.initials }}
+                        {% endif %}
+                    </div>
+                    <div>
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <span class="m3-chip chip-tonal">{{ target_profile.get_role_display }}</span>
+                            {% if target_profile.is_examiner %}
+                            <span class="m3-chip chip-success"><i data-lucide="award" style="width:15px;height:15px;"></i> External Examiner</span>
+                            {% endif %}
+                            <span class="m3-chip chip-neutral">ID: {{ target_profile.identifier }}</span>
+                        </div>
+                        <h2 class="fw-bold mb-1">{{ target_user.get_full_name|default:target_user.username }}</h2>
+                        <div class="text-muted">@{{ target_user.username }} &bull; {{ target_profile.department.name }} ({{ target_profile.college.name }})</div>
+                        {% if target_profile.bio %}
+                        <p class="mt-2 mb-0">{{ target_profile.bio }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    {% if user.id == target_user.id %}
+                    <a href="{% url 'profile_settings' %}" class="btn-m3-primary text-decoration-none">
+                        <i data-lucide="edit-3"></i> Edit My Profile
+                    </a>
+                    {% else %}
+                    <a href="{% url 'profile_settings' %}" class="btn-m3-outline text-decoration-none">
+                        <i data-lucide="arrow-left"></i> Back to Directory
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Clickable Contact & Social Bar -->
+            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="link" style="color:var(--m3-primary);"></i> Direct Contact & Portfolio Links
+            </h5>
+            <div class="d-flex flex-wrap gap-3 mb-4">
+                {% if target_user.email %}
+                <a href="mailto:{{ target_user.email }}" class="btn-m3-tonal text-decoration-none">
+                    <i data-lucide="mail"></i> {{ target_user.email }}
+                </a>
+                {% endif %}
+                {% if target_profile.whatsapp_number %}
+                <a href="tel:{{ target_profile.whatsapp_number }}" class="btn-m3-outline text-decoration-none">
+                    <i data-lucide="phone"></i> Call {{ target_profile.whatsapp_number }}
+                </a>
+                {% endif %}
+                {% if target_profile.clean_whatsapp %}
+                <a href="https://wa.me/{{ target_profile.clean_whatsapp }}?text=Hello%20{{ target_user.get_full_name|urlencode }},%20connecting%20from%20ProTrack" target="_blank" class="btn-whatsapp px-4 py-2 fs-6">
+                    <i data-lucide="message-circle"></i> Start WhatsApp Chat
+                </a>
+                {% endif %}
+                {% if target_profile.github_url %}
+                <a href="{{ target_profile.github_url }}" target="_blank" class="btn-m3-outline text-decoration-none">
+                    <i data-lucide="github"></i> GitHub Profile
+                </a>
+                {% endif %}
+                {% if target_profile.youtube_url %}
+                <a href="{{ target_profile.youtube_url }}" target="_blank" class="btn-m3-outline text-decoration-none">
+                    <i data-lucide="youtube"></i> YouTube Channel
+                </a>
+                {% endif %}
+                {% if target_profile.instagram_url %}
+                <a href="{{ target_profile.instagram_url }}" target="_blank" class="btn-m3-outline text-decoration-none">
+                    <i data-lucide="instagram"></i> Instagram
+                </a>
+                {% endif %}
+            </div>
+
+            <!-- Academic Context -->
+            <div class="m3-card-tonal p-4">
+                <h5 class="fw-bold mb-3">Institutional & Academic Affiliation</h5>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="small text-muted">University</div>
+                        <div class="fw-bold">{{ target_profile.university.name|default:"—" }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="small text-muted">College / Institute</div>
+                        <div class="fw-bold">{{ target_profile.college.name|default:"—" }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="small text-muted">Department</div>
+                        <div class="fw-bold">{{ target_profile.department.name|default:"—" }}</div>
+                    </div>
+                    {% if student_group %}
+                    <div class="col-12 border-top pt-3 mt-3">
+                        <div class="small text-muted">Active Student Project Group</div>
+                        <div class="fw-bold">{{ student_group.name }} &bull; Proposal: {{ student_group.proposal.title|default:"In Progress" }}</div>
+                    </div>
+                    {% endif %}
+                    {% if guided_groups %}
+                    <div class="col-12 border-top pt-3 mt-3">
+                        <div class="small text-muted mb-2">Mentored Project Groups ({{ guided_groups.count }})</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for gg in guided_groups %}
+                            <span class="m3-chip chip-tonal">{{ gg.name }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

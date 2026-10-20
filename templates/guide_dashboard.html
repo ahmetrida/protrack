@@ -12,21 +12,6 @@
     </div>
 </div>
 
-{% if user.profile.is_examiner %}
-<div class="m3-card-tonal p-4 mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
-    <div class="d-flex align-items-center gap-3">
-        <div class="brand-icon-box"><i data-lucide="award"></i></div>
-        <div>
-            <h5 class="fw-bold mb-0">You Have Active External Examiner & HOD Privileges</h5>
-            <div class="text-muted small">Assigned by your Institution Admin. You can switch to the Examiner & HOD Analytics Portal at any time.</div>
-        </div>
-    </div>
-    <a href="{% url 'examiner_dashboard' %}" class="btn-m3-primary text-decoration-none">
-        <i data-lucide="arrow-up-right"></i> Open Examiner & HOD Portal
-    </a>
-</div>
-{% endif %}
-
 {% if unassigned_groups %}
 <div class="m3-card-tonal mb-4">
     <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
@@ -37,10 +22,10 @@
         <div class="col-md-6">
             <div class="bg-white p-4 rounded-4 border d-flex justify-content-between align-items-center">
                 <div>
-                    <div class="fw-bold fs-5">{{ ug.name }} <span class="text-muted small">({{ ug.join_code }})</span></div>
-                    <div class="small text-muted">Students: {% for s in ug.students.all %}{{ s.get_full_name|default:s.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+                    <div class="fw-bold fs-5">{{ ug.name }} <span class="text-muted small">(Code: {{ ug.join_code }})</span></div>
+                    <div class="small text-muted">Students: {% for s in ug.students.all %}<a href="{% url 'public_profile' s.username %}" class="text-dark fw-medium">{{ s.get_full_name|default:s.username }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>
                 </div>
-                <form method="POST">
+                <form method="POST" class="no-legend">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="claim_group">
                     <input type="hidden" name="group_id" value="{{ ug.id }}">
@@ -59,13 +44,16 @@
         <div>
             <div class="d-flex align-items-center gap-2 mb-2">
                 <span class="m3-chip chip-tonal">{{ g.name }}</span>
-                <span class="m3-chip chip-neutral">Join Code: {{ g.join_code }}</span>
+                <span class="m3-chip chip-neutral">5-Char Code: {{ g.join_code }}</span>
             </div>
             <div class="d-flex flex-wrap gap-2 align-items-center">
                 <strong class="me-1">Students:</strong>
                 {% for s in g.students.all %}
                 <span class="m3-chip chip-neutral py-1 px-3">
-                    {{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})
+                    <a href="{% url 'public_profile' s.username %}" class="text-dark text-decoration-none fw-bold">{{ s.get_full_name|default:s.username }}</a> ({{ s.profile.identifier }})
+                    {% if s.email %}
+                    <a href="mailto:{{ s.email }}" class="text-primary ms-1" title="Email Student"><i data-lucide="mail" style="width:15px;height:15px;"></i></a>
+                    {% endif %}
                     {% if s.profile.clean_whatsapp %}
                     <a href="https://wa.me/{{ s.profile.clean_whatsapp }}?text=Hello%20{{ s.get_full_name|urlencode }},%20regarding%20your%20project%20in%20ProTrack" target="_blank" class="text-success ms-1" title="WhatsApp Student"><i data-lucide="message-circle" style="width:16px;height:16px;"></i></a>
                     {% endif %}
@@ -107,7 +95,7 @@
                 </div>
                 {% endif %}
 
-                <form method="POST" class="border-top pt-4">
+                <form method="POST" class="border-top pt-4" data-autosave="guide_review_{{ g.proposal.id }}">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="review_proposal">
                     <input type="hidden" name="proposal_id" value="{{ g.proposal.id }}">
@@ -152,7 +140,7 @@
                     <div class="text-muted mb-2"><strong>Next Plan:</strong> {{ log.next_week_plan }}</div>
 
                     {% if not log.is_verified %}
-                    <form method="POST" class="d-flex gap-2 mt-3 pt-3 border-top">
+                    <form method="POST" class="d-flex gap-2 mt-3 pt-3 border-top no-legend">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="verify_log">
                         <input type="hidden" name="log_id" value="{{ log.id }}">
