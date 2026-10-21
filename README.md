@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🎓 ProTrack Cloud v1.07
+# 🎓 ProTrack: Web-Based Academic Project Portal v1.08
 ### Enterprise Academic Project & Viva Voce Governance Platform
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
@@ -117,7 +117,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 <div align="center">
 
-**ProTrack Cloud v1.07 by Ahmet Rida**  
+**ProTrack Cloud v1.08 by Ahmet Rida**  
 *Google Material 3 • Scikit-Learn TF-IDF • Lucide Vector UI*
 
 </div>
