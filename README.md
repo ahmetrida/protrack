@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🎓 ProTrack Cloud v1.05
+# 🎓 ProTrack Cloud v1.07
 ### Enterprise Academic Project & Viva Voce Governance Platform
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
