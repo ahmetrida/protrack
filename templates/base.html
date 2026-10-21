@@ -4,7 +4,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ProTrack Cloud v1.05 — Academic Project & Viva Governance</title>
+          
+    <!-- ================================================================== -->
+    <title>{% block meta_title %}{% if target_user and target_profile %}{{ target_user.get_full_name|default:target_user.username }} ({{ target_profile.get_role_display }}) — ProTrack Portal{% else %}ProTrack: Web-Based Academic Project Portal{% endif %}{% endblock %}</title>
+    <meta name="title" content="{% if target_user and target_profile %}{{ target_user.get_full_name|default:target_user.username }} ({{ target_profile.get_role_display }}) — ProTrack Portal{% else %}ProTrack: Web-Based Academic Project Portal {% endif %}">
+    <meta name="description" content="{% block meta_description %}{% if target_user and target_profile %}{{ target_profile.bio|default:'View verified academic profile, department affiliation, and project portfolio on ProTrack Portal.' }}{% else %}Enterprise academic project tracking, AI TF-IDF abstract originality verification, faculty mentorship, and 100-point Viva Voce governance portal.{% endif %}{% endblock %}">
+    <meta name="keywords" content="ProTrack, Academic Project Management, Viva Voce Governance, TF-IDF Similarity Checker, Django Academic Portal, University Project Tracker">
+    <meta name="author" content="Ahmet Rida">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#5E35B1">
+    <link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
+
+    <!-- Favicon & App Icons (Place favicon.png inside your /media/ folder) -->
+    <link rel="icon" type="image/png" href="{{ request.scheme }}://{{ request.get_host }}/media/favicon.png">
+    <link rel="shortcut icon" type="image/png" href="{{ request.scheme }}://{{ request.get_host }}/media/favicon.png">
+    <link rel="apple-touch-icon" href="{{ request.scheme }}://{{ request.get_host }}/media/favicon.png">
+
+    <!-- Open Graph / Facebook / WhatsApp / Discord / LinkedIn -->
+    <meta property="og:type" content="{% if target_user %}profile{% else %}website{% endif %}">
+    <meta property="og:site_name" content="ProTrack Portal">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{{ request.get_full_path }}">
+    <meta property="og:title" content="{% if target_user and target_profile %}{{ target_user.get_full_name|default:target_user.username }} ({{ target_profile.get_role_display }}) — ProTrack Portal{% else %}ProTrack: Web-Based Academic Project Portal{% endif %}">
+    <meta property="og:description" content="{% if target_user and target_profile %}{{ target_profile.bio|default:'View verified academic profile, department affiliation, and project portfolio on ProTrack Portal.' }}{% else %}Enterprise academic project tracking, AI TF-IDF abstract originality verification, faculty mentorship, and 100-point Viva Voce governance portal.{% endif %}">
+    <meta property="og:image" content="{% if target_profile and target_profile.has_avatar %}{{ request.scheme }}://{{ request.get_host }}{{ target_profile.avatar_url }}{% else %}{{ request.scheme }}://{{ request.get_host }}/media/preview.png{% endif %}">
+    <meta property="og:image:secure_url" content="{% if target_profile and target_profile.has_avatar %}{{ request.scheme }}://{{ request.get_host }}{{ target_profile.avatar_url }}{% else %}{{ request.scheme }}://{{ request.get_host }}/media/preview.png{% endif %}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="ProTrack: Web-Based Academic Project Portal">
+
+    <!-- Twitter / X / Discord Large Summary Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="{{ request.scheme }}://{{ request.get_host }}{{ request.get_full_path }}">
+    <meta name="twitter:title" content="{% if target_user and target_profile %}{{ target_user.get_full_name|default:target_user.username }} ({{ target_profile.get_role_display }}) — ProTrack Portal{% else %}ProTrack: Web-Based Academic Project Portal{% endif %}">
+    <meta name="twitter:description" content="{% if target_user and target_profile %}{{ target_profile.bio|default:'View verified academic profile, department affiliation, and project portfolio on ProTrack Portal.' }}{% else %}Enterprise academic project tracking, AI TF-IDF abstract originality verification, faculty mentorship, and 100-point Viva Voce governance portal.{% endif %}">
+    <meta name="twitter:image" content="{% if target_profile and target_profile.has_avatar %}{{ request.scheme }}://{{ request.get_host }}{{ target_profile.avatar_url }}{% else %}{{ request.scheme }}://{{ request.get_host }}/media/preview.png{% endif %}">
+    <meta name="twitter:image:alt" content="ProTrack: Web-Based Academic Project Portal">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -531,7 +567,7 @@
 
     <footer class="py-4 border-top bg-white mt-auto">
         <div class="container-google d-flex flex-wrap justify-content-between align-items-center text-muted">
-            <div><strong>ProTrack Cloud v1.05 by Mohammad Mustafa</strong></div>
+            <div><strong>ProTrack Portal v1.08 by Ahmet Rida</strong></div>
             <div>Google Material 3 &bull; Scikit-Learn TF-IDF &bull; Lucide Vector UI</div>
         </div>
     </footer>
@@ -572,7 +608,7 @@
             }
         }
 
-        // 1. Celebratory Audio on Successful Actions (/media/Success.mp3)
+        // 1. Celebratory Audio on Positive / Successful Actions (/media/Success.mp3)
         function playSuccessChime() {
             try {
                 const audio = new Audio('/media/Success.mp3');
@@ -580,7 +616,20 @@
             } catch (e) {}
         }
 
-        // 2. "Wait a Minute Who Are You.mp3" ONLY when user forgets/skips Name or Username
+        // 2. Destructive / Negative Action Audio (/media/Action.mp3)
+        let actionAudioCooldown = false;
+        function playActionSound() {
+            if (actionAudioCooldown) return;
+            actionAudioCooldown = true;
+            setTimeout(() => { actionAudioCooldown = false; }, 1200);
+            try {
+                const audio = new Audio(encodeURI('/media/Action.mp3'));
+                audio.play().catch(e => console.log("Audio blocked by browser auto-play policy."));
+            } catch (e) {}
+        }
+
+        // 3. "Wait a Minute Who Are You.mp3" ONLY when user clicks/taps Name or Username,
+        //    leaves it empty, and then proceeds to fill in other details.
         let whoAreYouCooldown = false;
         function playWhoAreYouAudio() {
             if (whoAreYouCooldown) return;
@@ -593,41 +642,130 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            const successToast = document.querySelector('.m3-snackbar[data-tags*="success"]');
-            if (successToast) {
-                playSuccessChime();
+            // Check whether a destructive/negative action just completed
+            const pendingActionFlag = sessionStorage.getItem('protrack_action_sound_pending') === '1';
+            if (pendingActionFlag) {
+                sessionStorage.removeItem('protrack_action_sound_pending');
             }
 
-            // Trigger Wait a Minute Who Are You.mp3 if user skips Full Name or Username:
-            document.addEventListener('invalid', (e) => {
-                const fieldName = (e.target && e.target.name) ? e.target.name.toLowerCase() : '';
-                if ((fieldName === 'full_name' || fieldName === 'username') && !e.target.value.trim()) {
-                    playWhoAreYouAudio();
-                }
-            }, true);
+            const snackbars = Array.from(document.querySelectorAll('.m3-snackbar'));
+            const destructiveToastRegex = /(removed|deleted|left team|demoted|cleared guide assignment|declined guide request|requested changes)/i;
+            const hasDestructiveToast = snackbars.some(el => destructiveToastRegex.test(el.innerText || ''));
 
-            document.querySelectorAll('input[name="full_name"], input[name="username"]').forEach(input => {
-                input.addEventListener('blur', () => {
-                    if (!input.value.trim()) {
-                        playWhoAreYouAudio();
+            if (pendingActionFlag || hasDestructiveToast) {
+                playActionSound();
+            } else {
+                const successToast = document.querySelector('.m3-snackbar[data-tags*="success"]');
+                if (successToast) {
+                    playSuccessChime();
+                }
+            }
+
+            // Detect destructive or negative form submissions before page reload
+            const destructiveActions = new Set([
+                'remove_member',
+                'leave_group',
+                'delete_history',
+                'delete_account',
+                'delete_user',
+                'delete_group',
+                'decline_guide_request'
+            ]);
+
+            document.querySelectorAll('form').forEach(form => {
+                form.addEventListener('submit', (e) => {
+                    const actionInput = form.querySelector('input[name="action"]');
+                    const actionVal = actionInput ? actionInput.value.trim() : '';
+                    const submitter = e.submitter || document.activeElement;
+                    let isDestructive = false;
+
+                    if (destructiveActions.has(actionVal)) {
+                        isDestructive = true;
+                    } else if (actionVal === 'toggle_examiner') {
+                        const btnText = submitter ? (submitter.innerText || submitter.value || '') : (form.innerText || '');
+                        if (/demote/i.test(btnText)) {
+                            isDestructive = true;
+                        }
+                    } else if (actionVal === 'assign_guide') {
+                        const guideSelect = form.querySelector('select[name="guide_id"]');
+                        if (guideSelect && !guideSelect.value.trim()) {
+                            isDestructive = true;
+                        }
+                    } else if (actionVal === 'review_proposal') {
+                        if (submitter && submitter.name === 'decision' && submitter.value === 'CHANGES') {
+                            isDestructive = true;
+                        }
+                    }
+
+                    if (isDestructive) {
+                        sessionStorage.setItem('protrack_action_sound_pending', '1');
+                        playActionSound();
                     }
                 });
             });
 
-            document.querySelectorAll('form').forEach(form => {
-                const nameInput = form.querySelector('input[name="full_name"]');
-                const userInput = form.querySelector('input[name="username"]');
-                if (!nameInput && !userInput) return;
+            // Hook client-side teammate chip removal (removeTeammate) if present on page
+            if (typeof window.removeTeammate === 'function') {
+                const origRemoveTeammate = window.removeTeammate;
+                window.removeTeammate = function(...args) {
+                    playActionSound();
+                    return origRemoveTeammate.apply(this, args);
+                };
+            }
 
-                form.querySelectorAll('input, select, textarea').forEach(el => {
-                    if (el.name === 'full_name' || el.name === 'username' || el.type === 'hidden' || el.type === 'radio') return;
-                    el.addEventListener('focus', () => {
-                        const missingName = nameInput && !nameInput.value.trim();
-                        const missingUser = userInput && !userInput.value.trim();
-                        if (missingName || missingUser) {
-                            playWhoAreYouAudio();
+            // Precise state machine for "Wait a Minute Who Are You.mp3":
+            // Plays ONLY when user clicks/taps a Name or Username field, leaves it empty,
+            // and then proceeds to focus or fill in another field in the form.
+            const identityFieldNames = new Set(['full_name', 'username', 'first_name', 'last_name']);
+            function isIdentityField(el) {
+                return Boolean(el && el.tagName === 'INPUT' && el.name && identityFieldNames.has(el.name.toLowerCase()));
+            }
+
+            document.querySelectorAll('form').forEach(form => {
+                const idInputs = Array.from(form.querySelectorAll('input')).filter(isIdentityField);
+                if (idInputs.length === 0) return;
+
+                idInputs.forEach(input => {
+                    const markTouched = () => {
+                        input.dataset.whoTouched = 'true';
+                    };
+                    input.addEventListener('pointerdown', markTouched);
+                    input.addEventListener('click', markTouched);
+                    input.addEventListener('focus', markTouched);
+
+                    input.addEventListener('input', () => {
+                        if (input.value.trim() !== '') {
+                            input.dataset.whoLeftEmpty = 'false';
                         }
                     });
+
+                    input.addEventListener('blur', () => {
+                        if (input.dataset.whoTouched === 'true') {
+                            if (input.value.trim() === '') {
+                                input.dataset.whoLeftEmpty = 'true';
+                            } else {
+                                input.dataset.whoLeftEmpty = 'false';
+                            }
+                        }
+                    });
+                });
+
+                form.querySelectorAll('input, select, textarea').forEach(el => {
+                    if (el.type === 'hidden') return;
+
+                    const checkAbandonedIdentityFields = () => {
+                        const abandonedField = idInputs.find(
+                            idEl => idEl !== el && idEl.dataset.whoLeftEmpty === 'true' && idEl.value.trim() === ''
+                        );
+                        if (abandonedField) {
+                            abandonedField.dataset.whoLeftEmpty = 'false';
+                            playWhoAreYouAudio();
+                        }
+                    };
+
+                    el.addEventListener('focus', checkAbandonedIdentityFields);
+                    el.addEventListener('input', checkAbandonedIdentityFields);
+                    el.addEventListener('change', checkAbandonedIdentityFields);
                 });
             });
 
@@ -638,7 +776,7 @@
                 }
             }, 5500);
 
-            // 3. Automatically append red asterisk (*) to required fields & inject legend
+            // 4. Automatically append red asterisk (*) to required fields & inject legend
             document.querySelectorAll('form').forEach(form => {
                 const reqInputs = form.querySelectorAll('input[required], select[required], textarea[required]');
                 if (reqInputs.length > 0 && !form.querySelector('.req-legend') && !form.classList.contains('no-legend')) {
@@ -662,7 +800,7 @@
                 });
             });
 
-            // 4. Automatic Form Saving & Persistence Engine
+            // 5. Automatic Form Saving & Persistence Engine
             const statusPill = document.getElementById('globalAutosaveStatus');
             const statusText = document.getElementById('autosaveText');
             const isAuthRegular = {{ user.is_authenticated|yesno:"true,false" }} && !{{ user.is_superuser|yesno:"true,false" }};
