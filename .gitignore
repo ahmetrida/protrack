@@ -1,4 +1,4 @@
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 __pycache__/
 *.py[cod]
 *$py.class
@@ -12,6 +12,9 @@ staticfiles/
 media/*
 !media/Success.mp3
 !media/Wait a Minute Who Are You.mp3
+!media/Action.mp3
+!media/preview.png
+!media/favicon.png
 .vscode/
 .DS_Store
 Thumbs.db

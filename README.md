@@ -1,8 +1,11 @@
 <div align="center">
 
-# 🎓 ProTrack: Web-Based Academic Project Portal v1.08
+# 🎓 ProTrack: Web-Based Academic Project Portal
 ### Enterprise Academic Project & Viva Voce Governance Platform
 
+[![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/HTML)
+[![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/CSS)
+[![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Django](https://img.shields.io/badge/Django-4.2%2B-092E20?style=for-the-badge&logo=django&logoColor=white)](https://djangoproject.com)
 [![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-TF--IDF%20AI-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)](https://scikit-learn.org)
@@ -117,7 +120,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 <div align="center">
 
-**ProTrack Cloud v1.08 by Ahmet Rida**  
+**ProTrack Portal · Built by Ahmet Rida**  
 *Google Material 3 • Scikit-Learn TF-IDF • Lucide Vector UI*
 
 </div>

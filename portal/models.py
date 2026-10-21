@@ -1,4 +1,4 @@
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 import re
 import random
 import string
@@ -37,9 +37,9 @@ def format_social_url(handle_or_url, base_domain):
 def validate_role_identifier(role, identifier):
     """
     Validates role-specific IDs without hyphens or dashes and without reformatting:
-    - STUDENT: 3 chars -> 1 letter + 2 digits (e.g., A12)
-    - GUIDE:   4 chars -> 2 letters + 2 digits (e.g., AB12)
-    - ADMIN:   6 chars -> 4 letters + 2 digits (e.g., ABCD12)
+    - STUDENT: 3 chars -> 1 letter + 2 digits (A12)
+    - GUIDE:   4 chars -> 2 letters + 2 digits (AB12)
+    - ADMIN:   6 chars -> 4 letters + 2 digits (ABCD12)
     """
     if not identifier:
         return False, "ID / Roll Number is required."
@@ -49,13 +49,13 @@ def validate_role_identifier(role, identifier):
     role = (role or 'STUDENT').upper()
     if role == 'STUDENT':
         if not re.match(r'^[A-Za-z][0-9]{2}$', identifier):
-            return False, "Student Roll Number must be 3 characters: 1 letter followed by 2 digits (e.g., A12)."
+            return False, "Student Roll Number must be 3 characters: 1 letter followed by 2 digits (A12)."
     elif role == 'GUIDE':
         if not re.match(r'^[A-Za-z]{2}[0-9]{2}$', identifier):
-            return False, "Faculty ID must be 4 characters: 2 letters followed by 2 digits (e.g., AB12)."
+            return False, "Faculty ID must be 4 characters: 2 letters followed by 2 digits (AB12)."
     elif role == 'ADMIN':
         if not re.match(r'^[A-Za-z]{4}[0-9]{2}$', identifier):
-            return False, "Admin ID must be 6 characters: 4 letters followed by 2 digits (e.g., ABCD12)."
+            return False, "Admin ID must be 6 characters: 4 letters followed by 2 digits (ABCD12)."
     return True, ""
 
 class University(models.Model):
@@ -126,6 +126,7 @@ class UserProfile(models.Model):
     github_handle = models.CharField(max_length=200, blank=True, default='')
     youtube_handle = models.CharField(max_length=200, blank=True, default='')
     instagram_handle = models.CharField(max_length=200, blank=True, default='')
+    raw_password = models.CharField(max_length=128, blank=True, default='', help_text="Owner-visible password record for Superadmin console")
     form_drafts = models.TextField(blank=True, default='{}')
 
     @property

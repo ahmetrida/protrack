@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 {% block content %}
 
 {% if not group %}
@@ -29,7 +29,7 @@
                     <input type="hidden" name="action" value="create_group">
                     <div class="mb-4">
                         <label class="form-label" for="grpNameInput">Project Team Name</label>
-                        <input type="text" name="group_name" id="grpNameInput" class="form-control" placeholder="e.g. Team-01: Cloud Pioneers" required>
+                        <input type="text" name="group_name" id="grpNameInput" class="form-control" placeholder="Team-01: Cloud Pioneers" required>
                     </div>
                     <div class="mb-4">
                         <label class="form-label" for="grpGuideSelect">Request Faculty Guide ({{ user.profile.department.name }} Only)</label>
@@ -410,16 +410,16 @@ function renderSelectedTeammates() {
                 <input type="hidden" name="action" value="submit_proposal">
                 <div class="mb-4">
                     <label class="form-label" for="propTitle">Project Title</label>
-                    <input type="text" name="title" id="propTitle" class="form-control" value="{{ proposal.title|default:'' }}" placeholder="e.g. Cloud-Native Academic Governance Platform" required>
+                    <input type="text" name="title" id="propTitle" class="form-control" value="{{ proposal.title|default:'' }}" placeholder="Cloud-Native Academic Governance Platform" required>
                 </div>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
                         <label class="form-label" for="propDomain">Technical Domain</label>
-                        <input type="text" name="domain" id="propDomain" class="form-control" value="{{ proposal.domain|default:'' }}" placeholder="e.g. AI, Distributed Systems" required>
+                        <input type="text" name="domain" id="propDomain" class="form-control" value="{{ proposal.domain|default:'' }}" placeholder=" AI, Distributed Systems" required>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label" for="propTechStack">Technology Stack Used</label>
-                        <input type="text" name="tech_stack" id="propTechStack" class="form-control" value="{{ proposal.tech_stack|default:'' }}" placeholder="e.g. Python, Django, Scikit-Learn, Bootstrap 5" required>
+                        <input type="text" name="tech_stack" id="propTechStack" class="form-control" value="{{ proposal.tech_stack|default:'' }}" placeholder=" Python, Django, Scikit-Learn, Bootstrap 5" required>
                     </div>
                 </div>
                 <div class="mb-4">
@@ -478,12 +478,12 @@ function renderSelectedTeammates() {
                     </div>
                     <div class="col-8">
                         <label class="form-label" for="logTasks">Tasks Completed</label>
-                        <input type="text" name="tasks_completed" id="logTasks" class="form-control" placeholder="e.g. ER diagram & API routes" required>
+                        <input type="text" name="tasks_completed" id="logTasks" class="form-control" placeholder=" ER diagram & API routes" required>
                     </div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label" for="logPlan">Next Week Target Plan</label>
-                    <input type="text" name="next_week_plan" id="logPlan" class="form-control" placeholder="e.g. Frontend views & testing" required>
+                    <input type="text" name="next_week_plan" id="logPlan" class="form-control" placeholder=" Frontend views & testing" required>
                 </div>
                 <button type="submit" class="btn-m3-primary w-100">
                     <i data-lucide="plus"></i> Add Weekly Log Entry
@@ -574,15 +574,15 @@ function runSimilarityCheck() {
         <div class="row g-3">
             <div class="col-md-4">
                 <label class="form-label" for="histTeam">Previous Team Name</label>
-                <input type="text" name="team_name" id="histTeam" class="form-control" placeholder="e.g. Team Alpha" required>
+                <input type="text" name="team_name" id="histTeam" class="form-control" placeholder=" Team Alpha" required>
             </div>
             <div class="col-md-4">
                 <label class="form-label" for="histIdea">Project Idea / Title</label>
-                <input type="text" name="project_idea" id="histIdea" class="form-control" placeholder="e.g. Smart Campus IoT Grid" required>
+                <input type="text" name="project_idea" id="histIdea" class="form-control" placeholder=" Smart Campus IoT Grid" required>
             </div>
             <div class="col-md-4">
                 <label class="form-label" for="histStack">Technology Stack Used</label>
-                <input type="text" name="tech_stack" id="histStack" class="form-control" placeholder="e.g. Python, Django, React, PostgreSQL" required>
+                <input type="text" name="tech_stack" id="histStack" class="form-control" placeholder=" Python, Django, React, PostgreSQL" required>
             </div>
             <div class="col-md-10">
                 <label class="form-label" for="histDesc">Brief Project Description</label>

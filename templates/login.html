@@ -1,17 +1,17 @@
 {% extends 'base.html' %}
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 {% block content %}
 <div class="row justify-content-center align-items-center g-5 py-4">
     <div class="col-xl-6 col-lg-6">
         <div class="m3-chip chip-tonal mb-4">
             <i data-lucide="sparkles" style="width:18px;height:18px;"></i>
-            ProTrack Cloud v1.05 Enterprise
+            ProTrack · Academic Project Portal
         </div>
         <h1 class="display-4 fw-bold mb-4" style="color: #28115B; line-height: 1.15;">
-            Academic Projects & Viva Governance, Reimagined.
+            Manage Academic Projects Seamlessly
         </h1>
         <p class="lead text-muted mb-5" style="font-size: 1.2rem;">
-            A unified, role-verified workspace where Admins govern Universities, Colleges, and Departments, Faculty Guides mentor teams, Examiners grade live rubrics, and Students verify originality with Scikit-Learn TF-IDF AI.
+            One shared workspace for students, faculty guides, examiners, and institution admins to track progress, review submissions, check project originality, and manage viva evaluations.
         </p>
 
         <div class="row g-3">
@@ -47,8 +47,8 @@
             <div class="d-flex align-items-center gap-3 mb-4">
                 <div class="brand-icon-box"><i data-lucide="graduation-cap"></i></div>
                 <div>
-                    <h2 class="mb-0 fw-bold">Sign in</h2>
-                    <div class="text-muted">Continue to your ProTrack Workspace</div>
+                    <h2 class="mb-0 fw-bold">Sign In</h2>
+                    <div class="text-muted">Access Your ProTrack Workspace</div>
                 </div>
             </div>
 
@@ -56,14 +56,14 @@
                 {% csrf_token %}
                 <div class="mb-4">
                     <label class="form-label" for="loginUsername">Username</label>
-                    <input type="text" name="username" id="loginUsername" class="form-control" placeholder="e.g. johndoe" required autofocus>
+                    <input type="text" name="username" id="loginUsername" class="form-control" placeholder="Enter your username" required autofocus>
                 </div>
                 <div class="mb-4">
                     <label class="form-label" for="loginPassword">Password</label>
                     <input type="password" name="password" id="loginPassword" class="form-control" placeholder="Enter your password" required>
                 </div>
                 <button type="submit" class="btn-m3-primary w-100 mb-3">
-                    <i data-lucide="log-in"></i> Sign In to Workspace
+                    <i data-lucide="log-in"></i> Sign In
                 </button>
             </form>
 
@@ -71,7 +71,7 @@
             <div class="text-center">
                 <p class="text-muted mb-3">New Student, Faculty Guide, or Institution Admin?</p>
                 <a href="{% url 'signup' %}" class="btn-m3-tonal w-100 text-decoration-none">
-                    <i data-lucide="user-plus"></i> Create Role-Verified Account
+                    <i data-lucide="user-plus"></i> Create New Account
                 </a>
             </div>
         </div>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -417,6 +417,16 @@
             gap: 12px;
             font-size: 0.98rem;
         }
+
+        ::selection {
+            background-color: var(--m3-primary-container);
+            color: var(--m3-on-primary-container);
+        }
+
+        ::-moz-selection {
+            background-color: var(--m3-primary-container);
+            color: var(--m3-on-primary-container);
+        }
     </style>
 </head>
 <body>
@@ -567,7 +577,7 @@
 
     <footer class="py-4 border-top bg-white mt-auto">
         <div class="container-google d-flex flex-wrap justify-content-between align-items-center text-muted">
-            <div><strong>ProTrack Portal v1.08 by Ahmet Rida</strong></div>
+            <div><strong>ProTrack · Built by Ahmet Rida</strong></div>
             <div>Google Material 3 &bull; Scikit-Learn TF-IDF &bull; Lucide Vector UI</div>
         </div>
     </footer>
@@ -642,7 +652,6 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Check whether a destructive/negative action just completed
             const pendingActionFlag = sessionStorage.getItem('protrack_action_sound_pending') === '1';
             if (pendingActionFlag) {
                 sessionStorage.removeItem('protrack_action_sound_pending');
@@ -661,7 +670,6 @@
                 }
             }
 
-            // Detect destructive or negative form submissions before page reload
             const destructiveActions = new Set([
                 'remove_member',
                 'leave_group',
@@ -669,6 +677,9 @@
                 'delete_account',
                 'delete_user',
                 'delete_group',
+                'delete_department',
+                'delete_college',
+                'delete_university',
                 'decline_guide_request'
             ]);
 
@@ -681,7 +692,7 @@
 
                     if (destructiveActions.has(actionVal)) {
                         isDestructive = true;
-                    } else if (actionVal === 'toggle_examiner') {
+                    } else if (actionVal === 'toggle_examiner' || actionVal === 'sa_toggle_examiner') {
                         const btnText = submitter ? (submitter.innerText || submitter.value || '') : (form.innerText || '');
                         if (/demote/i.test(btnText)) {
                             isDestructive = true;
@@ -704,7 +715,6 @@
                 });
             });
 
-            // Hook client-side teammate chip removal (removeTeammate) if present on page
             if (typeof window.removeTeammate === 'function') {
                 const origRemoveTeammate = window.removeTeammate;
                 window.removeTeammate = function(...args) {
@@ -713,9 +723,6 @@
                 };
             }
 
-            // Precise state machine for "Wait a Minute Who Are You.mp3":
-            // Plays ONLY when user clicks/taps a Name or Username field, leaves it empty,
-            // and then proceeds to focus or fill in another field in the form.
             const identityFieldNames = new Set(['full_name', 'username', 'first_name', 'last_name']);
             function isIdentityField(el) {
                 return Boolean(el && el.tagName === 'INPUT' && el.name && identityFieldNames.has(el.name.toLowerCase()));
@@ -776,7 +783,6 @@
                 }
             }, 5500);
 
-            // 4. Automatically append red asterisk (*) to required fields & inject legend
             document.querySelectorAll('form').forEach(form => {
                 const reqInputs = form.querySelectorAll('input[required], select[required], textarea[required]');
                 if (reqInputs.length > 0 && !form.querySelector('.req-legend') && !form.classList.contains('no-legend')) {
@@ -800,7 +806,6 @@
                 });
             });
 
-            // 5. Automatic Form Saving & Persistence Engine
             const statusPill = document.getElementById('globalAutosaveStatus');
             const statusText = document.getElementById('autosaveText');
             const isAuthRegular = {{ user.is_authenticated|yesno:"true,false" }} && !{{ user.is_superuser|yesno:"true,false" }};

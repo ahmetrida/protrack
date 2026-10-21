@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
@@ -35,8 +35,8 @@
             </select>
         </div>
         <div class="col-md-5">
-            <label class="form-label">Search by Name or ID (e.g. A12, AB12)</label>
-            <input type="text" name="q" class="form-control" value="{{ search_q }}" placeholder="e.g. John Doe, AB12, A12...">
+            <label class="form-label">Search by Name or ID ( A12, AB12)</label>
+            <input type="text" name="q" class="form-control" value="{{ search_q }}" placeholder=" John Doe, AB12, A12...">
         </div>
         <div class="col-md-2">
             <button type="submit" class="btn-m3-primary w-100">
@@ -323,7 +323,7 @@
                     <input type="hidden" name="action" value="add_university">
                     <div class="mb-3">
                         <label class="form-label">University Name</label>
-                        <input type="text" name="university_name" class="form-control" placeholder="e.g. Savitribai Phule Pune University" required>
+                        <input type="text" name="university_name" class="form-control" placeholder=" Savitribai Phule Pune University" required>
                     </div>
                     <button type="submit" class="btn-m3-primary w-100">
                         <i data-lucide="plus"></i> Add University
@@ -348,7 +348,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">College / Institute Name</label>
-                        <input type="text" name="college_name" class="form-control" placeholder="e.g. MSG Arts, Science & Commerce College" required>
+                        <input type="text" name="college_name" class="form-control" placeholder=" MSG Arts, Science & Commerce College" required>
                     </div>
                     <button type="submit" class="btn-m3-primary w-100">
                         <i data-lucide="plus"></i> Add College
@@ -373,7 +373,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Department Name</label>
-                        <input type="text" name="department_name" class="form-control" placeholder="e.g. Department of Computer Science" required>
+                        <input type="text" name="department_name" class="form-control" placeholder=" Department of Computer Science" required>
                     </div>
                     <button type="submit" class="btn-m3-primary w-100">
                         <i data-lucide="plus"></i> Publish Department

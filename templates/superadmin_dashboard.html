@@ -1,13 +1,19 @@
 {% extends 'base.html' %}
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
-        <span class="m3-chip chip-tonal mb-2"><i data-lucide="lock" style="width:15px;height:15px;"></i> Strictly Isolated Root Session</span>
-        <h1 class="fw-bold mb-1">Superadmin Global Infrastructure & Data Console</h1>
-        <div class="text-muted">Full cross-university oversight. Invisible to all regular administrators, faculty guides, examiners, and students.</div>
+        <span class="m3-chip chip-tonal mb-2"><i data-lucide="lock" style="width:15px;height:15px;"></i> Strictly Isolated Root Owner Session</span>
+        <h1 class="fw-bold mb-1">Superadmin Global Infrastructure & Owner Data Console</h1>
+        <div class="text-muted">Full cross-university creation, password visibility, contact handles, uploaded ID proofs, project reports, and user management.</div>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex flex-wrap gap-2">
+        <a href="#saCreateUserSection" class="btn-m3-tonal text-decoration-none">
+            <i data-lucide="user-plus"></i> + Create User
+        </a>
+        <a href="#saCreateDataSection" class="btn-m3-tonal text-decoration-none">
+            <i data-lucide="database"></i> + Add Institution / Team
+        </a>
         <a href="{% url 'export_department_csv' %}" class="btn-m3-primary text-decoration-none">
             <i data-lucide="download"></i> Export Global Master CSV
         </a>
@@ -42,8 +48,528 @@
     </div>
 </div>
 
-<!-- Private Superadmin Profile & Credentials Settings -->
-<div class="row g-4 mb-5">
+<!-- ====================================================================== -->
+<!-- SECTION 1: FULL OWNER USER & CREDENTIAL INSPECTOR TABLE                -->
+<!-- (Passwords, Phone/WhatsApp, Social Handles, Avatars & Uploaded Docs)   -->
+<!-- ====================================================================== -->
+<div class="m3-card mb-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                <i data-lucide="shield-Alert" style="color:var(--m3-primary);"></i> 1. Global User Directory & Full Owner Inspector ({{ profiles.count }} Users)
+            </h3>
+            <div class="text-muted small">View and manage every user's profile photo, plaintext password, phone/WhatsApp, social handles, and uploaded documents.</div>
+        </div>
+        <div class="w-auto">
+            <input type="text" id="saUserSearchInput" class="form-control" style="min-height:44px; min-width:280px;" placeholder="Filter users by name, @username, ID, phone..." oninput="filterSaUsers()">
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table align-middle" id="saUsersTable">
+            <thead class="text-muted small text-uppercase">
+                <tr>
+                    <th>Photo & User</th>
+                    <th>Role & Exact ID</th>
+                    <th>Password (View / Reset)</th>
+                    <th>Phone, WhatsApp & Social Handles</th>
+                    <th>Uploaded Documents & Media</th>
+                    <th>Institution Scope</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in profiles %}
+                <tr class="sa-user-row">
+                    <!-- 1. Photo & User -->
+                    <td>
+                        <div class="d-flex align-items-center gap-3">
+                            {% if p.has_avatar %}
+                            <a href="{{ p.avatar_url }}" target="_blank" class="avatar-circle" style="width:54px;height:54px;" title="Click to open full-size Profile Photo">
+                                <img src="{{ p.avatar_url }}" alt="{{ p.user.get_full_name|default:p.user.username }}" onerror="this.style.display='none';this.parentElement.innerText='{{ p.initials }}';">
+                            </a>
+                            {% else %}
+                            <a href="{% url 'public_profile' p.user.username %}" class="avatar-circle" style="width:54px;height:54px;">
+                                {{ p.initials }}
+                            </a>
+                            {% endif %}
+                            <div>
+                                <a href="{% url 'public_profile' p.user.username %}" class="fw-bold text-dark text-decoration-none d-block">{{ p.user.get_full_name|default:p.user.username }}</a>
+                                <div class="small text-muted">@{{ p.user.username }}</div>
+                                {% if p.user.email %}
+                                <a href="mailto:{{ p.user.email }}" class="small text-primary text-decoration-none">{{ p.user.email }}</a>
+                                {% endif %}
+                                {% if p.bio %}
+                                <div class="small text-muted fst-italic mt-1" style="max-width:220px;">"{{ p.bio }}"</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- 2. Role & Exact ID -->
+                    <td>
+                        <div class="d-flex flex-column gap-1 align-items-start">
+                            <span class="m3-chip chip-tonal py-1 px-2 small">{{ p.get_role_display }}</span>
+                            {% if p.is_examiner %}
+                            <span class="m3-chip chip-success py-1 px-2 small">Examiner</span>
+                            {% endif %}
+                            <span class="m3-chip chip-neutral py-1 px-2 small">ID: <strong>{{ p.identifier }}</strong></span>
+                            {% if p.role == 'STUDENT' and p.class_division %}
+                            <span class="small text-muted">Class: {{ p.class_division }}</span>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <!-- 3. Password (Owner View + 1-Click Reset) -->
+                    <td style="min-width: 230px;">
+                        <div class="p-2 rounded-3 bg-light border mb-2">
+                            <div class="d-flex align-items-center justify-content-between gap-2">
+                                <span class="small text-muted fw-bold">Password:</span>
+                                {% if p.raw_password %}
+                                <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small" onclick="togglePassVisibility('pw_{{ p.user.id }}')">Show/Hide</button>
+                                {% endif %}
+                            </div>
+                            {% if p.raw_password %}
+                            <input type="password" id="pw_{{ p.user.id }}" class="form-control form-control-sm border-0 bg-transparent fw-bold text-dark px-0 py-0" style="min-height:26px;font-family:monospace;" value="{{ p.raw_password }}" readonly>
+                            {% else %}
+                            <div class="small text-muted fst-italic">Set prior to v1.08 (Reset below to view)</div>
+                            {% endif %}
+                            <div class="text-muted" style="font-size:0.7rem; word-break:break-all;" title="{{ p.user.password }}">
+                                Hash: {{ p.user.password|truncatechars:28 }}
+                            </div>
+                        </div>
+                        <form method="POST" class="d-flex gap-1 no-legend">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="sa_reset_user_password">
+                            <input type="hidden" name="user_id" value="{{ p.user.id }}">
+                            <input type="text" name="new_user_password" class="form-control form-control-sm" style="min-height:34px;padding:4px 10px;font-size:0.84rem;" placeholder="Set new password..." minlength="6" required>
+                            <button type="submit" class="btn-m3-tonal py-1 px-2 small" style="min-height:34px;font-size:0.82rem;">Set</button>
+                        </form>
+                    </td>
+
+                    <!-- 4. Phone, WhatsApp & Social Handles -->
+                    <td style="min-width: 210px;">
+                        <div class="d-flex flex-column gap-1">
+                            {% if p.whatsapp_number %}
+                            <div class="small">
+                                <strong>Phone/WA:</strong> <a href="tel:{{ p.whatsapp_number }}" class="text-dark text-decoration-none">{{ p.whatsapp_number }}</a>
+                            </div>
+                            <div class="d-flex flex-wrap gap-1">
+                                <a href="https://wa.me/{{ p.clean_whatsapp }}" target="_blank" rel="noopener noreferrer" class="btn-whatsapp py-0 px-2 small">
+                                    <i data-lucide="message-circle" style="width:13px;height:13px;"></i> WhatsApp
+                                </a>
+                            </div>
+                            {% else %}
+                            <span class="small text-muted">No Phone / WhatsApp</span>
+                            {% endif %}
+
+                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                {% if p.github_url %}
+                                <a href="{{ p.github_url }}" target="_blank" rel="noopener noreferrer" class="m3-chip chip-neutral py-0 px-2 small text-decoration-none">
+                                    <i data-lucide="github" style="width:13px;height:13px;"></i> {{ p.github_handle }}
+                                </a>
+                                {% endif %}
+                                {% if p.youtube_url %}
+                                <a href="{{ p.youtube_url }}" target="_blank" rel="noopener noreferrer" class="m3-chip chip-neutral py-0 px-2 small text-decoration-none">
+                                    <i data-lucide="youtube" style="width:13px;height:13px;"></i> {{ p.youtube_handle }}
+                                </a>
+                                {% endif %}
+                                {% if p.instagram_url %}
+                                <a href="{{ p.instagram_url }}" target="_blank" rel="noopener noreferrer" class="m3-chip chip-neutral py-0 px-2 small text-decoration-none">
+                                    <i data-lucide="instagram" style="width:13px;height:13px;"></i> {{ p.instagram_handle }}
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- 5. Uploaded Documents & Media -->
+                    <td style="min-width: 200px;">
+                        <div class="d-flex flex-column gap-1 align-items-start">
+                            {% if p.has_avatar %}
+                            <a href="{{ p.avatar_url }}" target="_blank" class="btn-m3-outline py-1 px-2 small text-decoration-none" style="min-height:30px;font-size:0.8rem;">
+                                <i data-lucide="image" style="width:13px;height:13px;"></i> Profile Photo
+                            </a>
+                            {% endif %}
+                            {% if p.id_proof_front %}
+                            <a href="{{ p.id_proof_front.url }}" target="_blank" class="btn-m3-outline py-1 px-2 small text-decoration-none" style="min-height:30px;font-size:0.8rem;">
+                                <i data-lucide="file-check" style="width:13px;height:13px;"></i> Admin ID (Front)
+                            </a>
+                            {% endif %}
+                            {% if p.id_proof_back %}
+                            <a href="{{ p.id_proof_back.url }}" target="_blank" class="btn-m3-outline py-1 px-2 small text-decoration-none" style="min-height:30px;font-size:0.8rem;">
+                                <i data-lucide="file-check" style="width:13px;height:13px;"></i> Admin ID (Back)
+                            </a>
+                            {% endif %}
+                            {% for sg in p.user.student_groups.all %}
+                                {% if sg.proposal and sg.proposal.report_file %}
+                                <a href="{{ sg.proposal.report_file.url }}" target="_blank" class="btn-m3-tonal py-1 px-2 small text-decoration-none" style="min-height:30px;font-size:0.8rem;">
+                                    <i data-lucide="file-text" style="width:13px;height:13px;"></i> Project Report ({{ sg.name }})
+                                </a>
+                                {% endif %}
+                            {% endfor %}
+                            {% if not p.has_avatar and not p.id_proof_front and not p.id_proof_back %}
+                            <span class="small text-muted">No files uploaded</span>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <!-- 6. Institution Scope -->
+                    <td>
+                        <div class="small fw-bold">{{ p.department.name|default:"—" }}</div>
+                        <div class="small text-muted">{{ p.college.name|default:"—" }}</div>
+                        <div class="small text-muted">{{ p.university.name|default:"—" }}</div>
+                    </td>
+
+                    <!-- 7. Actions -->
+                    <td class="text-end">
+                        <div class="d-flex flex-column gap-1 align-items-end">
+                            {% if p.role == 'GUIDE' %}
+                            <form method="POST" class="d-inline no-legend">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="sa_toggle_examiner">
+                                <input type="hidden" name="profile_id" value="{{ p.id }}">
+                                <button type="submit" class="btn btn-sm {% if p.is_examiner %}btn-outline-warning{% else %}btn-outline-success{% endif %} rounded-pill px-3">
+                                    {% if p.is_examiner %}Demote Examiner{% else %}Make Examiner{% endif %}
+                                </button>
+                            </form>
+                            {% endif %}
+                            <form method="POST" class="d-inline no-legend" onsubmit="return confirm('Permanently delete user @{{ p.user.username|escapejs }}?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_user">
+                                <input type="hidden" name="user_id" value="{{ p.user.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">Remove User</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-center py-4 text-muted">No regular users registered yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ====================================================================== -->
+<!-- SECTION 2: CREATE NEW USER DIRECTLY FROM SUPERADMIN CONSOLE            -->
+<!-- ====================================================================== -->
+<div class="m3-card mb-5" id="saCreateUserSection">
+    <h3 class="fw-bold mb-2 d-flex align-items-center gap-2">
+        <i data-lucide="user-plus" style="color:var(--m3-primary);"></i> 2. Create New Role-Verified User Account
+    </h3>
+    <p class="text-muted small mb-4">Directly onboard a Student, Faculty Guide, Examiner, or Verified Institution Admin into any University, College, and Department.</p>
+
+    <form method="POST" enctype="multipart/form-data" class="m3-card-tonal p-4 no-legend">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="sa_create_user">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Role *</label>
+                <select name="role" id="saRoleSelect" class="form-select" onchange="saSyncRoleFields()" required>
+                    <option value="STUDENT">Student (ID: A12)</option>
+                    <option value="GUIDE">Faculty Guide (ID: AB12)</option>
+                    <option value="ADMIN">Institution Admin (ID: ABCD12)</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Full Name *</label>
+                <input type="text" name="full_name" class="form-control" placeholder="John Doe" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Username *</label>
+                <input type="text" name="username" class="form-control" placeholder="johndoe" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Password (min 6 chars) *</label>
+                <input type="text" name="password" class="form-control" placeholder="Set user password" minlength="6" required>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Email Address *</label>
+                <input type="email" name="email" class="form-control" placeholder="johndoe@example.com" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" id="saIdLabel">Roll Number / ID (e.g. A12) *</label>
+                <input type="text" name="identifier" id="saIdInput" class="form-control" placeholder="A12" required>
+            </div>
+            <div class="col-md-3" id="saClassWrap">
+                <label class="form-label">Class / Division</label>
+                <input type="text" name="class_division" class="form-control" value="TY-CS-A">
+            </div>
+            <div class="col-md-3 d-none d-flex align-items-end pb-2" id="saExaminerWrap">
+                <div class="form-check form-switch fs-6">
+                    <input class="form-check-input" type="checkbox" name="is_examiner" id="saExaminerCheck">
+                    <label class="form-check-label fw-bold" for="saExaminerCheck">Assign as External Examiner</label>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Phone / WhatsApp Number</label>
+                <input type="text" name="whatsapp_number" class="form-control" placeholder="+91 98765 43210">
+            </div>
+
+            <!-- Institution Hierarchy Selectors -->
+            <div class="col-md-4">
+                <label class="form-label">University *</label>
+                <select name="university_id" id="saUniSelect" class="form-select" onchange="saFilterColleges()" required>
+                    <option value="">-- Select University --</option>
+                    {% for u in universities %}
+                    <option value="{{ u.id }}">{{ u.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">College *</label>
+                <select name="college_id" id="saColSelect" class="form-select" onchange="saFilterDepartments()" required>
+                    <option value="">-- Select College --</option>
+                    {% for c in colleges %}
+                    <option value="{{ c.id }}" data-uni="{{ c.university_id }}">{{ c.name }} ({{ c.university.name }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Department *</label>
+                <select name="department_id" id="saDeptSelect" class="form-select" required>
+                    <option value="">-- Select Department --</option>
+                    {% for d in departments %}
+                    <option value="{{ d.id }}" data-col="{{ d.college_id }}">{{ d.name }} ({{ d.college.name }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Optional Social Handles, Bio, Avatar & Admin ID Proofs -->
+            <div class="col-md-3">
+                <label class="form-label">GitHub Handle</label>
+                <input type="text" name="github_handle" class="form-control" placeholder="johndoe">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">YouTube Handle</label>
+                <input type="text" name="youtube_handle" class="form-control" placeholder="@johndoe">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Instagram Handle</label>
+                <input type="text" name="instagram_handle" class="form-control" placeholder="@johndoe">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Short Bio</label>
+                <input type="text" name="bio" class="form-control" placeholder="Academic bio...">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Profile Avatar Photo (Optional)</label>
+                <input type="file" name="avatar" class="form-control" accept=".jpg,.jpeg,.png,.webp">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Admin ID Proof Front (Optional/Admin)</label>
+                <input type="file" name="id_proof_front" class="form-control" accept=".jpg,.jpeg,.png,.webp,.pdf">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Admin ID Proof Back (Optional/Admin)</label>
+                <input type="file" name="id_proof_back" class="form-control" accept=".jpg,.jpeg,.png,.webp,.pdf">
+            </div>
+
+            <div class="col-12 mt-3">
+                <button type="submit" class="btn-m3-primary w-100">
+                    <i data-lucide="user-check"></i> Create User Account in Database
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- ====================================================================== -->
+<!-- SECTION 3: ADD UNIVERSITIES, COLLEGES, DEPARTMENTS & PROJECT TEAMS     -->
+<!-- ====================================================================== -->
+<div class="m3-card mb-5" id="saCreateDataSection">
+    <h3 class="fw-bold mb-2 d-flex align-items-center gap-2">
+        <i data-lucide="database" style="color:var(--m3-primary);"></i> 3. Global Database Builder (Universities, Colleges, Departments & Teams)
+    </h3>
+    <p class="text-muted small mb-4">Add new institutional units or project teams directly from the Superadmin Console.</p>
+
+    <div class="row g-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="m3-card-tonal h-100 p-4">
+                <h5 class="fw-bold mb-3">A. Add University</h5>
+                <form method="POST" class="no-legend">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="sa_add_university">
+                    <div class="mb-3">
+                        <label class="form-label small">University Name</label>
+                        <input type="text" name="university_name" class="form-control" placeholder="e.g. SPPU" required>
+                    </div>
+                    <button type="submit" class="btn-m3-primary w-100">Add University</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="m3-card-tonal h-100 p-4">
+                <h5 class="fw-bold mb-3">B. Add College</h5>
+                <form method="POST" class="no-legend">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="sa_add_college">
+                    <div class="mb-2">
+                        <label class="form-label small">Parent University</label>
+                        <select name="university_id" class="form-select" required>
+                            {% for u in universities %}
+                            <option value="{{ u.id }}">{{ u.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small">College Name</label>
+                        <input type="text" name="college_name" class="form-control" placeholder="College Name" required>
+                    </div>
+                    <button type="submit" class="btn-m3-primary w-100">Add College</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="m3-card-tonal h-100 p-4">
+                <h5 class="fw-bold mb-3">C. Add Department</h5>
+                <form method="POST" class="no-legend">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="sa_add_department">
+                    <div class="mb-2">
+                        <label class="form-label small">Parent College</label>
+                        <select name="college_id" class="form-select" required>
+                            {% for c in colleges %}
+                            <option value="{{ c.id }}">{{ c.name }} ({{ c.university.name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small">Department Name</label>
+                        <input type="text" name="department_name" class="form-control" placeholder="Computer Science" required>
+                    </div>
+                    <button type="submit" class="btn-m3-primary w-100">Add Department</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="m3-card-tonal h-100 p-4">
+                <h5 class="fw-bold mb-3">D. Create Project Team</h5>
+                <form method="POST" class="no-legend">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="sa_create_group">
+                    <div class="mb-2">
+                        <label class="form-label small">Team Name</label>
+                        <input type="text" name="group_name" class="form-control" placeholder="Team-01: Innovators" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Department</label>
+                        <select name="department_id" class="form-select" required>
+                            {% for d in departments %}
+                            <option value="{{ d.id }}">{{ d.name }} ({{ d.college.name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small">Assign Guide (Optional)</label>
+                        <select name="guide_id" class="form-select">
+                            <option value="">-- Unassigned --</option>
+                            {% for g in guides_all %}
+                            <option value="{{ g.user.id }}">{{ g.user.get_full_name|default:g.user.username }} ({{ g.identifier }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-m3-primary w-100">Create Team</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ====================================================================== -->
+<!-- SECTION 4: GLOBAL PROJECT GROUPS & UPLOADED REPORTS INSPECTOR          -->
+<!-- ====================================================================== -->
+<div class="m3-card mb-5">
+    <h3 class="fw-bold mb-3 d-flex align-items-center gap-2">
+        <i data-lucide="folder-kanban" style="color:var(--m3-primary);"></i> 4. Global Project Teams, Proposals & Uploaded Reports ({{ groups.count }})
+    </h3>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead class="text-muted small text-uppercase">
+                <tr>
+                    <th>Team & 5-Char Code</th>
+                    <th>Department & College</th>
+                    <th>Members</th>
+                    <th>Guide</th>
+                    <th>Proposal, Similarity & Uploaded Report</th>
+                    <th>Viva Grade</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in groups %}
+                <tr>
+                    <td>
+                        <div class="fw-bold">{{ g.name }}</div>
+                        <span class="m3-chip chip-neutral py-0 px-2 small">Code: {{ g.join_code }}</span>
+                    </td>
+                    <td>
+                        <div class="small fw-bold">{{ g.department.name }}</div>
+                        <div class="small text-muted">{{ g.department.college.name }}</div>
+                    </td>
+                    <td>
+                        {% for s in g.students.all %}
+                        <a href="{% url 'public_profile' s.username %}" class="m3-chip chip-neutral py-0 px-2 small text-dark text-decoration-none mb-1">
+                            {{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})
+                        </a>
+                        {% empty %}
+                        <span class="small text-muted">No members</span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% if g.guide %}
+                        <span class="m3-chip chip-success py-0 px-2 small">{{ g.guide.get_full_name|default:g.guide.username }}</span>
+                        {% else %}
+                        <span class="small text-muted">Unassigned</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if g.proposal %}
+                        <div class="fw-bold small">{{ g.proposal.title }}</div>
+                        <div class="small text-muted">Similarity: {{ g.proposal.similarity_score }}% &bull; {{ g.proposal.get_status_display }}</div>
+                        {% if g.proposal.report_file %}
+                        <a href="{{ g.proposal.report_file.url }}" target="_blank" class="btn-m3-outline py-1 px-2 small text-decoration-none mt-1" style="min-height:30px;font-size:0.8rem;">
+                            <i data-lucide="download" style="width:13px;height:13px;"></i> Open Uploaded Report
+                        </a>
+                        {% endif %}
+                        {% else %}
+                        <span class="small text-muted">No proposal submitted</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if g.viva %}
+                        <span class="m3-chip chip-success py-1 px-2 small">{{ g.viva.total_score }}/100 ({{ g.viva.grade_badge }})</span>
+                        {% else %}
+                        <span class="small text-muted">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <form method="POST" class="d-inline no-legend" onsubmit="return confirm('Delete project team {{ g.name|escapejs }}?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_group">
+                            <input type="hidden" name="group_id" value="{{ g.id }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">Delete Team</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-center py-4 text-muted">No project groups created yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ====================================================================== -->
+<!-- SECTION 5: PRIVATE SUPERADMIN CREDENTIALS                              -->
+<!-- ====================================================================== -->
+<div class="row g-4 mb-4">
     <div class="col-lg-6">
         <div class="m3-card h-100">
             <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
@@ -94,54 +620,65 @@
     </div>
 </div>
 
-<!-- Master Global Users Table -->
-<div class="m3-card mb-5">
-    <h3 class="fw-bold mb-3">Global User Directory (All Universities, Colleges & Roles)</h3>
-    <div class="table-responsive">
-        <table class="table align-middle">
-            <thead class="text-muted">
-                <tr>
-                    <th>User</th>
-                    <th>Role</th>
-                    <th>Exact ID / Roll</th>
-                    <th>University &rarr; College &rarr; Department</th>
-                    <th class="text-end">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for p in profiles %}
-                <tr>
-                    <td>
-                        <div class="d-flex align-items-center gap-3">
-                            <a href="{% url 'public_profile' p.user.username %}" class="avatar-circle">
-                                {% if p.has_avatar %}<img src="{{ p.avatar_url }}" alt="Avatar">{% else %}{{ p.initials }}{% endif %}
-                            </a>
-                            <div>
-                                <a href="{% url 'public_profile' p.user.username %}" class="fw-bold text-dark text-decoration-none">{{ p.user.get_full_name|default:p.user.username }}</a>
-                                <div class="small text-muted">@{{ p.user.username }} &bull; {{ p.user.email }}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="m3-chip chip-tonal py-1 px-2">{{ p.get_role_display }}</span>
-                        {% if p.is_examiner %}<span class="m3-chip chip-success py-1 px-2">Examiner</span>{% endif %}
-                    </td>
-                    <td><span class="m3-chip chip-neutral py-1 px-2">{{ p.identifier }}</span></td>
-                    <td>{{ p.university.name }} &bull; {{ p.college.name }} &bull; <strong>{{ p.department.name }}</strong></td>
-                    <td class="text-end">
-                        <form method="POST" class="d-inline no-legend">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="delete_user">
-                            <input type="hidden" name="user_id" value="{{ p.user.id }}">
-                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">Remove</button>
-                        </form>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="5" class="text-center py-4 text-muted">No regular users registered yet.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+<script>
+function togglePassVisibility(inputId) {
+    const el = document.getElementById(inputId);
+    if (!el) return;
+    el.type = (el.type === 'password') ? 'text' : 'password';
+}
+
+function filterSaUsers() {
+    const q = (document.getElementById('saUserSearchInput').value || '').toLowerCase();
+    document.querySelectorAll('#saUsersTable tbody tr.sa-user-row').forEach(row => {
+        const text = (row.innerText || '').toLowerCase();
+        row.style.display = text.includes(q) ? '' : 'none';
+    });
+}
+
+function saSyncRoleFields() {
+    const role = document.getElementById('saRoleSelect').value;
+    const idLabel = document.getElementById('saIdLabel');
+    const idInput = document.getElementById('saIdInput');
+    const classWrap = document.getElementById('saClassWrap');
+    const examWrap = document.getElementById('saExaminerWrap');
+
+    if (role === 'STUDENT') {
+        idLabel.innerText = 'Student Roll Number (3 chars, e.g. A12) *';
+        idInput.placeholder = 'A12';
+        classWrap.classList.remove('d-none');
+        examWrap.classList.add('d-none');
+    } else if (role === 'GUIDE') {
+        idLabel.innerText = 'Faculty ID (4 chars, e.g. AB12) *';
+        idInput.placeholder = 'AB12';
+        classWrap.classList.add('d-none');
+        examWrap.classList.remove('d-none');
+    } else {
+        idLabel.innerText = 'Admin ID (6 chars, e.g. ABCD12) *';
+        idInput.placeholder = 'ABCD12';
+        classWrap.classList.add('d-none');
+        examWrap.classList.add('d-none');
+    }
+}
+
+function saFilterColleges() {
+    const uniId = document.getElementById('saUniSelect').value;
+    const colSelect = document.getElementById('saColSelect');
+    Array.from(colSelect.options).forEach(opt => {
+        if (!opt.value) return;
+        opt.hidden = Boolean(uniId && opt.getAttribute('data-uni') !== uniId);
+    });
+    colSelect.value = '';
+    saFilterDepartments();
+}
+
+function saFilterDepartments() {
+    const colId = document.getElementById('saColSelect').value;
+    const deptSelect = document.getElementById('saDeptSelect');
+    Array.from(deptSelect.options).forEach(opt => {
+        if (!opt.value) return;
+        opt.hidden = Boolean(colId && opt.getAttribute('data-col') !== colId);
+    });
+    deptSelect.value = '';
+}
+</script>
 {% endblock %}

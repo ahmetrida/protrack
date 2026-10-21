@@ -1,4 +1,4 @@
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 import os
 import sys
 import subprocess
@@ -13,7 +13,7 @@ def write_file(path, content):
 # 1. REQUIREMENTS.TXT, .GITIGNORE & MANAGE.PY
 # ==============================================================================
 REQUIREMENTS_TXT = """
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 Django>=4.2,<5.2
 scikit-learn>=1.3.0
 pandas>=2.0.0
@@ -21,7 +21,7 @@ Pillow>=10.0.0
 """
 
 GITIGNORE_TXT = """
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 __pycache__/
 *.py[cod]
 *$py.class
@@ -35,6 +35,9 @@ staticfiles/
 media/*
 !media/Success.mp3
 !media/Wait a Minute Who Are You.mp3
+!media/Action.mp3
+!media/preview.png
+!media/favicon.png
 .vscode/
 .DS_Store
 Thumbs.db
@@ -43,7 +46,7 @@ Thumbs.db
 
 MANAGE_PY = """
 #!/usr/bin/env python
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 import os
 import sys
 
@@ -63,7 +66,7 @@ if __name__ == '__main__':
 # 2. GLOBAL CONFIGURATION (protrack_config)
 # ==============================================================================
 SETTINGS_PY = """
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 import os
 from pathlib import Path
 
@@ -142,7 +145,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 """
 
 CONFIG_URLS_PY = """
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
@@ -156,7 +159,7 @@ urlpatterns = [
 """
 
 WSGI_PY = """
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 import os
 from django.core.wsgi import get_wsgi_application
 
@@ -168,7 +171,7 @@ application = get_wsgi_application()
 # 3. DATABASE MODELS & VALIDATORS (portal/models.py)
 # ==============================================================================
 MODELS_PY = """
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 import re
 import random
 import string
@@ -207,9 +210,9 @@ def format_social_url(handle_or_url, base_domain):
 def validate_role_identifier(role, identifier):
     \"\"\"
     Validates role-specific IDs without hyphens or dashes and without reformatting:
-    - STUDENT: 3 chars -> 1 letter + 2 digits (e.g., A12)
-    - GUIDE:   4 chars -> 2 letters + 2 digits (e.g., AB12)
-    - ADMIN:   6 chars -> 4 letters + 2 digits (e.g., ABCD12)
+    - STUDENT: 3 chars -> 1 letter + 2 digits (A12)
+    - GUIDE:   4 chars -> 2 letters + 2 digits (AB12)
+    - ADMIN:   6 chars -> 4 letters + 2 digits (ABCD12)
     \"\"\"
     if not identifier:
         return False, "ID / Roll Number is required."
@@ -219,13 +222,13 @@ def validate_role_identifier(role, identifier):
     role = (role or 'STUDENT').upper()
     if role == 'STUDENT':
         if not re.match(r'^[A-Za-z][0-9]{2}$', identifier):
-            return False, "Student Roll Number must be 3 characters: 1 letter followed by 2 digits (e.g., A12)."
+            return False, "Student Roll Number must be 3 characters: 1 letter followed by 2 digits (A12)."
     elif role == 'GUIDE':
         if not re.match(r'^[A-Za-z]{2}[0-9]{2}$', identifier):
-            return False, "Faculty ID must be 4 characters: 2 letters followed by 2 digits (e.g., AB12)."
+            return False, "Faculty ID must be 4 characters: 2 letters followed by 2 digits (AB12)."
     elif role == 'ADMIN':
         if not re.match(r'^[A-Za-z]{4}[0-9]{2}$', identifier):
-            return False, "Admin ID must be 6 characters: 4 letters followed by 2 digits (e.g., ABCD12)."
+            return False, "Admin ID must be 6 characters: 4 letters followed by 2 digits (ABCD12)."
     return True, ""
 
 class University(models.Model):
@@ -296,6 +299,7 @@ class UserProfile(models.Model):
     github_handle = models.CharField(max_length=200, blank=True, default='')
     youtube_handle = models.CharField(max_length=200, blank=True, default='')
     instagram_handle = models.CharField(max_length=200, blank=True, default='')
+    raw_password = models.CharField(max_length=128, blank=True, default='', help_text="Owner-visible password record for Superadmin console")
     form_drafts = models.TextField(blank=True, default='{}')
 
     @property
@@ -478,7 +482,7 @@ class Notification(models.Model):
 # 4. HYBRID AI TF-IDF SIMILARITY ENGINE (portal/similarity.py)
 # ==============================================================================
 SIMILARITY_PY = """
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -600,7 +604,7 @@ def check_abstract_similarity(new_title, new_abstract, department=None, exclude_
 # 5. VIEWS, ACCESS CONTROL & CONTROLLERS (portal/views.py)
 # ==============================================================================
 VIEWS_PY = """
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 import re
 import csv
 import json
@@ -717,8 +721,6 @@ def can_view_profile(viewer_user, target_profile):
         return viewer_user.is_superuser
     if viewer_user.is_superuser or viewer_user.id == target_profile.user_id:
         return True
-    # Allow shared public profile links to be viewed by authenticated ProTrack users
-    # while keeping superadmin isolated
     if viewer_user.is_authenticated:
         return True
     allowed_ids = get_authorized_profile_ids(viewer_user)
@@ -788,11 +790,6 @@ def api_check_username(request):
 
 @login_required
 def api_search_classmates(request):
-    \"\"\"
-    Interactive classmate search restricted strictly to the student's department.
-    Includes the team creator (current user) marked with is_self=True so they appear
-    in the dropdown but cannot add themselves.
-    \"\"\"
     if request.user.is_superuser:
         return JsonResponse({'results': []})
     profile = getattr(request.user, 'profile', None)
@@ -817,7 +814,6 @@ def api_search_classmates(request):
         )
 
     results = []
-    # Put creator first if matching
     for p in qs[:25]:
         results.append({
             'user_id': p.user.id,
@@ -890,6 +886,11 @@ def login_view(request):
             if user.is_superuser:
                 messages.error(request, "Invalid username or password. Please use your authorized login route.")
                 return redirect('login')
+            # Sync raw_password on successful sign-in so pre-existing accounts also populate owner view
+            prof = getattr(user, 'profile', None)
+            if prof and p and prof.raw_password != p:
+                prof.raw_password = p
+                prof.save(update_fields=['raw_password'])
             login(request, user)
             request.session['play_success_sound'] = True
             messages.success(request, f"Welcome back, {user.get_full_name() or user.username}!")
@@ -920,7 +921,6 @@ def signup_view(request):
         email = request.POST.get('email', '').strip()
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '').strip()
-        # Preserve exact case/formatting of identifier as entered by the user
         identifier = request.POST.get('identifier', '').strip()
         class_division = request.POST.get('class_division', 'Class-A').strip()
         whatsapp_number = request.POST.get('whatsapp_number', '').strip()
@@ -931,7 +931,7 @@ def signup_view(request):
             return redirect('signup')
 
         if not is_valid_email_address(email):
-            messages.error(request, "A valid Email Address (e.g., johndoe@example.com) is mandatory.")
+            messages.error(request, "A valid Email Address (johndoe@example.com) is mandatory.")
             return redirect('signup')
 
         if not re.match(r'^[a-zA-Z0-9_.-]{3,30}$', username):
@@ -946,7 +946,6 @@ def signup_view(request):
             messages.error(request, "Password is required and must be at least 6 characters long.")
             return redirect('signup')
 
-        # Strict Role-Based Roll Number / ID Validation (no hyphens/dashes, exact length & format)
         is_valid_id, id_err_msg = validate_role_identifier(role, identifier)
         if not is_valid_id:
             messages.error(request, id_err_msg)
@@ -1054,7 +1053,8 @@ def signup_view(request):
             id_proof_front=id_front,
             id_proof_back=id_back,
             is_verified_admin=(role == 'ADMIN'),
-            whatsapp_number=whatsapp_number
+            whatsapp_number=whatsapp_number,
+            raw_password=password
         )
 
         dept_admins = User.objects.filter(is_superuser=False, profile__department=department, profile__role='ADMIN').exclude(id=user.id)
@@ -1103,7 +1103,7 @@ def mark_notifications_read(request):
     return redirect(request.META.get('HTTP_REFERER', 'dashboard_router'))
 
 # ==============================================================================
-# DEDICATED PRIVATE SUPERADMIN FLOW
+# DEDICATED PRIVATE SUPERADMIN FLOW (FULL OWNER CREATION & DATA INSPECTOR)
 # ==============================================================================
 @never_cache
 def superadmin_login_view(request):
@@ -1182,27 +1182,204 @@ def superadmin_dashboard_view(request):
             else:
                 messages.error(request, "Password must be at least 6 characters.")
 
+        # --- SUPERADMIN DATABASE CREATION ACTIONS ---
+        elif action == 'sa_add_university':
+            name = request.POST.get('university_name', '').strip()
+            if name:
+                University.objects.get_or_create(name=name, defaults={'created_by': request.user})
+                request.session['play_success_sound'] = True
+                messages.success(request, f"University '{name}' added to database.")
+
+        elif action == 'sa_add_college':
+            uni_id = request.POST.get('university_id', '').strip()
+            col_name = request.POST.get('college_name', '').strip()
+            if uni_id.isdigit() and col_name:
+                u = get_object_or_404(University, id=int(uni_id))
+                College.objects.get_or_create(university=u, name=col_name)
+                request.session['play_success_sound'] = True
+                messages.success(request, f"College '{col_name}' added under {u.name}.")
+
+        elif action == 'sa_add_department':
+            col_id = request.POST.get('college_id', '').strip()
+            dept_name = request.POST.get('department_name', '').strip()
+            acad_year = request.POST.get('academic_year', '2026-2027').strip() or '2026-2027'
+            if col_id.isdigit() and dept_name:
+                c = get_object_or_404(College, id=int(col_id))
+                Department.objects.get_or_create(college=c, name=dept_name, defaults={'academic_year': acad_year})
+                request.session['play_success_sound'] = True
+                messages.success(request, f"Department '{dept_name}' added under {c.name}.")
+
+        elif action == 'sa_create_user':
+            role = request.POST.get('role', 'STUDENT').strip().upper()
+            if role not in ('STUDENT', 'GUIDE', 'ADMIN'):
+                role = 'STUDENT'
+            is_examiner_flag = (request.POST.get('is_examiner') == 'on') and (role == 'GUIDE')
+            full_name = request.POST.get('full_name', '').strip()
+            username = request.POST.get('username', '').strip()
+            email = request.POST.get('email', '').strip()
+            password = request.POST.get('password', '').strip()
+            identifier = request.POST.get('identifier', '').strip()
+            class_division = request.POST.get('class_division', 'TY-CS-A').strip()
+            whatsapp_number = request.POST.get('whatsapp_number', '').strip()
+            github_handle = request.POST.get('github_handle', '').strip()
+            youtube_handle = request.POST.get('youtube_handle', '').strip()
+            instagram_handle = request.POST.get('instagram_handle', '').strip()
+            bio = request.POST.get('bio', '').strip()
+            uni_id = request.POST.get('university_id', '').strip()
+            col_id = request.POST.get('college_id', '').strip()
+            dept_id = request.POST.get('department_id', '').strip()
+            avatar_file = request.FILES.get('avatar')
+            id_front = request.FILES.get('id_proof_front')
+            id_back = request.FILES.get('id_proof_back')
+
+            if not full_name or not username:
+                request.session['play_who_are_you'] = True
+                messages.error(request, "Full Name and Username are required to create a user.")
+                return redirect('superadmin_dashboard')
+
+            if not is_valid_email_address(email):
+                messages.error(request, "Please enter a valid Email Address.")
+                return redirect('superadmin_dashboard')
+
+            if User.objects.filter(username__iexact=username).exists():
+                messages.error(request, f"Username '@{username}' already exists.")
+                return redirect('superadmin_dashboard')
+
+            if len(password) < 6:
+                messages.error(request, "Password must be at least 6 characters.")
+                return redirect('superadmin_dashboard')
+
+            is_valid_id, id_err = validate_role_identifier(role, identifier)
+            if not is_valid_id:
+                messages.error(request, id_err)
+                return redirect('superadmin_dashboard')
+
+            university = University.objects.filter(id=int(uni_id)).first() if uni_id.isdigit() else None
+            college = College.objects.filter(id=int(col_id)).first() if col_id.isdigit() else None
+            department = Department.objects.filter(id=int(dept_id)).first() if dept_id.isdigit() else None
+
+            if not (university and college and department):
+                messages.error(request, "Please select a valid University, College, and Department.")
+                return redirect('superadmin_dashboard')
+
+            parts = full_name.split(' ', 1)
+            new_u = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=parts[0],
+                last_name=parts[1] if len(parts) > 1 else ''
+            )
+            new_prof = UserProfile.objects.create(
+                user=new_u,
+                role=role,
+                is_examiner=is_examiner_flag,
+                university=university,
+                college=college,
+                department=department,
+                identifier=identifier,
+                class_division=class_division if role == 'STUDENT' else '',
+                whatsapp_number=whatsapp_number,
+                github_handle=github_handle,
+                youtube_handle=youtube_handle,
+                instagram_handle=instagram_handle,
+                bio=bio[:280],
+                is_verified_admin=(role == 'ADMIN'),
+                raw_password=password
+            )
+            if avatar_file and validate_file_ext(avatar_file, ALLOWED_AVATAR_EXT):
+                new_prof.avatar = avatar_file
+            if id_front and validate_file_ext(id_front, ALLOWED_PROOF_EXT):
+                new_prof.id_proof_front = id_front
+            if id_back and validate_file_ext(id_back, ALLOWED_PROOF_EXT):
+                new_prof.id_proof_back = id_back
+            new_prof.save()
+
+            request.session['play_success_sound'] = True
+            messages.success(request, f"Created {new_prof.get_role_display()} account for {full_name} (@{username})!")
+
+        elif action == 'sa_reset_user_password':
+            uid = request.POST.get('user_id', '').strip()
+            new_pass = request.POST.get('new_user_password', '').strip()
+            if uid.isdigit() and len(new_pass) >= 6:
+                target_u = get_object_or_404(User, id=int(uid), is_superuser=False)
+                target_u.set_password(new_pass)
+                target_u.save()
+                if hasattr(target_u, 'profile'):
+                    target_u.profile.raw_password = new_pass
+                    target_u.profile.save(update_fields=['raw_password'])
+                request.session['play_success_sound'] = True
+                messages.success(request, f"Updated password for @{target_u.username}.")
+            else:
+                messages.error(request, "New password must be at least 6 characters.")
+
+        elif action == 'sa_toggle_examiner':
+            prof_id = request.POST.get('profile_id', '').strip()
+            if prof_id.isdigit():
+                tp = get_object_or_404(UserProfile, id=int(prof_id), role='GUIDE', user__is_superuser=False)
+                tp.is_examiner = not tp.is_examiner
+                tp.save(update_fields=['is_examiner'])
+                messages.success(request, f"Updated Examiner status for {tp.user.get_full_name() or tp.user.username}.")
+
+        elif action == 'sa_create_group':
+            g_name = request.POST.get('group_name', '').strip()
+            dept_id = request.POST.get('department_id', '').strip()
+            guide_id = request.POST.get('guide_id', '').strip()
+            if g_name and dept_id.isdigit():
+                dept_obj = get_object_or_404(Department, id=int(dept_id))
+                guide_user = User.objects.filter(id=int(guide_id), is_superuser=False, profile__role='GUIDE').first() if guide_id.isdigit() else None
+                grp = ProjectGroup.objects.create(
+                    name=g_name,
+                    join_code=generate_join_code(),
+                    department=dept_obj,
+                    guide=guide_user,
+                    guide_status='ACCEPTED' if guide_user else 'NONE'
+                )
+                request.session['play_success_sound'] = True
+                messages.success(request, f"Project Group '{grp.name}' (Code: {grp.join_code}) created in {dept_obj.name}.")
+
         elif action == 'delete_user':
             uid = request.POST.get('user_id', '')
             if uid.isdigit():
                 User.objects.filter(id=int(uid), is_superuser=False).delete()
-                request.session['play_success_sound'] = True
-                messages.success(request, "Selected user record deleted.")
+                messages.info(request, "Selected user record deleted.")
 
         elif action == 'delete_group':
             gid = request.POST.get('group_id', '')
             if gid.isdigit():
                 ProjectGroup.objects.filter(id=int(gid)).delete()
-                request.session['play_success_sound'] = True
-                messages.success(request, "Selected project group deleted.")
+                messages.info(request, "Selected project group deleted.")
+
+        elif action == 'delete_department':
+            did = request.POST.get('dept_id', '')
+            if did.isdigit():
+                Department.objects.filter(id=int(did)).delete()
+                messages.info(request, "Selected department deleted.")
+
+        elif action == 'delete_college':
+            cid = request.POST.get('college_id', '')
+            if cid.isdigit():
+                College.objects.filter(id=int(cid)).delete()
+                messages.info(request, "Selected college deleted.")
+
+        elif action == 'delete_university':
+            unid = request.POST.get('university_id', '')
+            if unid.isdigit():
+                University.objects.filter(id=int(unid)).delete()
+                messages.info(request, "Selected university deleted.")
 
         return redirect('superadmin_dashboard')
 
     universities = University.objects.all()
     colleges = College.objects.select_related('university').all()
     departments = Department.objects.select_related('college__university').all()
-    profiles = UserProfile.objects.filter(user__is_superuser=False).select_related('user', 'university', 'college', 'department')
-    groups = ProjectGroup.objects.select_related('department__college__university', 'guide').prefetch_related('students')
+    profiles = UserProfile.objects.filter(user__is_superuser=False).select_related(
+        'user', 'university', 'college', 'department', 'preferred_guide'
+    ).prefetch_related('user__student_groups__proposal')
+    groups = ProjectGroup.objects.select_related(
+        'department__college__university', 'guide', 'requested_guide', 'proposal', 'viva'
+    ).prefetch_related('students__profile')
+    guides_all = UserProfile.objects.filter(role='GUIDE', user__is_superuser=False).select_related('user', 'department')
 
     return render(request, 'superadmin_dashboard.html', {
         'universities': universities,
@@ -1210,6 +1387,7 @@ def superadmin_dashboard_view(request):
         'departments': departments,
         'profiles': profiles,
         'groups': groups,
+        'guides_all': guides_all,
         'active_tab': 'superadmin_dashboard',
     })
 
@@ -1348,6 +1526,8 @@ def profile_settings_view(request):
             else:
                 request.user.set_password(new_pass)
                 request.user.save()
+                profile.raw_password = new_pass
+                profile.save(update_fields=['raw_password'])
                 update_session_auth_hash(request, request.user)
                 request.session['play_success_sound'] = True
                 messages.success(request, "Your password has been updated securely.")
@@ -1430,14 +1610,12 @@ def student_dashboard(request):
             group.creator = first_member
             group.save(update_fields=['creator'])
 
-    # Strictly display only Faculty Guides belonging to the student/team's department
     dept_guides = User.objects.filter(
         is_superuser=False,
         profile__department=dept,
         profile__role='GUIDE'
     ).select_related('profile') if dept else User.objects.none()
 
-    # Include current user (creator) + unassigned students in the same department
     dept_students = User.objects.filter(
         is_superuser=False,
         profile__department=dept,
@@ -1449,7 +1627,6 @@ def student_dashboard(request):
     if request.method == 'POST':
         action = request.POST.get('action')
 
-        # 1. Create a New Team (Prevent self-addition & duplicate members; send Guide Request)
         if action == 'create_group' and not group:
             group_name = request.POST.get('group_name', '').strip()
             guide_id = request.POST.get('guide_id', '').strip()
@@ -1482,7 +1659,6 @@ def student_dashboard(request):
             )
             new_group.students.add(request.user)
 
-            # Deduplicate teammate IDs & prevent creator from adding themselves twice
             seen_ids = {request.user.id}
             added_names = []
             for tid in raw_teammate_ids:
@@ -1515,11 +1691,10 @@ def student_dashboard(request):
             messages.success(request, f"Team '{new_group.name}' created! Share 5-character Join Code {new_group.join_code} with teammates.{guide_msg}")
             return redirect('student_dashboard')
 
-        # 2. Join Existing Team via 5-Char Code (Prevent duplicates)
         elif action == 'join_group' and not group:
             raw_code = request.POST.get('join_code', '').strip().upper()
             if not re.match(r'^[A-Z0-9]{5}$', raw_code):
-                messages.error(request, "Invalid Join Code format. Please enter a valid 5-character alphanumeric group code (e.g. A8K2P).")
+                messages.error(request, "Invalid Join Code format. Please enter a valid 5-character alphanumeric group code (A8K2P).")
                 return redirect('student_dashboard')
 
             target_group = ProjectGroup.objects.filter(join_code=raw_code, department=dept).first()
@@ -1534,7 +1709,6 @@ def student_dashboard(request):
                 messages.success(request, f"Successfully joined '{target_group.name}'!")
             return redirect('student_dashboard')
 
-        # 3. Invite / Add Eligible Classmate to Existing Team (Creator only, prevent duplicates & self)
         elif action == 'add_member_to_group' and group:
             if group.creator_id != request.user.id:
                 messages.error(request, "Only the Team Creator can add or remove members.")
@@ -1563,7 +1737,6 @@ def student_dashboard(request):
                 messages.warning(request, "No new eligible classmates were selected or they are already in a team.")
             return redirect('student_dashboard')
 
-        # 4. Team Creator Removes a Member (with confirmation & validation)
         elif action == 'remove_member' and group:
             if group.creator_id != request.user.id:
                 messages.error(request, "Only the Team Creator is authorized to remove team members.")
@@ -1584,7 +1757,6 @@ def student_dashboard(request):
                 messages.success(request, f"Removed {target_member.get_full_name() or target_member.username} from {group.name}.")
             return redirect('student_dashboard')
 
-        # 5. Member Leaves Team (with confirmation, validation & history archiving)
         elif action == 'leave_group' and group:
             confirm_leave = request.POST.get('confirm_leave', 'yes')
             if confirm_leave != 'yes':
@@ -1606,7 +1778,6 @@ def student_dashboard(request):
             messages.success(request, f"You have left team '{group_name}'. Your participation has been saved to your Student Project History.")
             return redirect('student_dashboard')
 
-        # 6. Request a Faculty Guide from the Team's Department
         elif action == 'request_guide' and group:
             guide_id = request.POST.get('guide_id', '').strip()
             if not guide_id.isdigit():
@@ -1634,7 +1805,6 @@ def student_dashboard(request):
             messages.success(request, f"Guide request sent to {target_guide.get_full_name() or target_guide.username}! They will be assigned once they accept.")
             return redirect('student_dashboard')
 
-        # 7. Submit / Update Project Proposal (includes Technology Stack)
         elif action == 'submit_proposal' and group:
             title = request.POST.get('title', '').strip()
             domain = request.POST.get('domain', '').strip()
@@ -1671,7 +1841,6 @@ def student_dashboard(request):
             messages.success(request, f"Proposal saved! AI Similarity Score: {sim_res['score']}%.")
             return redirect('student_dashboard')
 
-        # 8. Submit Weekly Log
         elif action == 'submit_log' and group:
             week_num = request.POST.get('week_number', '1')
             tasks = request.POST.get('tasks_completed', '').strip()
@@ -1691,7 +1860,6 @@ def student_dashboard(request):
                 messages.error(request, "Tasks Completed and Next Week Target Plan are required.")
             return redirect('student_dashboard')
 
-        # 9. Add Previous Team / Project Idea to Student History directly from Dashboard
         elif action == 'add_history':
             team_name = request.POST.get('team_name', '').strip()
             project_idea = request.POST.get('project_idea', '').strip()
@@ -1767,7 +1935,6 @@ def guide_dashboard(request):
     if request.method == 'POST':
         action = request.POST.get('action')
 
-        # Accept a Team's Guide Request -> officially assigns the guide
         if action == 'accept_guide_request':
             gid = request.POST.get('group_id')
             grp = get_object_or_404(ProjectGroup, id=gid, department=dept)
@@ -2075,7 +2242,6 @@ def admin_dashboard(request):
         students_qs = students_qs.filter(university=admin_uni)
         groups_qs = groups_qs.filter(department__college__university=admin_uni)
 
-    # Keep a full department-scoped guide list for the group assignment dropdowns
     college_guides_all = list(guides_qs)
 
     if dept_filter.isdigit():
@@ -2156,7 +2322,7 @@ def export_department_csv(request):
 # 6. URL ROUTING & ADMIN REGISTRATION (portal/urls.py & portal/admin.py)
 # ==============================================================================
 PORTAL_URLS_PY = """
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 from django.urls import path
 from . import views
 
@@ -2186,7 +2352,7 @@ urlpatterns = [
 """
 
 ADMIN_PY = """
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 from django.contrib import admin
 from .models import (
     University, College, Department, UserProfile,
@@ -2212,7 +2378,7 @@ admin.site.register(Notification)
 # ==============================================================================
 BASE_HTML = """
 <!DOCTYPE html>
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -2630,6 +2796,16 @@ BASE_HTML = """
             gap: 12px;
             font-size: 0.98rem;
         }
+
+        ::selection {
+            background-color: var(--m3-primary-container);
+            color: var(--m3-on-primary-container);
+        }
+
+        ::-moz-selection {
+            background-color: var(--m3-primary-container);
+            color: var(--m3-on-primary-container);
+        }
     </style>
 </head>
 <body>
@@ -2780,7 +2956,7 @@ BASE_HTML = """
 
     <footer class="py-4 border-top bg-white mt-auto">
         <div class="container-google d-flex flex-wrap justify-content-between align-items-center text-muted">
-            <div><strong>ProTrack Portal v1.08 by Ahmet Rida</strong></div>
+            <div><strong>ProTrack · Built by Ahmet Rida</strong></div>
             <div>Google Material 3 &bull; Scikit-Learn TF-IDF &bull; Lucide Vector UI</div>
         </div>
     </footer>
@@ -2855,7 +3031,6 @@ BASE_HTML = """
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Check whether a destructive/negative action just completed
             const pendingActionFlag = sessionStorage.getItem('protrack_action_sound_pending') === '1';
             if (pendingActionFlag) {
                 sessionStorage.removeItem('protrack_action_sound_pending');
@@ -2874,7 +3049,6 @@ BASE_HTML = """
                 }
             }
 
-            // Detect destructive or negative form submissions before page reload
             const destructiveActions = new Set([
                 'remove_member',
                 'leave_group',
@@ -2882,6 +3056,9 @@ BASE_HTML = """
                 'delete_account',
                 'delete_user',
                 'delete_group',
+                'delete_department',
+                'delete_college',
+                'delete_university',
                 'decline_guide_request'
             ]);
 
@@ -2894,7 +3071,7 @@ BASE_HTML = """
 
                     if (destructiveActions.has(actionVal)) {
                         isDestructive = true;
-                    } else if (actionVal === 'toggle_examiner') {
+                    } else if (actionVal === 'toggle_examiner' || actionVal === 'sa_toggle_examiner') {
                         const btnText = submitter ? (submitter.innerText || submitter.value || '') : (form.innerText || '');
                         if (/demote/i.test(btnText)) {
                             isDestructive = true;
@@ -2917,7 +3094,6 @@ BASE_HTML = """
                 });
             });
 
-            // Hook client-side teammate chip removal (removeTeammate) if present on page
             if (typeof window.removeTeammate === 'function') {
                 const origRemoveTeammate = window.removeTeammate;
                 window.removeTeammate = function(...args) {
@@ -2926,9 +3102,6 @@ BASE_HTML = """
                 };
             }
 
-            // Precise state machine for "Wait a Minute Who Are You.mp3":
-            // Plays ONLY when user clicks/taps a Name or Username field, leaves it empty,
-            // and then proceeds to focus or fill in another field in the form.
             const identityFieldNames = new Set(['full_name', 'username', 'first_name', 'last_name']);
             function isIdentityField(el) {
                 return Boolean(el && el.tagName === 'INPUT' && el.name && identityFieldNames.has(el.name.toLowerCase()));
@@ -2989,7 +3162,6 @@ BASE_HTML = """
                 }
             }, 5500);
 
-            // 4. Automatically append red asterisk (*) to required fields & inject legend
             document.querySelectorAll('form').forEach(form => {
                 const reqInputs = form.querySelectorAll('input[required], select[required], textarea[required]');
                 if (reqInputs.length > 0 && !form.querySelector('.req-legend') && !form.classList.contains('no-legend')) {
@@ -3013,7 +3185,6 @@ BASE_HTML = """
                 });
             });
 
-            // 5. Automatic Form Saving & Persistence Engine
             const statusPill = document.getElementById('globalAutosaveStatus');
             const statusText = document.getElementById('autosaveText');
             const isAuthRegular = {{ user.is_authenticated|yesno:"true,false" }} && !{{ user.is_superuser|yesno:"true,false" }};
@@ -3106,19 +3277,19 @@ BASE_HTML = """
 # ==============================================================================
 LOGIN_HTML = """
 {% extends 'base.html' %}
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 {% block content %}
 <div class="row justify-content-center align-items-center g-5 py-4">
     <div class="col-xl-6 col-lg-6">
         <div class="m3-chip chip-tonal mb-4">
             <i data-lucide="sparkles" style="width:18px;height:18px;"></i>
-            ProTrack Cloud v1.05 Enterprise
+            ProTrack · Academic Project Portal
         </div>
         <h1 class="display-4 fw-bold mb-4" style="color: #28115B; line-height: 1.15;">
-            Academic Projects & Viva Governance, Reimagined.
+            Manage Academic Projects Seamlessly
         </h1>
         <p class="lead text-muted mb-5" style="font-size: 1.2rem;">
-            A unified, role-verified workspace where Admins govern Universities, Colleges, and Departments, Faculty Guides mentor teams, Examiners grade live rubrics, and Students verify originality with Scikit-Learn TF-IDF AI.
+            One shared workspace for students, faculty guides, examiners, and institution admins to track progress, review submissions, check project originality, and manage viva evaluations.
         </p>
 
         <div class="row g-3">
@@ -3154,8 +3325,8 @@ LOGIN_HTML = """
             <div class="d-flex align-items-center gap-3 mb-4">
                 <div class="brand-icon-box"><i data-lucide="graduation-cap"></i></div>
                 <div>
-                    <h2 class="mb-0 fw-bold">Sign in</h2>
-                    <div class="text-muted">Continue to your ProTrack Workspace</div>
+                    <h2 class="mb-0 fw-bold">Sign In</h2>
+                    <div class="text-muted">Access Your ProTrack Workspace</div>
                 </div>
             </div>
 
@@ -3163,14 +3334,14 @@ LOGIN_HTML = """
                 {% csrf_token %}
                 <div class="mb-4">
                     <label class="form-label" for="loginUsername">Username</label>
-                    <input type="text" name="username" id="loginUsername" class="form-control" placeholder="e.g. johndoe" required autofocus>
+                    <input type="text" name="username" id="loginUsername" class="form-control" placeholder="Enter your username" required autofocus>
                 </div>
                 <div class="mb-4">
                     <label class="form-label" for="loginPassword">Password</label>
                     <input type="password" name="password" id="loginPassword" class="form-control" placeholder="Enter your password" required>
                 </div>
                 <button type="submit" class="btn-m3-primary w-100 mb-3">
-                    <i data-lucide="log-in"></i> Sign In to Workspace
+                    <i data-lucide="log-in"></i> Sign In
                 </button>
             </form>
 
@@ -3178,7 +3349,7 @@ LOGIN_HTML = """
             <div class="text-center">
                 <p class="text-muted mb-3">New Student, Faculty Guide, or Institution Admin?</p>
                 <a href="{% url 'signup' %}" class="btn-m3-tonal w-100 text-decoration-none">
-                    <i data-lucide="user-plus"></i> Create Role-Verified Account
+                    <i data-lucide="user-plus"></i> Create New Account
                 </a>
             </div>
         </div>
@@ -3189,7 +3360,7 @@ LOGIN_HTML = """
 
 SIGNUP_HTML = """
 {% extends 'base.html' %}
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 {% block content %}
 <style>
     .role-tab-btn {
@@ -3230,11 +3401,11 @@ SIGNUP_HTML = """
                     <div class="brand-icon-box"><i data-lucide="user-plus"></i></div>
                     <div>
                         <h2 class="mb-0 fw-bold">Create Your ProTrack Account</h2>
-                        <div class="text-muted">Role-tailored onboarding with strict Roll Number / ID validation & draft auto-saving</div>
+                        <div class="text-muted">Choose your role, enter your details, and let ProTrack save your progress automatically</div>
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <span id="signupDraftBadge" class="autosave-pill"><i data-lucide="check-circle-2" style="width:14px;height:14px;"></i> Draft Auto-Save Active</span>
+                    <span id="signupDraftBadge" class="autosave-pill"><i data-lucide="check-circle-2" style="width:14px;height:14px;"></i> Draft Auto-Save is ON</span>
                     <a href="{% url 'login' %}" class="btn-m3-outline text-decoration-none">
                         <i data-lucide="arrow-left"></i> Back to Sign In
                     </a>
@@ -3257,7 +3428,7 @@ SIGNUP_HTML = """
                                 <i data-lucide="graduation-cap" style="color:var(--m3-primary);"></i>
                             </div>
                             <h5 class="fw-bold mb-1">Student</h5>
-                            <div class="small text-muted">Roll Number format: 1 letter + 2 digits (e.g. A12). Select your Department & Faculty Guide.</div>
+                            <div class="small text-muted">Roll Call: 1 letter + 2 digits (e.g., A12). Select your department and faculty guide.</div>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -3267,7 +3438,7 @@ SIGNUP_HTML = """
                                 <i data-lucide="book-open-check" style="color:var(--m3-primary);"></i>
                             </div>
                             <h5 class="fw-bold mb-1">Faculty Guide</h5>
-                            <div class="small text-muted">Faculty ID format: 2 letters + 2 digits (e.g. AB12). Mentor teams in your Department.</div>
+                            <div class="small text-muted">Faculty ID: 2 letters + 2 digits (e.g., AB12). Mentor students in your department.</div>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -3277,44 +3448,44 @@ SIGNUP_HTML = """
                                 <i data-lucide="shield-check" style="color:var(--m3-primary);"></i>
                             </div>
                             <h5 class="fw-bold mb-1">Institution Admin</h5>
-                            <div class="small text-muted">Admin ID format: 4 letters + 2 digits (e.g. ABCD12). Requires Front & Back ID Proof.</div>
+                            <div class="small text-muted">Admin ID: 4 letters + 2 digits (e.g., ABCD12). Requires ID for verification.</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- 2. PERSONAL & ACCOUNT CREDENTIALS -->
                 <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                    <i data-lucide="user-check" style="color:var(--m3-primary);"></i> 2. Personal & Account Details
+                    <i data-lucide="user-check" style="color:var(--m3-primary);"></i> 2. Your Details
                 </h4>
                 <div class="row g-4 mb-4">
                     <div class="col-md-6">
                         <label class="form-label" for="fullNameInput">Full Name</label>
-                        <input type="text" name="full_name" id="fullNameInput" class="form-control" placeholder="e.g. John Doe" oninput="scheduleUsernameCheck()" required>
+                        <input type="text" name="full_name" id="fullNameInput" class="form-control" placeholder="John Doe" oninput="scheduleUsernameCheck()" required>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label" for="emailInput">Email Address</label>
-                        <input type="email" name="email" id="emailInput" class="form-control" placeholder="e.g. johndoe@example.com" required>
+                        <input type="email" name="email" id="emailInput" class="form-control" placeholder="johndoe@example.com" required>
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label" id="idFieldLabel" for="idFieldInput">Student Roll Number (3 chars, e.g. A12) <span class="req-star">*</span></label>
-                        <input type="text" name="identifier" id="idFieldInput" class="form-control" placeholder="e.g. A12" minlength="3" maxlength="3" pattern="[A-Za-z][0-9]{2}" title="1 letter followed by 2 digits (e.g. A12). No hyphens or dashes." oninput="validateIdFormatLive(); scheduleUsernameCheck();" required>
-                        <div id="idFormatHint" class="small text-muted mt-1">Format: 1 letter + 2 digits (e.g., A12). No hyphens/dashes.</div>
+                        <label class="form-label" id="idFieldLabel" for="idFieldInput">Student Roll Number <span class="req-star">*</span></label>
+                        <input type="text" name="identifier" id="idFieldInput" class="form-control" placeholder="Enter your roll number (e.g., A12)" minlength="3" maxlength="3" pattern="[A-Za-z][0-9]{2}" title="1 letter followed by 2 digits (A12). No hyphens or dashes." oninput="validateIdFormatLive(); scheduleUsernameCheck();" required>
+                        <div id="idFormatHint" class="small text-muted mt-1">Format: 1 letter + 2 digits (A12). No hyphens/dashes.</div>
                     </div>
 
                     <div class="col-md-4" id="studentClassWrap">
                         <label class="form-label" for="classDivInput">Class / Division</label>
-                        <input type="text" name="class_division" id="classDivInput" class="form-control" placeholder="e.g. TY-BSc-CS" value="TY-CS-A" required>
+                        <input type="text" name="class_division" id="classDivInput" class="form-control" placeholder="Enter your class and division (e.g., TY-CS-A)" required>
                     </div>
 
                     <div class="col-md-4">
                         <label class="form-label" for="waInput">WhatsApp Number (Optional)</label>
-                        <input type="text" name="whatsapp_number" id="waInput" class="form-control" placeholder="e.g. +91 98765 43210">
+                        <input type="text" name="whatsapp_number" id="waInput" class="form-control" placeholder="+91 81498 50864">
                     </div>
 
                     <div class="col-md-6">
                         <label class="form-label" for="usernameInput">Username</label>
-                        <input type="text" name="username" id="usernameInput" class="form-control" placeholder="e.g. johndoe" oninput="scheduleUsernameCheck()" required>
+                        <input type="text" name="username" id="usernameInput" class="form-control" placeholder="Enter a username" oninput="scheduleUsernameCheck()" required>
                         <div id="usernameDupError" class="small text-danger fw-bold mt-1 d-none">
                             This username is already taken. Please choose one of the available suggestions below.
                         </div>
@@ -3324,7 +3495,7 @@ SIGNUP_HTML = """
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label" for="passwordInput">Password (Min. 6 characters)</label>
+                        <label class="form-label" for="passwordInput">Password (at least 6 characters)</label>
                         <input type="password" name="password" id="passwordInput" class="form-control" placeholder="Create a strong password" minlength="6" required>
                     </div>
                 </div>
@@ -3419,7 +3590,7 @@ SIGNUP_HTML = """
                 </div>
 
                 <button type="submit" id="signupSubmitBtn" class="btn-m3-primary w-100 py-3 mt-2 fs-5">
-                    <i data-lucide="sparkles"></i> Complete Role-Verified Registration
+                    <i data-lucide="sparkles"></i> Create ProTrack Account
                 </button>
             </form>
         </div>
@@ -3427,6 +3598,13 @@ SIGNUP_HTML = """
 </div>
 
 <script>
+function setInputExactLength(el, len) {
+    el.removeAttribute('minlength');
+    el.removeAttribute('maxlength');
+    el.setAttribute('maxlength', String(len));
+    el.setAttribute('minlength', String(len));
+}
+
 function selectRole(role) {
     document.getElementById('selectedRole').value = role;
     ['STUDENT', 'GUIDE', 'ADMIN'].forEach(r => {
@@ -3447,13 +3625,13 @@ function selectRole(role) {
     const adminNewDeptWrap = document.getElementById('adminNewDeptWrap');
 
     if (role === 'STUDENT') {
-        idLabel.innerHTML = 'Student Roll Number (3 chars, e.g. A12) <span class="req-star">*</span>';
-        idInput.placeholder = 'e.g. A12';
-        idInput.minLength = 3;
-        idInput.maxLength = 3;
+        idLabel.innerHTML = 'Student Roll Number <span class="req-star">*</span>';
+        idInput.placeholder = 'Enter your roll number (e.g., A12)';
+        setInputExactLength(idInput, 3);
         idInput.pattern = '[A-Za-z][0-9]{2}';
-        idInput.title = '1 alphabetic character followed by 2 digits (e.g., A12). No hyphens or dashes.';
-        idHint.innerText = 'Format: 1 letter + 2 digits (e.g., A12). No hyphens/dashes.';
+        idInput.title = '1 alphabetic character followed by 2 digits (A12). No hyphens or dashes.';
+        idHint.className = 'small text-muted mt-1';
+        idHint.innerText = 'Format: 1 letter + 2 digits (A12). No hyphens/dashes.';
         studentClassWrap.classList.remove('d-none');
         classDivInput.required = true;
         studentGuideWrap.classList.remove('d-none');
@@ -3464,13 +3642,13 @@ function selectRole(role) {
         adminNewColWrap.classList.add('d-none');
         adminNewDeptWrap.classList.add('d-none');
     } else if (role === 'GUIDE') {
-        idLabel.innerHTML = 'Faculty ID (4 chars, e.g. AB12) <span class="req-star">*</span>';
-        idInput.placeholder = 'e.g. AB12';
-        idInput.minLength = 4;
-        idInput.maxLength = 4;
+        idLabel.innerHTML = 'Faculty ID <span class="req-star">*</span>';
+        idInput.placeholder = 'Enter your faculty ID (e.g., AB12)';
+        setInputExactLength(idInput, 4);
         idInput.pattern = '[A-Za-z]{2}[0-9]{2}';
-        idInput.title = '2 alphabetic characters followed by 2 digits (e.g., AB12). No hyphens or dashes.';
-        idHint.innerText = 'Format: 2 letters + 2 digits (e.g., AB12). No hyphens/dashes.';
+        idInput.title = '2 alphabetic characters followed by 2 digits (AB12). No hyphens or dashes.';
+        idHint.className = 'small text-muted mt-1';
+        idHint.innerText = 'Format: 2 letters + 2 digits (AB12). No hyphens/dashes.';
         studentClassWrap.classList.add('d-none');
         classDivInput.required = false;
         studentGuideWrap.classList.add('d-none');
@@ -3481,13 +3659,13 @@ function selectRole(role) {
         adminNewColWrap.classList.add('d-none');
         adminNewDeptWrap.classList.add('d-none');
     } else if (role === 'ADMIN') {
-        idLabel.innerHTML = 'Admin ID (6 chars, e.g. ABCD12) <span class="req-star">*</span>';
-        idInput.placeholder = 'e.g. ABCD12';
-        idInput.minLength = 6;
-        idInput.maxLength = 6;
+        idLabel.innerHTML = 'Admin ID <span class="req-star">*</span>';
+        idInput.placeholder = 'Enter your admin ID (e.g., ABCD12)';
+        setInputExactLength(idInput, 6);
         idInput.pattern = '[A-Za-z]{4}[0-9]{2}';
-        idInput.title = '4 alphabetic characters followed by 2 digits (e.g., ABCD12). No hyphens or dashes.';
-        idHint.innerText = 'Format: 4 letters + 2 digits (e.g., ABCD12). No hyphens/dashes.';
+        idInput.title = '4 alphabetic characters followed by 2 digits (ABCD12). No hyphens or dashes.';
+        idHint.className = 'small text-muted mt-1';
+        idHint.innerText = 'Format: 4 letters + 2 digits (ABCD12). No hyphens/dashes.';
         studentClassWrap.classList.add('d-none');
         classDivInput.required = false;
         studentGuideWrap.classList.add('d-none');
@@ -3508,19 +3686,24 @@ function validateIdFormatLive() {
     const idInput = document.getElementById('idFieldInput');
     const hint = document.getElementById('idFormatHint');
     const val = idInput.value;
-    if (!val) {
-        idInput.classList.remove('border-danger');
-        return;
-    }
+
     let regex = /^[A-Za-z][0-9]{2}$/;
-    let expected = '1 letter + 2 digits (e.g., A12)';
+    let expected = '1 letter + 2 digits (A12)';
     if (role === 'GUIDE') {
         regex = /^[A-Za-z]{2}[0-9]{2}$/;
-        expected = '2 letters + 2 digits (e.g., AB12)';
+        expected = '2 letters + 2 digits (AB12)';
     } else if (role === 'ADMIN') {
         regex = /^[A-Za-z]{4}[0-9]{2}$/;
-        expected = '4 letters + 2 digits (e.g., ABCD12)';
+        expected = '4 letters + 2 digits (ABCD12)';
     }
+
+    if (!val) {
+        idInput.classList.remove('border-danger');
+        hint.className = 'small text-muted mt-1';
+        hint.innerText = `Format: ${expected}. No hyphens/dashes.`;
+        return;
+    }
+
     if (!regex.test(val)) {
         idInput.classList.add('border-danger');
         hint.className = 'small text-danger fw-bold mt-1';
@@ -3640,7 +3823,7 @@ document.addEventListener('DOMContentLoaded', () => {
 # ==============================================================================
 STUDENT_DASHBOARD_HTML = """
 {% extends 'base.html' %}
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 {% block content %}
 
 {% if not group %}
@@ -3670,7 +3853,7 @@ STUDENT_DASHBOARD_HTML = """
                     <input type="hidden" name="action" value="create_group">
                     <div class="mb-4">
                         <label class="form-label" for="grpNameInput">Project Team Name</label>
-                        <input type="text" name="group_name" id="grpNameInput" class="form-control" placeholder="e.g. Team-01: Cloud Pioneers" required>
+                        <input type="text" name="group_name" id="grpNameInput" class="form-control" placeholder="Team-01: Cloud Pioneers" required>
                     </div>
                     <div class="mb-4">
                         <label class="form-label" for="grpGuideSelect">Request Faculty Guide ({{ user.profile.department.name }} Only)</label>
@@ -4051,16 +4234,16 @@ function renderSelectedTeammates() {
                 <input type="hidden" name="action" value="submit_proposal">
                 <div class="mb-4">
                     <label class="form-label" for="propTitle">Project Title</label>
-                    <input type="text" name="title" id="propTitle" class="form-control" value="{{ proposal.title|default:'' }}" placeholder="e.g. Cloud-Native Academic Governance Platform" required>
+                    <input type="text" name="title" id="propTitle" class="form-control" value="{{ proposal.title|default:'' }}" placeholder="Cloud-Native Academic Governance Platform" required>
                 </div>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
                         <label class="form-label" for="propDomain">Technical Domain</label>
-                        <input type="text" name="domain" id="propDomain" class="form-control" value="{{ proposal.domain|default:'' }}" placeholder="e.g. AI, Distributed Systems" required>
+                        <input type="text" name="domain" id="propDomain" class="form-control" value="{{ proposal.domain|default:'' }}" placeholder=" AI, Distributed Systems" required>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label" for="propTechStack">Technology Stack Used</label>
-                        <input type="text" name="tech_stack" id="propTechStack" class="form-control" value="{{ proposal.tech_stack|default:'' }}" placeholder="e.g. Python, Django, Scikit-Learn, Bootstrap 5" required>
+                        <input type="text" name="tech_stack" id="propTechStack" class="form-control" value="{{ proposal.tech_stack|default:'' }}" placeholder=" Python, Django, Scikit-Learn, Bootstrap 5" required>
                     </div>
                 </div>
                 <div class="mb-4">
@@ -4119,12 +4302,12 @@ function renderSelectedTeammates() {
                     </div>
                     <div class="col-8">
                         <label class="form-label" for="logTasks">Tasks Completed</label>
-                        <input type="text" name="tasks_completed" id="logTasks" class="form-control" placeholder="e.g. ER diagram & API routes" required>
+                        <input type="text" name="tasks_completed" id="logTasks" class="form-control" placeholder=" ER diagram & API routes" required>
                     </div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label" for="logPlan">Next Week Target Plan</label>
-                    <input type="text" name="next_week_plan" id="logPlan" class="form-control" placeholder="e.g. Frontend views & testing" required>
+                    <input type="text" name="next_week_plan" id="logPlan" class="form-control" placeholder=" Frontend views & testing" required>
                 </div>
                 <button type="submit" class="btn-m3-primary w-100">
                     <i data-lucide="plus"></i> Add Weekly Log Entry
@@ -4215,15 +4398,15 @@ function runSimilarityCheck() {
         <div class="row g-3">
             <div class="col-md-4">
                 <label class="form-label" for="histTeam">Previous Team Name</label>
-                <input type="text" name="team_name" id="histTeam" class="form-control" placeholder="e.g. Team Alpha" required>
+                <input type="text" name="team_name" id="histTeam" class="form-control" placeholder=" Team Alpha" required>
             </div>
             <div class="col-md-4">
                 <label class="form-label" for="histIdea">Project Idea / Title</label>
-                <input type="text" name="project_idea" id="histIdea" class="form-control" placeholder="e.g. Smart Campus IoT Grid" required>
+                <input type="text" name="project_idea" id="histIdea" class="form-control" placeholder=" Smart Campus IoT Grid" required>
             </div>
             <div class="col-md-4">
                 <label class="form-label" for="histStack">Technology Stack Used</label>
-                <input type="text" name="tech_stack" id="histStack" class="form-control" placeholder="e.g. Python, Django, React, PostgreSQL" required>
+                <input type="text" name="tech_stack" id="histStack" class="form-control" placeholder=" Python, Django, React, PostgreSQL" required>
             </div>
             <div class="col-md-10">
                 <label class="form-label" for="histDesc">Brief Project Description</label>
@@ -4275,7 +4458,7 @@ function runSimilarityCheck() {
 # ==============================================================================
 GUIDE_DASHBOARD_HTML = """
 {% extends 'base.html' %}
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
@@ -4499,7 +4682,7 @@ GUIDE_DASHBOARD_HTML = """
 # ==============================================================================
 EXAMINER_VIVA_HTML = """
 {% extends 'base.html' %}
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -4732,7 +4915,7 @@ function calcViva(gid) {
 # ==============================================================================
 ADMIN_DASHBOARD_HTML = """
 {% extends 'base.html' %}
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
@@ -4768,8 +4951,8 @@ ADMIN_DASHBOARD_HTML = """
             </select>
         </div>
         <div class="col-md-5">
-            <label class="form-label">Search by Name or ID (e.g. A12, AB12)</label>
-            <input type="text" name="q" class="form-control" value="{{ search_q }}" placeholder="e.g. John Doe, AB12, A12...">
+            <label class="form-label">Search by Name or ID ( A12, AB12)</label>
+            <input type="text" name="q" class="form-control" value="{{ search_q }}" placeholder=" John Doe, AB12, A12...">
         </div>
         <div class="col-md-2">
             <button type="submit" class="btn-m3-primary w-100">
@@ -5056,7 +5239,7 @@ ADMIN_DASHBOARD_HTML = """
                     <input type="hidden" name="action" value="add_university">
                     <div class="mb-3">
                         <label class="form-label">University Name</label>
-                        <input type="text" name="university_name" class="form-control" placeholder="e.g. Savitribai Phule Pune University" required>
+                        <input type="text" name="university_name" class="form-control" placeholder=" Savitribai Phule Pune University" required>
                     </div>
                     <button type="submit" class="btn-m3-primary w-100">
                         <i data-lucide="plus"></i> Add University
@@ -5081,7 +5264,7 @@ ADMIN_DASHBOARD_HTML = """
                     </div>
                     <div class="mb-3">
                         <label class="form-label">College / Institute Name</label>
-                        <input type="text" name="college_name" class="form-control" placeholder="e.g. MSG Arts, Science & Commerce College" required>
+                        <input type="text" name="college_name" class="form-control" placeholder=" MSG Arts, Science & Commerce College" required>
                     </div>
                     <button type="submit" class="btn-m3-primary w-100">
                         <i data-lucide="plus"></i> Add College
@@ -5106,7 +5289,7 @@ ADMIN_DASHBOARD_HTML = """
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Department Name</label>
-                        <input type="text" name="department_name" class="form-control" placeholder="e.g. Department of Computer Science" required>
+                        <input type="text" name="department_name" class="form-control" placeholder=" Department of Computer Science" required>
                     </div>
                     <button type="submit" class="btn-m3-primary w-100">
                         <i data-lucide="plus"></i> Publish Department
@@ -5124,7 +5307,7 @@ ADMIN_DASHBOARD_HTML = """
 # ==============================================================================
 SETTINGS_PROFILE_HTML = """
 {% extends 'base.html' %}
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
@@ -5174,22 +5357,22 @@ SETTINGS_PROFILE_HTML = """
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
                         <label class="form-label" for="profFullName">Full Name</label>
-                        <input type="text" name="full_name" id="profFullName" class="form-control" value="{{ user.get_full_name }}" placeholder="e.g. John Doe" required>
+                        <input type="text" name="full_name" id="profFullName" class="form-control" value="{{ user.get_full_name }}" placeholder=" John Doe" required>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label" for="profEmail">Email Address</label>
-                        <input type="email" name="email" id="profEmail" class="form-control" value="{{ user.email }}" placeholder="e.g. johndoe@example.com" required>
+                        <input type="email" name="email" id="profEmail" class="form-control" value="{{ user.email }}" placeholder=" johndoe@example.com" required>
                     </div>
                     <div class="col-md-6">
                         {% if user.profile.role == 'STUDENT' %}
-                        <label class="form-label" for="profId">Student Roll Number (3 chars, e.g. A12)</label>
-                        <input type="text" name="identifier" id="profId" class="form-control" value="{{ user.profile.identifier }}" minlength="3" maxlength="3" pattern="[A-Za-z][0-9]{2}" title="1 letter followed by 2 digits (e.g. A12). No hyphens." required>
+                        <label class="form-label" for="profId">Student Roll Number (3 chars,  A12)</label>
+                        <input type="text" name="identifier" id="profId" class="form-control" value="{{ user.profile.identifier }}" minlength="3" maxlength="3" pattern="[A-Za-z][0-9]{2}" title="1 letter followed by 2 digits ( A12). No hyphens." required>
                         {% elif user.profile.role == 'GUIDE' %}
-                        <label class="form-label" for="profId">Faculty ID (4 chars, e.g. AB12)</label>
-                        <input type="text" name="identifier" id="profId" class="form-control" value="{{ user.profile.identifier }}" minlength="4" maxlength="4" pattern="[A-Za-z]{2}[0-9]{2}" title="2 letters followed by 2 digits (e.g. AB12). No hyphens." required>
+                        <label class="form-label" for="profId">Faculty ID (4 chars,  AB12)</label>
+                        <input type="text" name="identifier" id="profId" class="form-control" value="{{ user.profile.identifier }}" minlength="4" maxlength="4" pattern="[A-Za-z]{2}[0-9]{2}" title="2 letters followed by 2 digits ( AB12). No hyphens." required>
                         {% else %}
-                        <label class="form-label" for="profId">Admin ID (6 chars, e.g. ABCD12)</label>
-                        <input type="text" name="identifier" id="profId" class="form-control" value="{{ user.profile.identifier }}" minlength="6" maxlength="6" pattern="[A-Za-z]{4}[0-9]{2}" title="4 letters followed by 2 digits (e.g. ABCD12). No hyphens." required>
+                        <label class="form-label" for="profId">Admin ID (6 chars,  ABCD12)</label>
+                        <input type="text" name="identifier" id="profId" class="form-control" value="{{ user.profile.identifier }}" minlength="6" maxlength="6" pattern="[A-Za-z]{4}[0-9]{2}" title="4 letters followed by 2 digits ( ABCD12). No hyphens." required>
                         {% endif %}
                     </div>
                     <div class="col-md-6">
@@ -5215,7 +5398,7 @@ SETTINGS_PROFILE_HTML = """
                     {% endif %}
                     <div class="col-12">
                         <label class="form-label" for="profBio">Short Bio / Academic Headline</label>
-                        <input type="text" name="bio" id="profBio" class="form-control" value="{{ user.profile.bio }}" placeholder="e.g. Final Year Computer Science Researcher | Distributed Cloud Systems">
+                        <input type="text" name="bio" id="profBio" class="form-control" value="{{ user.profile.bio }}" placeholder=" Final Year Computer Science Researcher | Distributed Cloud Systems">
                     </div>
                 </div>
 
@@ -5225,19 +5408,19 @@ SETTINGS_PROFILE_HTML = """
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
                         <label class="form-label" for="profWa">Phone / WhatsApp Number</label>
-                        <input type="text" name="whatsapp_number" id="profWa" class="form-control" value="{{ user.profile.whatsapp_number }}" placeholder="e.g. +91 98765 43210">
+                        <input type="text" name="whatsapp_number" id="profWa" class="form-control" value="{{ user.profile.whatsapp_number }}" placeholder=" +91 81498 50864">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label" for="profGh">GitHub Handle or URL</label>
-                        <input type="text" name="github_handle" id="profGh" class="form-control" value="{{ user.profile.github_handle }}" placeholder="e.g. johndoe">
+                        <input type="text" name="github_handle" id="profGh" class="form-control" value="{{ user.profile.github_handle }}" placeholder=" johndoe">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label" for="profYt">YouTube Channel Handle or URL</label>
-                        <input type="text" name="youtube_handle" id="profYt" class="form-control" value="{{ user.profile.youtube_handle }}" placeholder="e.g. @johndoe">
+                        <input type="text" name="youtube_handle" id="profYt" class="form-control" value="{{ user.profile.youtube_handle }}" placeholder=" @johndoe">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label" for="profIg">Instagram Handle or URL</label>
-                        <input type="text" name="instagram_handle" id="profIg" class="form-control" value="{{ user.profile.instagram_handle }}" placeholder="e.g. @johndoe">
+                        <input type="text" name="instagram_handle" id="profIg" class="form-control" value="{{ user.profile.instagram_handle }}" placeholder=" @johndoe">
                     </div>
                 </div>
 
@@ -5393,15 +5576,15 @@ SETTINGS_PROFILE_HTML = """
         <div class="row g-3">
             <div class="col-md-4">
                 <label class="form-label">Previous Team Name</label>
-                <input type="text" name="team_name" class="form-control" placeholder="e.g. Team Horizon" required>
+                <input type="text" name="team_name" class="form-control" placeholder=" Team Horizon" required>
             </div>
             <div class="col-md-4">
                 <label class="form-label">Project Idea / Title</label>
-                <input type="text" name="project_idea" class="form-control" placeholder="e.g. AI Resume Analyzer" required>
+                <input type="text" name="project_idea" class="form-control" placeholder=" AI Resume Analyzer" required>
             </div>
             <div class="col-md-4">
                 <label class="form-label">Technology Stack Used</label>
-                <input type="text" name="tech_stack" class="form-control" placeholder="e.g. Python, Django, Scikit-Learn" required>
+                <input type="text" name="tech_stack" class="form-control" placeholder=" Python, Django, Scikit-Learn" required>
             </div>
             <div class="col-md-10">
                 <label class="form-label">Brief Project Description</label>
@@ -5555,7 +5738,7 @@ SETTINGS_PROFILE_HTML = """
 # ==============================================================================
 PUBLIC_PROFILE_HTML = """
 {% extends 'base.html' %}
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-xl-9">
@@ -5718,7 +5901,7 @@ PUBLIC_PROFILE_HTML = """
 # ==============================================================================
 SUPERADMIN_LOGIN_HTML = """
 {% extends 'base.html' %}
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 {% block content %}
 <div class="row justify-content-center py-5">
     <div class="col-lg-5">
@@ -5753,15 +5936,21 @@ SUPERADMIN_LOGIN_HTML = """
 
 SUPERADMIN_DASHBOARD_HTML = """
 {% extends 'base.html' %}
-<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
+<!-- Force Launch - ProTrack v1.08 Enterprise Edition -->
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
-        <span class="m3-chip chip-tonal mb-2"><i data-lucide="lock" style="width:15px;height:15px;"></i> Strictly Isolated Root Session</span>
-        <h1 class="fw-bold mb-1">Superadmin Global Infrastructure & Data Console</h1>
-        <div class="text-muted">Full cross-university oversight. Invisible to all regular administrators, faculty guides, examiners, and students.</div>
+        <span class="m3-chip chip-tonal mb-2"><i data-lucide="lock" style="width:15px;height:15px;"></i> Strictly Isolated Root Owner Session</span>
+        <h1 class="fw-bold mb-1">Superadmin Global Infrastructure & Owner Data Console</h1>
+        <div class="text-muted">Full cross-university creation, password visibility, contact handles, uploaded ID proofs, project reports, and user management.</div>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex flex-wrap gap-2">
+        <a href="#saCreateUserSection" class="btn-m3-tonal text-decoration-none">
+            <i data-lucide="user-plus"></i> + Create User
+        </a>
+        <a href="#saCreateDataSection" class="btn-m3-tonal text-decoration-none">
+            <i data-lucide="database"></i> + Add Institution / Team
+        </a>
         <a href="{% url 'export_department_csv' %}" class="btn-m3-primary text-decoration-none">
             <i data-lucide="download"></i> Export Global Master CSV
         </a>
@@ -5796,8 +5985,528 @@ SUPERADMIN_DASHBOARD_HTML = """
     </div>
 </div>
 
-<!-- Private Superadmin Profile & Credentials Settings -->
-<div class="row g-4 mb-5">
+<!-- ====================================================================== -->
+<!-- SECTION 1: FULL OWNER USER & CREDENTIAL INSPECTOR TABLE                -->
+<!-- (Passwords, Phone/WhatsApp, Social Handles, Avatars & Uploaded Docs)   -->
+<!-- ====================================================================== -->
+<div class="m3-card mb-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                <i data-lucide="shield-Alert" style="color:var(--m3-primary);"></i> 1. Global User Directory & Full Owner Inspector ({{ profiles.count }} Users)
+            </h3>
+            <div class="text-muted small">View and manage every user's profile photo, plaintext password, phone/WhatsApp, social handles, and uploaded documents.</div>
+        </div>
+        <div class="w-auto">
+            <input type="text" id="saUserSearchInput" class="form-control" style="min-height:44px; min-width:280px;" placeholder="Filter users by name, @username, ID, phone..." oninput="filterSaUsers()">
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table align-middle" id="saUsersTable">
+            <thead class="text-muted small text-uppercase">
+                <tr>
+                    <th>Photo & User</th>
+                    <th>Role & Exact ID</th>
+                    <th>Password (View / Reset)</th>
+                    <th>Phone, WhatsApp & Social Handles</th>
+                    <th>Uploaded Documents & Media</th>
+                    <th>Institution Scope</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in profiles %}
+                <tr class="sa-user-row">
+                    <!-- 1. Photo & User -->
+                    <td>
+                        <div class="d-flex align-items-center gap-3">
+                            {% if p.has_avatar %}
+                            <a href="{{ p.avatar_url }}" target="_blank" class="avatar-circle" style="width:54px;height:54px;" title="Click to open full-size Profile Photo">
+                                <img src="{{ p.avatar_url }}" alt="{{ p.user.get_full_name|default:p.user.username }}" onerror="this.style.display='none';this.parentElement.innerText='{{ p.initials }}';">
+                            </a>
+                            {% else %}
+                            <a href="{% url 'public_profile' p.user.username %}" class="avatar-circle" style="width:54px;height:54px;">
+                                {{ p.initials }}
+                            </a>
+                            {% endif %}
+                            <div>
+                                <a href="{% url 'public_profile' p.user.username %}" class="fw-bold text-dark text-decoration-none d-block">{{ p.user.get_full_name|default:p.user.username }}</a>
+                                <div class="small text-muted">@{{ p.user.username }}</div>
+                                {% if p.user.email %}
+                                <a href="mailto:{{ p.user.email }}" class="small text-primary text-decoration-none">{{ p.user.email }}</a>
+                                {% endif %}
+                                {% if p.bio %}
+                                <div class="small text-muted fst-italic mt-1" style="max-width:220px;">"{{ p.bio }}"</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- 2. Role & Exact ID -->
+                    <td>
+                        <div class="d-flex flex-column gap-1 align-items-start">
+                            <span class="m3-chip chip-tonal py-1 px-2 small">{{ p.get_role_display }}</span>
+                            {% if p.is_examiner %}
+                            <span class="m3-chip chip-success py-1 px-2 small">Examiner</span>
+                            {% endif %}
+                            <span class="m3-chip chip-neutral py-1 px-2 small">ID: <strong>{{ p.identifier }}</strong></span>
+                            {% if p.role == 'STUDENT' and p.class_division %}
+                            <span class="small text-muted">Class: {{ p.class_division }}</span>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <!-- 3. Password (Owner View + 1-Click Reset) -->
+                    <td style="min-width: 230px;">
+                        <div class="p-2 rounded-3 bg-light border mb-2">
+                            <div class="d-flex align-items-center justify-content-between gap-2">
+                                <span class="small text-muted fw-bold">Password:</span>
+                                {% if p.raw_password %}
+                                <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small" onclick="togglePassVisibility('pw_{{ p.user.id }}')">Show/Hide</button>
+                                {% endif %}
+                            </div>
+                            {% if p.raw_password %}
+                            <input type="password" id="pw_{{ p.user.id }}" class="form-control form-control-sm border-0 bg-transparent fw-bold text-dark px-0 py-0" style="min-height:26px;font-family:monospace;" value="{{ p.raw_password }}" readonly>
+                            {% else %}
+                            <div class="small text-muted fst-italic">Set prior to v1.08 (Reset below to view)</div>
+                            {% endif %}
+                            <div class="text-muted" style="font-size:0.7rem; word-break:break-all;" title="{{ p.user.password }}">
+                                Hash: {{ p.user.password|truncatechars:28 }}
+                            </div>
+                        </div>
+                        <form method="POST" class="d-flex gap-1 no-legend">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="sa_reset_user_password">
+                            <input type="hidden" name="user_id" value="{{ p.user.id }}">
+                            <input type="text" name="new_user_password" class="form-control form-control-sm" style="min-height:34px;padding:4px 10px;font-size:0.84rem;" placeholder="Set new password..." minlength="6" required>
+                            <button type="submit" class="btn-m3-tonal py-1 px-2 small" style="min-height:34px;font-size:0.82rem;">Set</button>
+                        </form>
+                    </td>
+
+                    <!-- 4. Phone, WhatsApp & Social Handles -->
+                    <td style="min-width: 210px;">
+                        <div class="d-flex flex-column gap-1">
+                            {% if p.whatsapp_number %}
+                            <div class="small">
+                                <strong>Phone/WA:</strong> <a href="tel:{{ p.whatsapp_number }}" class="text-dark text-decoration-none">{{ p.whatsapp_number }}</a>
+                            </div>
+                            <div class="d-flex flex-wrap gap-1">
+                                <a href="https://wa.me/{{ p.clean_whatsapp }}" target="_blank" rel="noopener noreferrer" class="btn-whatsapp py-0 px-2 small">
+                                    <i data-lucide="message-circle" style="width:13px;height:13px;"></i> WhatsApp
+                                </a>
+                            </div>
+                            {% else %}
+                            <span class="small text-muted">No Phone / WhatsApp</span>
+                            {% endif %}
+
+                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                {% if p.github_url %}
+                                <a href="{{ p.github_url }}" target="_blank" rel="noopener noreferrer" class="m3-chip chip-neutral py-0 px-2 small text-decoration-none">
+                                    <i data-lucide="github" style="width:13px;height:13px;"></i> {{ p.github_handle }}
+                                </a>
+                                {% endif %}
+                                {% if p.youtube_url %}
+                                <a href="{{ p.youtube_url }}" target="_blank" rel="noopener noreferrer" class="m3-chip chip-neutral py-0 px-2 small text-decoration-none">
+                                    <i data-lucide="youtube" style="width:13px;height:13px;"></i> {{ p.youtube_handle }}
+                                </a>
+                                {% endif %}
+                                {% if p.instagram_url %}
+                                <a href="{{ p.instagram_url }}" target="_blank" rel="noopener noreferrer" class="m3-chip chip-neutral py-0 px-2 small text-decoration-none">
+                                    <i data-lucide="instagram" style="width:13px;height:13px;"></i> {{ p.instagram_handle }}
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- 5. Uploaded Documents & Media -->
+                    <td style="min-width: 200px;">
+                        <div class="d-flex flex-column gap-1 align-items-start">
+                            {% if p.has_avatar %}
+                            <a href="{{ p.avatar_url }}" target="_blank" class="btn-m3-outline py-1 px-2 small text-decoration-none" style="min-height:30px;font-size:0.8rem;">
+                                <i data-lucide="image" style="width:13px;height:13px;"></i> Profile Photo
+                            </a>
+                            {% endif %}
+                            {% if p.id_proof_front %}
+                            <a href="{{ p.id_proof_front.url }}" target="_blank" class="btn-m3-outline py-1 px-2 small text-decoration-none" style="min-height:30px;font-size:0.8rem;">
+                                <i data-lucide="file-check" style="width:13px;height:13px;"></i> Admin ID (Front)
+                            </a>
+                            {% endif %}
+                            {% if p.id_proof_back %}
+                            <a href="{{ p.id_proof_back.url }}" target="_blank" class="btn-m3-outline py-1 px-2 small text-decoration-none" style="min-height:30px;font-size:0.8rem;">
+                                <i data-lucide="file-check" style="width:13px;height:13px;"></i> Admin ID (Back)
+                            </a>
+                            {% endif %}
+                            {% for sg in p.user.student_groups.all %}
+                                {% if sg.proposal and sg.proposal.report_file %}
+                                <a href="{{ sg.proposal.report_file.url }}" target="_blank" class="btn-m3-tonal py-1 px-2 small text-decoration-none" style="min-height:30px;font-size:0.8rem;">
+                                    <i data-lucide="file-text" style="width:13px;height:13px;"></i> Project Report ({{ sg.name }})
+                                </a>
+                                {% endif %}
+                            {% endfor %}
+                            {% if not p.has_avatar and not p.id_proof_front and not p.id_proof_back %}
+                            <span class="small text-muted">No files uploaded</span>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <!-- 6. Institution Scope -->
+                    <td>
+                        <div class="small fw-bold">{{ p.department.name|default:"—" }}</div>
+                        <div class="small text-muted">{{ p.college.name|default:"—" }}</div>
+                        <div class="small text-muted">{{ p.university.name|default:"—" }}</div>
+                    </td>
+
+                    <!-- 7. Actions -->
+                    <td class="text-end">
+                        <div class="d-flex flex-column gap-1 align-items-end">
+                            {% if p.role == 'GUIDE' %}
+                            <form method="POST" class="d-inline no-legend">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="sa_toggle_examiner">
+                                <input type="hidden" name="profile_id" value="{{ p.id }}">
+                                <button type="submit" class="btn btn-sm {% if p.is_examiner %}btn-outline-warning{% else %}btn-outline-success{% endif %} rounded-pill px-3">
+                                    {% if p.is_examiner %}Demote Examiner{% else %}Make Examiner{% endif %}
+                                </button>
+                            </form>
+                            {% endif %}
+                            <form method="POST" class="d-inline no-legend" onsubmit="return confirm('Permanently delete user @{{ p.user.username|escapejs }}?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_user">
+                                <input type="hidden" name="user_id" value="{{ p.user.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">Remove User</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-center py-4 text-muted">No regular users registered yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ====================================================================== -->
+<!-- SECTION 2: CREATE NEW USER DIRECTLY FROM SUPERADMIN CONSOLE            -->
+<!-- ====================================================================== -->
+<div class="m3-card mb-5" id="saCreateUserSection">
+    <h3 class="fw-bold mb-2 d-flex align-items-center gap-2">
+        <i data-lucide="user-plus" style="color:var(--m3-primary);"></i> 2. Create New Role-Verified User Account
+    </h3>
+    <p class="text-muted small mb-4">Directly onboard a Student, Faculty Guide, Examiner, or Verified Institution Admin into any University, College, and Department.</p>
+
+    <form method="POST" enctype="multipart/form-data" class="m3-card-tonal p-4 no-legend">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="sa_create_user">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Role *</label>
+                <select name="role" id="saRoleSelect" class="form-select" onchange="saSyncRoleFields()" required>
+                    <option value="STUDENT">Student (ID: A12)</option>
+                    <option value="GUIDE">Faculty Guide (ID: AB12)</option>
+                    <option value="ADMIN">Institution Admin (ID: ABCD12)</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Full Name *</label>
+                <input type="text" name="full_name" class="form-control" placeholder="John Doe" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Username *</label>
+                <input type="text" name="username" class="form-control" placeholder="johndoe" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Password (min 6 chars) *</label>
+                <input type="text" name="password" class="form-control" placeholder="Set user password" minlength="6" required>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Email Address *</label>
+                <input type="email" name="email" class="form-control" placeholder="johndoe@example.com" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" id="saIdLabel">Roll Number / ID (e.g. A12) *</label>
+                <input type="text" name="identifier" id="saIdInput" class="form-control" placeholder="A12" required>
+            </div>
+            <div class="col-md-3" id="saClassWrap">
+                <label class="form-label">Class / Division</label>
+                <input type="text" name="class_division" class="form-control" value="TY-CS-A">
+            </div>
+            <div class="col-md-3 d-none d-flex align-items-end pb-2" id="saExaminerWrap">
+                <div class="form-check form-switch fs-6">
+                    <input class="form-check-input" type="checkbox" name="is_examiner" id="saExaminerCheck">
+                    <label class="form-check-label fw-bold" for="saExaminerCheck">Assign as External Examiner</label>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Phone / WhatsApp Number</label>
+                <input type="text" name="whatsapp_number" class="form-control" placeholder="+91 98765 43210">
+            </div>
+
+            <!-- Institution Hierarchy Selectors -->
+            <div class="col-md-4">
+                <label class="form-label">University *</label>
+                <select name="university_id" id="saUniSelect" class="form-select" onchange="saFilterColleges()" required>
+                    <option value="">-- Select University --</option>
+                    {% for u in universities %}
+                    <option value="{{ u.id }}">{{ u.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">College *</label>
+                <select name="college_id" id="saColSelect" class="form-select" onchange="saFilterDepartments()" required>
+                    <option value="">-- Select College --</option>
+                    {% for c in colleges %}
+                    <option value="{{ c.id }}" data-uni="{{ c.university_id }}">{{ c.name }} ({{ c.university.name }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Department *</label>
+                <select name="department_id" id="saDeptSelect" class="form-select" required>
+                    <option value="">-- Select Department --</option>
+                    {% for d in departments %}
+                    <option value="{{ d.id }}" data-col="{{ d.college_id }}">{{ d.name }} ({{ d.college.name }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Optional Social Handles, Bio, Avatar & Admin ID Proofs -->
+            <div class="col-md-3">
+                <label class="form-label">GitHub Handle</label>
+                <input type="text" name="github_handle" class="form-control" placeholder="johndoe">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">YouTube Handle</label>
+                <input type="text" name="youtube_handle" class="form-control" placeholder="@johndoe">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Instagram Handle</label>
+                <input type="text" name="instagram_handle" class="form-control" placeholder="@johndoe">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Short Bio</label>
+                <input type="text" name="bio" class="form-control" placeholder="Academic bio...">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Profile Avatar Photo (Optional)</label>
+                <input type="file" name="avatar" class="form-control" accept=".jpg,.jpeg,.png,.webp">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Admin ID Proof Front (Optional/Admin)</label>
+                <input type="file" name="id_proof_front" class="form-control" accept=".jpg,.jpeg,.png,.webp,.pdf">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Admin ID Proof Back (Optional/Admin)</label>
+                <input type="file" name="id_proof_back" class="form-control" accept=".jpg,.jpeg,.png,.webp,.pdf">
+            </div>
+
+            <div class="col-12 mt-3">
+                <button type="submit" class="btn-m3-primary w-100">
+                    <i data-lucide="user-check"></i> Create User Account in Database
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- ====================================================================== -->
+<!-- SECTION 3: ADD UNIVERSITIES, COLLEGES, DEPARTMENTS & PROJECT TEAMS     -->
+<!-- ====================================================================== -->
+<div class="m3-card mb-5" id="saCreateDataSection">
+    <h3 class="fw-bold mb-2 d-flex align-items-center gap-2">
+        <i data-lucide="database" style="color:var(--m3-primary);"></i> 3. Global Database Builder (Universities, Colleges, Departments & Teams)
+    </h3>
+    <p class="text-muted small mb-4">Add new institutional units or project teams directly from the Superadmin Console.</p>
+
+    <div class="row g-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="m3-card-tonal h-100 p-4">
+                <h5 class="fw-bold mb-3">A. Add University</h5>
+                <form method="POST" class="no-legend">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="sa_add_university">
+                    <div class="mb-3">
+                        <label class="form-label small">University Name</label>
+                        <input type="text" name="university_name" class="form-control" placeholder="e.g. SPPU" required>
+                    </div>
+                    <button type="submit" class="btn-m3-primary w-100">Add University</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="m3-card-tonal h-100 p-4">
+                <h5 class="fw-bold mb-3">B. Add College</h5>
+                <form method="POST" class="no-legend">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="sa_add_college">
+                    <div class="mb-2">
+                        <label class="form-label small">Parent University</label>
+                        <select name="university_id" class="form-select" required>
+                            {% for u in universities %}
+                            <option value="{{ u.id }}">{{ u.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small">College Name</label>
+                        <input type="text" name="college_name" class="form-control" placeholder="College Name" required>
+                    </div>
+                    <button type="submit" class="btn-m3-primary w-100">Add College</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="m3-card-tonal h-100 p-4">
+                <h5 class="fw-bold mb-3">C. Add Department</h5>
+                <form method="POST" class="no-legend">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="sa_add_department">
+                    <div class="mb-2">
+                        <label class="form-label small">Parent College</label>
+                        <select name="college_id" class="form-select" required>
+                            {% for c in colleges %}
+                            <option value="{{ c.id }}">{{ c.name }} ({{ c.university.name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small">Department Name</label>
+                        <input type="text" name="department_name" class="form-control" placeholder="Computer Science" required>
+                    </div>
+                    <button type="submit" class="btn-m3-primary w-100">Add Department</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="m3-card-tonal h-100 p-4">
+                <h5 class="fw-bold mb-3">D. Create Project Team</h5>
+                <form method="POST" class="no-legend">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="sa_create_group">
+                    <div class="mb-2">
+                        <label class="form-label small">Team Name</label>
+                        <input type="text" name="group_name" class="form-control" placeholder="Team-01: Innovators" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Department</label>
+                        <select name="department_id" class="form-select" required>
+                            {% for d in departments %}
+                            <option value="{{ d.id }}">{{ d.name }} ({{ d.college.name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small">Assign Guide (Optional)</label>
+                        <select name="guide_id" class="form-select">
+                            <option value="">-- Unassigned --</option>
+                            {% for g in guides_all %}
+                            <option value="{{ g.user.id }}">{{ g.user.get_full_name|default:g.user.username }} ({{ g.identifier }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-m3-primary w-100">Create Team</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ====================================================================== -->
+<!-- SECTION 4: GLOBAL PROJECT GROUPS & UPLOADED REPORTS INSPECTOR          -->
+<!-- ====================================================================== -->
+<div class="m3-card mb-5">
+    <h3 class="fw-bold mb-3 d-flex align-items-center gap-2">
+        <i data-lucide="folder-kanban" style="color:var(--m3-primary);"></i> 4. Global Project Teams, Proposals & Uploaded Reports ({{ groups.count }})
+    </h3>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead class="text-muted small text-uppercase">
+                <tr>
+                    <th>Team & 5-Char Code</th>
+                    <th>Department & College</th>
+                    <th>Members</th>
+                    <th>Guide</th>
+                    <th>Proposal, Similarity & Uploaded Report</th>
+                    <th>Viva Grade</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in groups %}
+                <tr>
+                    <td>
+                        <div class="fw-bold">{{ g.name }}</div>
+                        <span class="m3-chip chip-neutral py-0 px-2 small">Code: {{ g.join_code }}</span>
+                    </td>
+                    <td>
+                        <div class="small fw-bold">{{ g.department.name }}</div>
+                        <div class="small text-muted">{{ g.department.college.name }}</div>
+                    </td>
+                    <td>
+                        {% for s in g.students.all %}
+                        <a href="{% url 'public_profile' s.username %}" class="m3-chip chip-neutral py-0 px-2 small text-dark text-decoration-none mb-1">
+                            {{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})
+                        </a>
+                        {% empty %}
+                        <span class="small text-muted">No members</span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% if g.guide %}
+                        <span class="m3-chip chip-success py-0 px-2 small">{{ g.guide.get_full_name|default:g.guide.username }}</span>
+                        {% else %}
+                        <span class="small text-muted">Unassigned</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if g.proposal %}
+                        <div class="fw-bold small">{{ g.proposal.title }}</div>
+                        <div class="small text-muted">Similarity: {{ g.proposal.similarity_score }}% &bull; {{ g.proposal.get_status_display }}</div>
+                        {% if g.proposal.report_file %}
+                        <a href="{{ g.proposal.report_file.url }}" target="_blank" class="btn-m3-outline py-1 px-2 small text-decoration-none mt-1" style="min-height:30px;font-size:0.8rem;">
+                            <i data-lucide="download" style="width:13px;height:13px;"></i> Open Uploaded Report
+                        </a>
+                        {% endif %}
+                        {% else %}
+                        <span class="small text-muted">No proposal submitted</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if g.viva %}
+                        <span class="m3-chip chip-success py-1 px-2 small">{{ g.viva.total_score }}/100 ({{ g.viva.grade_badge }})</span>
+                        {% else %}
+                        <span class="small text-muted">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <form method="POST" class="d-inline no-legend" onsubmit="return confirm('Delete project team {{ g.name|escapejs }}?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_group">
+                            <input type="hidden" name="group_id" value="{{ g.id }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">Delete Team</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-center py-4 text-muted">No project groups created yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ====================================================================== -->
+<!-- SECTION 5: PRIVATE SUPERADMIN CREDENTIALS                              -->
+<!-- ====================================================================== -->
+<div class="row g-4 mb-4">
     <div class="col-lg-6">
         <div class="m3-card h-100">
             <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
@@ -5848,56 +6557,67 @@ SUPERADMIN_DASHBOARD_HTML = """
     </div>
 </div>
 
-<!-- Master Global Users Table -->
-<div class="m3-card mb-5">
-    <h3 class="fw-bold mb-3">Global User Directory (All Universities, Colleges & Roles)</h3>
-    <div class="table-responsive">
-        <table class="table align-middle">
-            <thead class="text-muted">
-                <tr>
-                    <th>User</th>
-                    <th>Role</th>
-                    <th>Exact ID / Roll</th>
-                    <th>University &rarr; College &rarr; Department</th>
-                    <th class="text-end">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for p in profiles %}
-                <tr>
-                    <td>
-                        <div class="d-flex align-items-center gap-3">
-                            <a href="{% url 'public_profile' p.user.username %}" class="avatar-circle">
-                                {% if p.has_avatar %}<img src="{{ p.avatar_url }}" alt="Avatar">{% else %}{{ p.initials }}{% endif %}
-                            </a>
-                            <div>
-                                <a href="{% url 'public_profile' p.user.username %}" class="fw-bold text-dark text-decoration-none">{{ p.user.get_full_name|default:p.user.username }}</a>
-                                <div class="small text-muted">@{{ p.user.username }} &bull; {{ p.user.email }}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="m3-chip chip-tonal py-1 px-2">{{ p.get_role_display }}</span>
-                        {% if p.is_examiner %}<span class="m3-chip chip-success py-1 px-2">Examiner</span>{% endif %}
-                    </td>
-                    <td><span class="m3-chip chip-neutral py-1 px-2">{{ p.identifier }}</span></td>
-                    <td>{{ p.university.name }} &bull; {{ p.college.name }} &bull; <strong>{{ p.department.name }}</strong></td>
-                    <td class="text-end">
-                        <form method="POST" class="d-inline no-legend">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="delete_user">
-                            <input type="hidden" name="user_id" value="{{ p.user.id }}">
-                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">Remove</button>
-                        </form>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="5" class="text-center py-4 text-muted">No regular users registered yet.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+<script>
+function togglePassVisibility(inputId) {
+    const el = document.getElementById(inputId);
+    if (!el) return;
+    el.type = (el.type === 'password') ? 'text' : 'password';
+}
+
+function filterSaUsers() {
+    const q = (document.getElementById('saUserSearchInput').value || '').toLowerCase();
+    document.querySelectorAll('#saUsersTable tbody tr.sa-user-row').forEach(row => {
+        const text = (row.innerText || '').toLowerCase();
+        row.style.display = text.includes(q) ? '' : 'none';
+    });
+}
+
+function saSyncRoleFields() {
+    const role = document.getElementById('saRoleSelect').value;
+    const idLabel = document.getElementById('saIdLabel');
+    const idInput = document.getElementById('saIdInput');
+    const classWrap = document.getElementById('saClassWrap');
+    const examWrap = document.getElementById('saExaminerWrap');
+
+    if (role === 'STUDENT') {
+        idLabel.innerText = 'Student Roll Number (3 chars, e.g. A12) *';
+        idInput.placeholder = 'A12';
+        classWrap.classList.remove('d-none');
+        examWrap.classList.add('d-none');
+    } else if (role === 'GUIDE') {
+        idLabel.innerText = 'Faculty ID (4 chars, e.g. AB12) *';
+        idInput.placeholder = 'AB12';
+        classWrap.classList.add('d-none');
+        examWrap.classList.remove('d-none');
+    } else {
+        idLabel.innerText = 'Admin ID (6 chars, e.g. ABCD12) *';
+        idInput.placeholder = 'ABCD12';
+        classWrap.classList.add('d-none');
+        examWrap.classList.add('d-none');
+    }
+}
+
+function saFilterColleges() {
+    const uniId = document.getElementById('saUniSelect').value;
+    const colSelect = document.getElementById('saColSelect');
+    Array.from(colSelect.options).forEach(opt => {
+        if (!opt.value) return;
+        opt.hidden = Boolean(uniId && opt.getAttribute('data-uni') !== uniId);
+    });
+    colSelect.value = '';
+    saFilterDepartments();
+}
+
+function saFilterDepartments() {
+    const colId = document.getElementById('saColSelect').value;
+    const deptSelect = document.getElementById('saDeptSelect');
+    Array.from(deptSelect.options).forEach(opt => {
+        if (!opt.value) return;
+        opt.hidden = Boolean(colId && opt.getAttribute('data-col') !== colId);
+    });
+    deptSelect.value = '';
+}
+</script>
 {% endblock %}
 """
 
@@ -5905,15 +6625,15 @@ SUPERADMIN_DASHBOARD_HTML = """
 # 16. SEED COMMAND (portal/management/commands/seed_data.py)
 # ==============================================================================
 SEED_DATA_PY = """
-# Force Launch - ProTrack v1.07 Enterprise Edition
+# Force Launch - ProTrack v1.08 Enterprise Edition
 from django.core.management.base import BaseCommand
 
 class Command(BaseCommand):
-    help = 'ProTrack Cloud v1.05 (Build v1.07) operates dynamically while preserving existing records.'
+    help = 'ProTrack Cloud v1.05 (Build v1.08) operates dynamically while preserving existing records.'
 
     def handle(self, *args, **kwargs):
         self.stdout.write(self.style.SUCCESS(
-            "ProTrack Cloud v1.05 (Build v1.07) is active! Existing database records are preserved."
+            "ProTrack Cloud v1.05 (Build v1.08) is active! Existing database records are preserved."
         ))
 """
 
@@ -5922,7 +6642,7 @@ class Command(BaseCommand):
 # ==============================================================================
 def build():
     print("=================================================================")
-    print("  Force Launch - ProTrack v1.07 Enterprise Edition (Preserving DB)")
+    print("  Force Launch - ProTrack v1.08 Enterprise Edition (Preserving DB)")
     print("=================================================================")
 
     write_file('requirements.txt', REQUIREMENTS_TXT)
@@ -5935,27 +6655,27 @@ def build():
             lic = f.read().rstrip()
         with open('LICENSE', 'w', encoding='utf-8') as f:
             f.write(lic + '\n\n')
-        print("  [OK] Refreshed LICENSE for v1.07 commit sync")
+        print("  [OK] Refreshed LICENSE for v1.08 commit sync")
 
     # Config package
-    write_file('protrack_config/__init__.py', '# Force Launch - ProTrack v1.07 Enterprise Edition')
+    write_file('protrack_config/__init__.py', '# Force Launch - ProTrack v1.08 Enterprise Edition')
     write_file('protrack_config/settings.py', SETTINGS_PY)
     write_file('protrack_config/urls.py', CONFIG_URLS_PY)
     write_file('protrack_config/wsgi.py', WSGI_PY)
 
     # Portal package
-    write_file('portal/__init__.py', '# Force Launch - ProTrack v1.07 Enterprise Edition')
+    write_file('portal/__init__.py', '# Force Launch - ProTrack v1.08 Enterprise Edition')
     write_file('portal/models.py', MODELS_PY)
     write_file('portal/similarity.py', SIMILARITY_PY)
     write_file('portal/views.py', VIEWS_PY)
     write_file('portal/urls.py', PORTAL_URLS_PY)
     write_file('portal/admin.py', ADMIN_PY)
-    write_file('portal/management/__init__.py', '# Force Launch - ProTrack v1.07 Enterprise Edition')
-    write_file('portal/management/commands/__init__.py', '# Force Launch - ProTrack v1.07 Enterprise Edition')
+    write_file('portal/management/__init__.py', '# Force Launch - ProTrack v1.08 Enterprise Edition')
+    write_file('portal/management/commands/__init__.py', '# Force Launch - ProTrack v1.08 Enterprise Edition')
     write_file('portal/management/commands/seed_data.py', SEED_DATA_PY)
     os.makedirs('portal/migrations', exist_ok=True)
     if not os.path.exists('portal/migrations/__init__.py'):
-        write_file('portal/migrations/__init__.py', '# Force Launch - ProTrack v1.07 Enterprise Edition')
+        write_file('portal/migrations/__init__.py', '# Force Launch - ProTrack v1.08 Enterprise Edition')
 
     # Templates
     write_file('templates/base.html', BASE_HTML)
@@ -5984,7 +6704,7 @@ def build():
     subprocess.run([sys.executable, '-c', cleanup_code], check=True)
 
     print("\n=================================================================")
-    print("  Force Launch - ProTrack v1.07 Enterprise Edition Complete!")
+    print("  Force Launch - ProTrack v1.08 Enterprise Edition Complete!")
     print("=================================================================")
 
 if __name__ == '__main__':
