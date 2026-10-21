@@ -1,10 +1,11 @@
 {% extends 'base.html' %}
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
         <div class="m3-chip chip-tonal mb-2">
             <i data-lucide="shield-check" style="width:16px;height:16px;"></i>
-            Verified Institution Admin &bull; ID: {{ user.profile.identifier }}
+            Verified Institution Admin &bull; Admin ID: {{ user.profile.identifier }}
         </div>
         <h1 class="fw-bold mb-1">Institution Governance & Role Command Center</h1>
         <div class="text-muted">Authorized Scope: <strong>{{ user.profile.college.name }}</strong> ({{ user.profile.university.name }})</div>
@@ -34,8 +35,8 @@
             </select>
         </div>
         <div class="col-md-5">
-            <label class="form-label">Search by Name or ID</label>
-            <input type="text" name="q" class="form-control" value="{{ search_q }}" placeholder="e.g. John Doe, FAC-101, CS-2026-01...">
+            <label class="form-label">Search by Name or ID (e.g. A12, AB12)</label>
+            <input type="text" name="q" class="form-control" value="{{ search_q }}" placeholder="e.g. John Doe, AB12, A12...">
         </div>
         <div class="col-md-2">
             <button type="submit" class="btn-m3-primary w-100">
@@ -45,19 +46,19 @@
     </form>
 </div>
 
-<!-- SECTION 1 (HIGHEST PRIORITY): FACULTY GUIDES & EXAMINER ROLE ASSIGNMENT -->
+<!-- SECTION 1 (HIGHEST PRIORITY): FACULTY GUIDES, EXAMINER ROLE & TEAM GUIDE ASSIGNMENT -->
 <div class="m3-card mb-5">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
             <h3 class="fw-bold mb-1 d-flex align-items-center gap-2">
                 <i data-lucide="award" style="color:var(--m3-primary);"></i> 1. Faculty Guides & Examiner Role Assignment
             </h3>
-            <div class="text-muted">Promote any registered Faculty Guide in {{ user.profile.college.name }} to External Examiner or demote them in one click.</div>
+            <div class="text-muted">Promote any registered Faculty Guide in {{ user.profile.college.name }} to External Examiner or assign guides to project teams below.</div>
         </div>
         <span class="m3-chip chip-tonal">Active Examiners: {{ examiners_count }}</span>
     </div>
 
-    <div class="table-responsive">
+    <div class="table-responsive mb-5">
         <table class="table align-middle">
             <thead class="text-muted">
                 <tr>
@@ -85,7 +86,6 @@
                                 <a href="{% url 'public_profile' g.user.username %}" class="fw-bold text-dark text-decoration-none">{{ g.user.get_full_name|default:g.user.username }}</a>
                                 <div class="small text-muted">
                                     <a href="{% url 'public_profile' g.user.username %}" class="text-muted text-decoration-none">@{{ g.user.username }}</a>
-                                    {% if g.user.email %} &bull; <a href="mailto:{{ g.user.email }}" class="text-primary text-decoration-none">{{ g.user.email }}</a>{% endif %}
                                 </div>
                             </div>
                         </div>
@@ -96,17 +96,20 @@
                         <div class="small text-muted">{{ g.college.name }}</div>
                     </td>
                     <td>
-                        <div class="d-flex flex-wrap gap-1">
+                        <div class="d-flex flex-wrap gap-2">
+                            {% if g.user.email %}
+                            <a href="mailto:{{ g.user.email }}" class="btn-email-pill py-1 px-3" title="Email {{ g.user.email }}">
+                                <i data-lucide="mail" style="width:15px;height:15px;"></i> {{ g.user.email }}
+                            </a>
+                            {% endif %}
                             {% if g.clean_whatsapp %}
-                            <a href="https://wa.me/{{ g.clean_whatsapp }}" target="_blank" class="btn-whatsapp py-1 px-3">
+                            <a href="https://wa.me/{{ g.clean_whatsapp }}" target="_blank" rel="noopener noreferrer" class="btn-whatsapp py-1 px-3" title="WhatsApp {{ g.whatsapp_number }}">
                                 <i data-lucide="message-circle" style="width:15px;height:15px;"></i> WhatsApp
                             </a>
                             {% endif %}
-                            {% if g.whatsapp_number %}
-                            <a href="tel:{{ g.whatsapp_number }}" class="btn-m3-outline py-1 px-2 text-decoration-none" style="min-height:34px;" title="Call {{ g.whatsapp_number }}">
-                                <i data-lucide="phone" style="width:15px;height:15px;"></i>
-                            </a>
-                            {% endif %}
+                            <button type="button" class="btn-m3-outline py-1 px-2" style="min-height:34px;" onclick="sharePublicProfile('{% url 'public_profile' g.user.username %}', '{{ g.user.get_full_name|default:g.user.username|escapejs }}')" title="Share Public Profile">
+                                <i data-lucide="share-2" style="width:15px;height:15px;"></i>
+                            </button>
                         </div>
                     </td>
                     <td>
@@ -141,6 +144,82 @@
             </tbody>
         </table>
     </div>
+
+    <!-- Admin Faculty Guide Assignment to Project Teams & Groups -->
+    <div class="m3-card-tonal p-4">
+        <h4 class="fw-bold mb-2 d-flex align-items-center gap-2">
+            <i data-lucide="user-check" style="color:var(--m3-primary);"></i> Assign Available Department Faculty Guides to Project Teams
+        </h4>
+        <p class="text-muted small mb-3">Directly assign or update the Faculty Guide for any student team in your college. Only guides belonging to the team's department are listed.</p>
+
+        <div class="table-responsive">
+            <table class="table align-middle mb-0 bg-white rounded-4 overflow-hidden">
+                <thead class="text-muted">
+                    <tr>
+                        <th class="ps-3">Team Name & Code</th>
+                        <th>Department</th>
+                        <th>Members (Exact Roll No.)</th>
+                        <th>Current / Requested Guide</th>
+                        <th class="pe-3">Assign Department Faculty Guide</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for grp in groups_qs %}
+                    <tr>
+                        <td class="ps-3">
+                            <div class="fw-bold">{{ grp.name }}</div>
+                            <span class="m3-chip chip-neutral py-0 px-2 small">Code: {{ grp.join_code }}</span>
+                        </td>
+                        <td>{{ grp.department.name }}</td>
+                        <td>
+                            {% for m in grp.students.all %}
+                            <a href="{% url 'public_profile' m.username %}" class="m3-chip chip-neutral py-1 px-2 small text-dark text-decoration-none mb-1">
+                                {{ m.get_full_name|default:m.username }} ({{ m.profile.identifier }})
+                            </a>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if grp.guide %}
+                            <span class="m3-chip chip-success py-1 px-3">
+                                <i data-lucide="check-circle" style="width:14px;height:14px;"></i>
+                                {{ grp.guide.get_full_name|default:grp.guide.username }} ({{ grp.guide.profile.identifier }})
+                            </span>
+                            {% elif grp.requested_guide and grp.guide_status == 'PENDING' %}
+                            <span class="m3-chip chip-warning py-1 px-3">
+                                Requested: {{ grp.requested_guide.get_full_name|default:grp.requested_guide.username }}
+                            </span>
+                            {% else %}
+                            <span class="text-danger fw-bold small">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td class="pe-3">
+                            <form method="POST" class="d-flex gap-2 no-legend">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="assign_guide">
+                                <input type="hidden" name="group_id" value="{{ grp.id }}">
+                                <select name="guide_id" class="form-select py-1 px-3" style="min-height:42px;font-size:0.92rem;">
+                                    <option value="">-- Unassigned --</option>
+                                    {% for cg in college_guides_all %}
+                                        {% if cg.department_id == grp.department_id %}
+                                        <option value="{{ cg.user.id }}" {% if grp.guide_id == cg.user.id %}selected{% endif %}>
+                                            {{ cg.user.get_full_name|default:cg.user.username }} (ID: {{ cg.identifier }})
+                                        </option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn-m3-primary py-1 px-3" style="min-height:42px;font-size:0.9rem;">Assign</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">No project teams created in this scope yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <!-- SECTION 2 (PROMINENT): ENROLLED STUDENTS DATASET -->
@@ -150,7 +229,7 @@
             <h3 class="fw-bold mb-1 d-flex align-items-center gap-2">
                 <i data-lucide="graduation-cap" style="color:var(--m3-primary);"></i> 2. Enrolled Students Dataset
             </h3>
-            <div class="text-muted">All students registered under {{ user.profile.college.name }} and its departments.</div>
+            <div class="text-muted">All students registered under {{ user.profile.college.name }} and its departments (displaying exact Roll Numbers).</div>
         </div>
         <span class="m3-chip chip-neutral">Total Students: {{ students_qs|length }}</span>
     </div>
@@ -159,10 +238,10 @@
             <thead class="text-muted">
                 <tr>
                     <th>Student</th>
-                    <th>Roll Call & Class</th>
+                    <th>Roll Number & Class</th>
                     <th>Department</th>
-                    <th>Selected Guide</th>
-                    <th>Contact Actions</th>
+                    <th>Preferred Guide</th>
+                    <th>Contact & Share Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -181,7 +260,6 @@
                                 <a href="{% url 'public_profile' s.user.username %}" class="fw-bold text-dark text-decoration-none">{{ s.user.get_full_name|default:s.user.username }}</a>
                                 <div class="small text-muted">
                                     <a href="{% url 'public_profile' s.user.username %}" class="text-muted text-decoration-none">@{{ s.user.username }}</a>
-                                    {% if s.user.email %} &bull; <a href="mailto:{{ s.user.email }}" class="text-primary text-decoration-none">{{ s.user.email }}</a>{% endif %}
                                 </div>
                             </div>
                         </div>
@@ -202,17 +280,20 @@
                         {% endif %}
                     </td>
                     <td>
-                        <div class="d-flex flex-wrap gap-1">
+                        <div class="d-flex flex-wrap gap-2">
+                            {% if s.user.email %}
+                            <a href="mailto:{{ s.user.email }}" class="btn-email-pill py-1 px-3" title="Email {{ s.user.email }}">
+                                <i data-lucide="mail" style="width:15px;height:15px;"></i> {{ s.user.email }}
+                            </a>
+                            {% endif %}
                             {% if s.clean_whatsapp %}
-                            <a href="https://wa.me/{{ s.clean_whatsapp }}" target="_blank" class="btn-whatsapp py-1 px-2">
+                            <a href="https://wa.me/{{ s.clean_whatsapp }}" target="_blank" rel="noopener noreferrer" class="btn-whatsapp py-1 px-3" title="WhatsApp {{ s.whatsapp_number }}">
                                 <i data-lucide="message-circle" style="width:15px;height:15px;"></i> WhatsApp
                             </a>
                             {% endif %}
-                            {% if s.whatsapp_number %}
-                            <a href="tel:{{ s.whatsapp_number }}" class="btn-m3-outline py-1 px-2 text-decoration-none" style="min-height:34px;" title="Call {{ s.whatsapp_number }}">
-                                <i data-lucide="phone" style="width:15px;height:15px;"></i>
-                            </a>
-                            {% endif %}
+                            <button type="button" class="btn-m3-outline py-1 px-2" style="min-height:34px;" onclick="sharePublicProfile('{% url 'public_profile' s.user.username %}', '{{ s.user.get_full_name|default:s.user.username|escapejs }}')" title="Share Public Profile">
+                                <i data-lucide="share-2" style="width:15px;height:15px;"></i>
+                            </button>
                         </div>
                     </td>
                 </tr>

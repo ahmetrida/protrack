@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 {% block content %}
 <style>
     .role-tab-btn {
@@ -39,7 +40,7 @@
                     <div class="brand-icon-box"><i data-lucide="user-plus"></i></div>
                     <div>
                         <h2 class="mb-0 fw-bold">Create Your ProTrack Account</h2>
-                        <div class="text-muted">Role-tailored onboarding with live duplicate checks & draft auto-saving</div>
+                        <div class="text-muted">Role-tailored onboarding with strict Roll Number / ID validation & draft auto-saving</div>
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
@@ -66,7 +67,7 @@
                                 <i data-lucide="graduation-cap" style="color:var(--m3-primary);"></i>
                             </div>
                             <h5 class="fw-bold mb-1">Student</h5>
-                            <div class="small text-muted">Select your Admin-registered University, College, Department & Project Guide.</div>
+                            <div class="small text-muted">Roll Number format: 1 letter + 2 digits (e.g. A12). Select your Department & Faculty Guide.</div>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -76,7 +77,7 @@
                                 <i data-lucide="book-open-check" style="color:var(--m3-primary);"></i>
                             </div>
                             <h5 class="fw-bold mb-1">Faculty Guide</h5>
-                            <div class="small text-muted">Join your Department to mentor students. Can be promoted to Examiner by Admin.</div>
+                            <div class="small text-muted">Faculty ID format: 2 letters + 2 digits (e.g. AB12). Mentor teams in your Department.</div>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -86,7 +87,7 @@
                                 <i data-lucide="shield-check" style="color:var(--m3-primary);"></i>
                             </div>
                             <h5 class="fw-bold mb-1">Institution Admin</h5>
-                            <div class="small text-muted">Register Universities, Colleges & Departments. Requires Front & Back ID Proof.</div>
+                            <div class="small text-muted">Admin ID format: 4 letters + 2 digits (e.g. ABCD12). Requires Front & Back ID Proof.</div>
                         </div>
                     </div>
                 </div>
@@ -106,8 +107,9 @@
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label" id="idFieldLabel" for="idFieldInput">Roll Call Number <span class="req-star">*</span></label>
-                        <input type="text" name="identifier" id="idFieldInput" class="form-control" placeholder="e.g. CS-2026-01" oninput="scheduleUsernameCheck()" required>
+                        <label class="form-label" id="idFieldLabel" for="idFieldInput">Student Roll Number (3 chars, e.g. A12) <span class="req-star">*</span></label>
+                        <input type="text" name="identifier" id="idFieldInput" class="form-control" placeholder="e.g. A12" minlength="3" maxlength="3" pattern="[A-Za-z][0-9]{2}" title="1 letter followed by 2 digits (e.g. A12). No hyphens or dashes." oninput="validateIdFormatLive(); scheduleUsernameCheck();" required>
+                        <div id="idFormatHint" class="small text-muted mt-1">Format: 1 letter + 2 digits (e.g., A12). No hyphens/dashes.</div>
                     </div>
 
                     <div class="col-md-4" id="studentClassWrap">
@@ -117,7 +119,7 @@
 
                     <div class="col-md-4">
                         <label class="form-label" for="waInput">WhatsApp Number (Optional)</label>
-                        <input type="text" name="whatsapp_number" id="waInput" class="form-control" placeholder="e.g. +1 555 234 5678">
+                        <input type="text" name="whatsapp_number" id="waInput" class="form-control" placeholder="e.g. +91 98765 43210">
                     </div>
 
                     <div class="col-md-6">
@@ -193,11 +195,11 @@
                         </div>
 
                         <div class="col-md-12" id="studentGuideWrap">
-                            <label class="form-label" for="guideSelect">Select Project Guide (Optional — Filtered by Department)</label>
+                            <label class="form-label" for="guideSelect">Select Preferred Faculty Guide (Strictly Filtered by Your Department)</label>
                             <select name="preferred_guide_id" id="guideSelect" class="form-select">
-                                <option value="">-- Select Your Faculty Project Guide (or assign later) --</option>
+                                <option value="">-- Select Faculty Guide in Your Department (or request later) --</option>
                                 {% for g in guides_list %}
-                                <option value="{{ g.user.id }}" data-dept="{{ g.department_id }}">
+                                <option value="{{ g.user.id }}" data-dept="{{ g.department_id }}" hidden>
                                     {{ g.user.get_full_name|default:g.user.username }} (ID: {{ g.identifier }} &bull; {{ g.department.name }})
                                 </option>
                                 {% endfor %}
@@ -243,6 +245,7 @@ function selectRole(role) {
 
     const idLabel = document.getElementById('idFieldLabel');
     const idInput = document.getElementById('idFieldInput');
+    const idHint = document.getElementById('idFormatHint');
     const studentClassWrap = document.getElementById('studentClassWrap');
     const classDivInput = document.getElementById('classDivInput');
     const studentGuideWrap = document.getElementById('studentGuideWrap');
@@ -254,8 +257,13 @@ function selectRole(role) {
     const adminNewDeptWrap = document.getElementById('adminNewDeptWrap');
 
     if (role === 'STUDENT') {
-        idLabel.innerHTML = 'Roll Call Number <span class="req-star">*</span>';
-        idInput.placeholder = 'e.g. CS-2026-01';
+        idLabel.innerHTML = 'Student Roll Number (3 chars, e.g. A12) <span class="req-star">*</span>';
+        idInput.placeholder = 'e.g. A12';
+        idInput.minLength = 3;
+        idInput.maxLength = 3;
+        idInput.pattern = '[A-Za-z][0-9]{2}';
+        idInput.title = '1 alphabetic character followed by 2 digits (e.g., A12). No hyphens or dashes.';
+        idHint.innerText = 'Format: 1 letter + 2 digits (e.g., A12). No hyphens/dashes.';
         studentClassWrap.classList.remove('d-none');
         classDivInput.required = true;
         studentGuideWrap.classList.remove('d-none');
@@ -266,8 +274,13 @@ function selectRole(role) {
         adminNewColWrap.classList.add('d-none');
         adminNewDeptWrap.classList.add('d-none');
     } else if (role === 'GUIDE') {
-        idLabel.innerHTML = 'Faculty / Department ID <span class="req-star">*</span>';
-        idInput.placeholder = 'e.g. FAC-101';
+        idLabel.innerHTML = 'Faculty ID (4 chars, e.g. AB12) <span class="req-star">*</span>';
+        idInput.placeholder = 'e.g. AB12';
+        idInput.minLength = 4;
+        idInput.maxLength = 4;
+        idInput.pattern = '[A-Za-z]{2}[0-9]{2}';
+        idInput.title = '2 alphabetic characters followed by 2 digits (e.g., AB12). No hyphens or dashes.';
+        idHint.innerText = 'Format: 2 letters + 2 digits (e.g., AB12). No hyphens/dashes.';
         studentClassWrap.classList.add('d-none');
         classDivInput.required = false;
         studentGuideWrap.classList.add('d-none');
@@ -278,8 +291,13 @@ function selectRole(role) {
         adminNewColWrap.classList.add('d-none');
         adminNewDeptWrap.classList.add('d-none');
     } else if (role === 'ADMIN') {
-        idLabel.innerHTML = 'Official Admin ID <span class="req-star">*</span>';
-        idInput.placeholder = 'e.g. ADM-001';
+        idLabel.innerHTML = 'Admin ID (6 chars, e.g. ABCD12) <span class="req-star">*</span>';
+        idInput.placeholder = 'e.g. ABCD12';
+        idInput.minLength = 6;
+        idInput.maxLength = 6;
+        idInput.pattern = '[A-Za-z]{4}[0-9]{2}';
+        idInput.title = '4 alphabetic characters followed by 2 digits (e.g., ABCD12). No hyphens or dashes.';
+        idHint.innerText = 'Format: 4 letters + 2 digits (e.g., ABCD12). No hyphens/dashes.';
         studentClassWrap.classList.add('d-none');
         classDivInput.required = false;
         studentGuideWrap.classList.add('d-none');
@@ -290,8 +308,38 @@ function selectRole(role) {
         adminNewColWrap.classList.remove('d-none');
         adminNewDeptWrap.classList.remove('d-none');
     }
+    validateIdFormatLive();
     syncAdminRequired();
     scheduleUsernameCheck();
+}
+
+function validateIdFormatLive() {
+    const role = document.getElementById('selectedRole').value;
+    const idInput = document.getElementById('idFieldInput');
+    const hint = document.getElementById('idFormatHint');
+    const val = idInput.value;
+    if (!val) {
+        idInput.classList.remove('border-danger');
+        return;
+    }
+    let regex = /^[A-Za-z][0-9]{2}$/;
+    let expected = '1 letter + 2 digits (e.g., A12)';
+    if (role === 'GUIDE') {
+        regex = /^[A-Za-z]{2}[0-9]{2}$/;
+        expected = '2 letters + 2 digits (e.g., AB12)';
+    } else if (role === 'ADMIN') {
+        regex = /^[A-Za-z]{4}[0-9]{2}$/;
+        expected = '4 letters + 2 digits (e.g., ABCD12)';
+    }
+    if (!regex.test(val)) {
+        idInput.classList.add('border-danger');
+        hint.className = 'small text-danger fw-bold mt-1';
+        hint.innerText = `Must be ${expected} with no hyphens or spaces.`;
+    } else {
+        idInput.classList.remove('border-danger');
+        hint.className = 'small text-success fw-bold mt-1';
+        hint.innerText = `Valid format: ${val}`;
+    }
 }
 
 function syncAdminRequired() {
@@ -362,7 +410,7 @@ function filterColleges() {
     const colSelect = document.getElementById('colSelect');
     Array.from(colSelect.options).forEach(opt => {
         if (!opt.value) return;
-        opt.hidden = uniId && opt.getAttribute('data-uni') !== uniId;
+        opt.hidden = !uniId || opt.getAttribute('data-uni') !== uniId;
     });
     colSelect.value = '';
     filterDepartments();
@@ -373,7 +421,7 @@ function filterDepartments() {
     const deptSelect = document.getElementById('deptSelect');
     Array.from(deptSelect.options).forEach(opt => {
         if (!opt.value) return;
-        opt.hidden = colId && opt.getAttribute('data-col') !== colId;
+        opt.hidden = !colId || opt.getAttribute('data-col') !== colId;
     });
     deptSelect.value = '';
     filterGuides();
@@ -385,7 +433,7 @@ function filterGuides() {
     if (!guideSelect) return;
     Array.from(guideSelect.options).forEach(opt => {
         if (!opt.value) return;
-        opt.hidden = deptId && opt.getAttribute('data-dept') !== deptId;
+        opt.hidden = !deptId || opt.getAttribute('data-dept') !== deptId;
     });
     guideSelect.value = '';
 }

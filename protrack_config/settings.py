@@ -1,8 +1,9 @@
+# Force Launch - ProTrack v1.07 Enterprise Edition
 import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = 'django-insecure-protrack-v105-royal-violet-enterprise-edition'
+SECRET_KEY = 'django-insecure-protrack-v107-royal-violet-enterprise-edition'
 DEBUG = True
 ALLOWED_HOSTS = ['*']
 

@@ -1,21 +1,70 @@
 {% extends 'base.html' %}
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
         <h1 class="fw-bold mb-1">Faculty Guide Mentoring Console</h1>
-        <div class="text-muted">Review proposals, verify weekly logs, and connect with mentees in <strong>{{ user.profile.department.name }}</strong></div>
+        <div class="text-muted">Accept team mentorship requests, review proposals, and verify weekly logs in <strong>{{ user.profile.department.name }}</strong> (Faculty ID: <strong>{{ user.profile.identifier }}</strong>)</div>
     </div>
     <div class="d-flex flex-wrap gap-2">
-        <span class="m3-chip chip-tonal">Mentored Groups: {{ my_groups.count }}</span>
-        <span class="m3-chip chip-warning">Pending Proposals: {{ pending_proposals }}</span>
+        <span class="m3-chip chip-tonal">Mentored Teams: {{ my_groups.count }}</span>
+        <span class="m3-chip chip-warning">Guide Requests: {{ pending_requests.count }}</span>
         <span class="m3-chip chip-neutral">Unverified Logs: {{ unverified_logs }}</span>
     </div>
 </div>
 
+<!-- PENDING GUIDE MENTORSHIP REQUESTS FROM TEAMS IN THIS DEPARTMENT -->
+{% if pending_requests %}
+<div class="m3-card mb-4" style="border: 2px solid var(--m3-primary);">
+    <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+        <i data-lucide="bell-ring" style="color:var(--m3-primary);"></i> Pending Team Guide Requests in {{ user.profile.department.name }} ({{ pending_requests.count }})
+    </h4>
+    <p class="text-muted small mb-3">The following student teams in your department have requested you as their Faculty Guide. Click <strong>Accept & Assign</strong> to become their official guide.</p>
+    <div class="row g-3">
+        {% for req_grp in pending_requests %}
+        <div class="col-md-6">
+            <div class="m3-card-tonal p-4 d-flex flex-column justify-content-between h-100">
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold fs-5">{{ req_grp.name }}</span>
+                        <span class="m3-chip chip-warning py-1 px-3">Awaiting Your Acceptance</span>
+                    </div>
+                    <div class="small text-muted mb-3">
+                        <strong>Team Members:</strong>
+                        {% for s in req_grp.students.all %}
+                        <a href="{% url 'public_profile' s.username %}" class="text-dark fw-bold text-decoration-none">{{ s.get_full_name|default:s.username }}</a> (Roll: {{ s.profile.identifier }}){% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <form method="POST" class="no-legend flex-grow-1">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="accept_guide_request">
+                        <input type="hidden" name="group_id" value="{{ req_grp.id }}">
+                        <button type="submit" class="btn-m3-primary w-100 py-2">
+                            <i data-lucide="check-circle"></i> Accept & Assign Guide
+                        </button>
+                    </form>
+                    <form method="POST" class="no-legend">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="decline_guide_request">
+                        <input type="hidden" name="group_id" value="{{ req_grp.id }}">
+                        <button type="submit" class="btn-m3-outline text-danger border-danger py-2 px-3">
+                            Decline
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 {% if unassigned_groups %}
 <div class="m3-card-tonal mb-4">
     <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
-        <i data-lucide="user-plus" style="color:var(--m3-primary);"></i> Unassigned Student Groups in {{ user.profile.department.name }}
+        <i data-lucide="user-plus" style="color:var(--m3-primary);"></i> Other Unassigned Student Teams in {{ user.profile.department.name }}
     </h4>
     <div class="row g-3">
         {% for ug in unassigned_groups %}
@@ -23,13 +72,13 @@
             <div class="bg-white p-4 rounded-4 border d-flex justify-content-between align-items-center">
                 <div>
                     <div class="fw-bold fs-5">{{ ug.name }} <span class="text-muted small">(Code: {{ ug.join_code }})</span></div>
-                    <div class="small text-muted">Students: {% for s in ug.students.all %}<a href="{% url 'public_profile' s.username %}" class="text-dark fw-medium">{{ s.get_full_name|default:s.username }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+                    <div class="small text-muted">Students: {% for s in ug.students.all %}<a href="{% url 'public_profile' s.username %}" class="text-dark fw-medium">{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>
                 </div>
                 <form method="POST" class="no-legend">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="claim_group">
                     <input type="hidden" name="group_id" value="{{ ug.id }}">
-                    <button type="submit" class="btn-m3-tonal">Accept Group</button>
+                    <button type="submit" class="btn-m3-tonal">Accept Team</button>
                 </form>
             </div>
         </div>
@@ -50,12 +99,12 @@
                 <strong class="me-1">Students:</strong>
                 {% for s in g.students.all %}
                 <span class="m3-chip chip-neutral py-1 px-3">
-                    <a href="{% url 'public_profile' s.username %}" class="text-dark text-decoration-none fw-bold">{{ s.get_full_name|default:s.username }}</a> ({{ s.profile.identifier }})
+                    <a href="{% url 'public_profile' s.username %}" class="text-dark text-decoration-none fw-bold">{{ s.get_full_name|default:s.username }}</a> (Roll: {{ s.profile.identifier }})
                     {% if s.email %}
-                    <a href="mailto:{{ s.email }}" class="text-primary ms-1" title="Email Student"><i data-lucide="mail" style="width:15px;height:15px;"></i></a>
+                    <a href="mailto:{{ s.email }}" class="text-primary ms-1" title="Email {{ s.email }}"><i data-lucide="mail" style="width:15px;height:15px;"></i></a>
                     {% endif %}
                     {% if s.profile.clean_whatsapp %}
-                    <a href="https://wa.me/{{ s.profile.clean_whatsapp }}?text=Hello%20{{ s.get_full_name|urlencode }},%20regarding%20your%20project%20in%20ProTrack" target="_blank" class="text-success ms-1" title="WhatsApp Student"><i data-lucide="message-circle" style="width:16px;height:16px;"></i></a>
+                    <a href="https://wa.me/{{ s.profile.clean_whatsapp }}?text=Hello%20{{ s.get_full_name|default:s.username|urlencode }},%20regarding%20your%20project%20in%20ProTrack" target="_blank" rel="noopener noreferrer" class="text-success ms-1" title="WhatsApp {{ s.profile.whatsapp_number }}"><i data-lucide="message-circle" style="width:16px;height:16px;"></i></a>
                     {% endif %}
                 </span>
                 {% endfor %}
@@ -82,9 +131,10 @@
             {% if g.proposal %}
             <div class="m3-card-tonal p-4">
                 <h4 class="fw-bold mb-1">{{ g.proposal.title }}</h4>
-                <div class="small fw-bold mb-3" style="color:var(--m3-primary);">
-                    Domain: {{ g.proposal.domain }} &bull; Closest Match: {{ g.proposal.closest_match_title }}
+                <div class="small fw-bold mb-2" style="color:var(--m3-primary);">
+                    Domain: {{ g.proposal.domain }} &bull; Tech Stack: {{ g.proposal.tech_stack|default:"Not specified" }}
                 </div>
+                <div class="small text-muted mb-3">Closest Corpus Match: {{ g.proposal.closest_match_title }}</div>
                 <p class="mb-4">{{ g.proposal.abstract }}</p>
 
                 {% if g.proposal.report_file %}
@@ -116,7 +166,7 @@
             {% else %}
             <div class="m3-card-tonal text-center py-5 text-muted">
                 <i data-lucide="file-clock" class="mb-2" style="width:36px;height:36px;"></i>
-                <div>This group has not submitted their proposal yet.</div>
+                <div>This team has not submitted their proposal yet.</div>
             </div>
             {% endif %}
         </div>
@@ -161,8 +211,8 @@
 {% empty %}
 <div class="m3-card text-center py-5">
     <i data-lucide="users" style="width:48px;height:48px;color:var(--m3-primary);" class="mb-3"></i>
-    <h3 class="fw-bold">No Active Groups Under Your Mentorship Yet</h3>
-    <p class="text-muted mb-0">Students who selected you during registration ({{ registered_mentees.count }} students) will appear here as soon as they initialize their project group.</p>
+    <h3 class="fw-bold">No Active Teams Under Your Mentorship Yet</h3>
+    <p class="text-muted mb-0">When teams in <strong>{{ user.profile.department.name }}</strong> request you as their Faculty Guide, you can accept their request above to begin mentoring.</p>
 </div>
 {% endfor %}
 {% endblock %}

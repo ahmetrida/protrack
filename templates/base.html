@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -162,7 +163,6 @@
             box-shadow: 0 0 0 4px rgba(94, 53, 177, 0.16);
         }
 
-        /* Active-State Dashboard Navigation Tabs */
         .nav-tab-m3 {
             border-radius: var(--radius-pill);
             min-height: 46px;
@@ -277,6 +277,27 @@
             background-color: #25D366;
             color: #FFFFFF;
             border-color: #25D366;
+        }
+
+        .btn-email-pill {
+            background-color: #EEF4FF;
+            color: #0B57D0;
+            border: 1px solid #C2D7FF;
+            border-radius: var(--radius-pill);
+            padding: 7px 16px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-email-pill:hover {
+            background-color: #0B57D0;
+            color: #FFFFFF;
+            border-color: #0B57D0;
         }
 
         .m3-chip {
@@ -411,6 +432,10 @@
                     <i data-lucide="settings"></i> <span class="d-none d-md-inline">Profile & Directory</span>
                 </a>
 
+                <button type="button" class="btn-m3-outline py-2 px-3" style="min-height:46px;" onclick="sharePublicProfile('{% url 'public_profile' user.username %}', '{{ user.get_full_name|default:user.username|escapejs }}')" title="Share My Public Profile Link">
+                    <i data-lucide="share-2"></i> <span class="d-none d-xl-inline">Share Profile</span>
+                </button>
+
                 <!-- Notifications Bell -->
                 <div class="dropdown">
                     <button class="btn-m3-outline position-relative py-2 px-3" style="min-height:46px;" data-bs-toggle="dropdown" aria-expanded="false">
@@ -493,16 +518,16 @@
         </div>
     </main>
 
-    {% if messages %}
     <div class="toast-stack" id="toastStack">
+        {% if messages %}
         {% for message in messages %}
         <div class="m3-snackbar" data-tags="{{ message.tags }}">
             <i data-lucide="sparkles" class="text-warning flex-shrink-0"></i>
             <div class="flex-grow-1">{{ message }}</div>
         </div>
         {% endfor %}
+        {% endif %}
     </div>
-    {% endif %}
 
     <footer class="py-4 border-top bg-white mt-auto">
         <div class="container-google d-flex flex-wrap justify-content-between align-items-center text-muted">
@@ -515,27 +540,105 @@
     <script>
         lucide.createIcons();
 
-        // Celebratory Web Audio Chime on Success Actions
+        // Share Public Profile Link Utility
+        function showFloatingToast(msgText) {
+            let stack = document.getElementById('toastStack');
+            if (!stack) return;
+            stack.style.display = 'flex';
+            const item = document.createElement('div');
+            item.className = 'm3-snackbar';
+            item.innerHTML = `<i data-lucide="check-circle-2" class="text-info flex-shrink-0"></i><div class="flex-grow-1">${msgText}</div>`;
+            stack.appendChild(item);
+            lucide.createIcons();
+            setTimeout(() => { item.remove(); }, 4500);
+        }
+
+        function sharePublicProfile(relativePath, userName) {
+            const fullUrl = window.location.origin + relativePath;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(fullUrl).then(() => {
+                    showFloatingToast(`Copied ${userName}'s public profile link: ${fullUrl}`);
+                }).catch(() => {
+                    prompt("Copy Public Profile Link:", fullUrl);
+                });
+            } else {
+                const temp = document.createElement('input');
+                temp.value = fullUrl;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                temp.remove();
+                showFloatingToast(`Copied ${userName}'s public profile link: ${fullUrl}`);
+            }
+        }
+
+        // 1. Celebratory Audio on Successful Actions (/media/Success.mp3)
         function playSuccessChime() {
-           try {
-            const audio = new Audio('/media/Success.mp3');
-            audio.play().catch(e => console.log("Audio blocked by browser auto-play policy."));
+            try {
+                const audio = new Audio('/media/Success.mp3');
+                audio.play().catch(e => console.log("Audio blocked by browser auto-play policy."));
+            } catch (e) {}
+        }
+
+        // 2. "Wait a Minute Who Are You.mp3" ONLY when user forgets/skips Name or Username
+        let whoAreYouCooldown = false;
+        function playWhoAreYouAudio() {
+            if (whoAreYouCooldown) return;
+            whoAreYouCooldown = true;
+            setTimeout(() => { whoAreYouCooldown = false; }, 3800);
+            try {
+                const audio = new Audio(encodeURI('/media/Wait a Minute Who Are You.mp3'));
+                audio.play().catch(e => console.log("Audio blocked by browser auto-play policy."));
             } catch (e) {}
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // 1. Trigger Success Sound if a success message is present
             const successToast = document.querySelector('.m3-snackbar[data-tags*="success"]');
             if (successToast) {
                 playSuccessChime();
             }
 
+            // Trigger Wait a Minute Who Are You.mp3 if user skips Full Name or Username:
+            document.addEventListener('invalid', (e) => {
+                const fieldName = (e.target && e.target.name) ? e.target.name.toLowerCase() : '';
+                if ((fieldName === 'full_name' || fieldName === 'username') && !e.target.value.trim()) {
+                    playWhoAreYouAudio();
+                }
+            }, true);
+
+            document.querySelectorAll('input[name="full_name"], input[name="username"]').forEach(input => {
+                input.addEventListener('blur', () => {
+                    if (!input.value.trim()) {
+                        playWhoAreYouAudio();
+                    }
+                });
+            });
+
+            document.querySelectorAll('form').forEach(form => {
+                const nameInput = form.querySelector('input[name="full_name"]');
+                const userInput = form.querySelector('input[name="username"]');
+                if (!nameInput && !userInput) return;
+
+                form.querySelectorAll('input, select, textarea').forEach(el => {
+                    if (el.name === 'full_name' || el.name === 'username' || el.type === 'hidden' || el.type === 'radio') return;
+                    el.addEventListener('focus', () => {
+                        const missingName = nameInput && !nameInput.value.trim();
+                        const missingUser = userInput && !userInput.value.trim();
+                        if (missingName || missingUser) {
+                            playWhoAreYouAudio();
+                        }
+                    });
+                });
+            });
+
             setTimeout(() => {
                 const stack = document.getElementById('toastStack');
-                if (stack) stack.style.display = 'none';
+                if (stack && stack.children.length > 0) {
+                    Array.from(stack.children).forEach(c => c.remove());
+                }
             }, 5500);
 
-            // 2. Automatically append red asterisk (*) to required fields & inject legend
+            // 3. Automatically append red asterisk (*) to required fields & inject legend
             document.querySelectorAll('form').forEach(form => {
                 const reqInputs = form.querySelectorAll('input[required], select[required], textarea[required]');
                 if (reqInputs.length > 0 && !form.querySelector('.req-legend') && !form.classList.contains('no-legend')) {
@@ -559,7 +662,7 @@
                 });
             });
 
-            // 3. Automatic Form Saving & Persistence Engine (Local + Account Sync)
+            // 4. Automatic Form Saving & Persistence Engine
             const statusPill = document.getElementById('globalAutosaveStatus');
             const statusText = document.getElementById('autosaveText');
             const isAuthRegular = {{ user.is_authenticated|yesno:"true,false" }} && !{{ user.is_superuser|yesno:"true,false" }};
@@ -604,7 +707,6 @@
                 const formKey = form.getAttribute('data-autosave');
                 const storageKey = userKeyPrefix + formKey;
 
-                // Restore from localStorage if field is currently empty
                 try {
                     const savedRaw = localStorage.getItem(storageKey);
                     if (savedRaw) {

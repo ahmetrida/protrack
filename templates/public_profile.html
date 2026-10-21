@@ -1,8 +1,9 @@
 {% extends 'base.html' %}
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-xl-9">
-        <div class="m3-card">
+        <div class="m3-card mb-4">
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-4 pb-4 mb-4 border-bottom">
                 <div class="d-flex flex-wrap align-items-center gap-4">
                     <div class="avatar-circle" style="width: 108px; height: 108px; font-size: 2.4rem;">
@@ -18,7 +19,7 @@
                             {% if target_profile.is_examiner %}
                             <span class="m3-chip chip-success"><i data-lucide="award" style="width:15px;height:15px;"></i> External Examiner</span>
                             {% endif %}
-                            <span class="m3-chip chip-neutral">ID: {{ target_profile.identifier }}</span>
+                            <span class="m3-chip chip-neutral">{% if target_profile.role == 'STUDENT' %}Roll Number:{% else %}ID:{% endif %} {{ target_profile.identifier }}</span>
                         </div>
                         <h2 class="fw-bold mb-1">{{ target_user.get_full_name|default:target_user.username }}</h2>
                         <div class="text-muted">@{{ target_user.username }} &bull; {{ target_profile.department.name }} ({{ target_profile.college.name }})</div>
@@ -28,7 +29,10 @@
                     </div>
                 </div>
 
-                <div class="d-flex gap-2">
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn-m3-tonal" onclick="sharePublicProfile('{% url 'public_profile' target_user.username %}', '{{ target_user.get_full_name|default:target_user.username|escapejs }}')">
+                        <i data-lucide="share-2"></i> Share Public Profile Link
+                    </button>
                     {% if user.id == target_user.id %}
                     <a href="{% url 'profile_settings' %}" class="btn-m3-primary text-decoration-none">
                         <i data-lucide="edit-3"></i> Edit My Profile
@@ -47,7 +51,7 @@
             </h5>
             <div class="d-flex flex-wrap gap-3 mb-4">
                 {% if target_user.email %}
-                <a href="mailto:{{ target_user.email }}" class="btn-m3-tonal text-decoration-none">
+                <a href="mailto:{{ target_user.email }}" class="btn-email-pill px-4 py-2 fs-6">
                     <i data-lucide="mail"></i> {{ target_user.email }}
                 </a>
                 {% endif %}
@@ -57,22 +61,22 @@
                 </a>
                 {% endif %}
                 {% if target_profile.clean_whatsapp %}
-                <a href="https://wa.me/{{ target_profile.clean_whatsapp }}?text=Hello%20{{ target_user.get_full_name|urlencode }},%20connecting%20from%20ProTrack" target="_blank" class="btn-whatsapp px-4 py-2 fs-6">
+                <a href="https://wa.me/{{ target_profile.clean_whatsapp }}?text=Hello%20{{ target_user.get_full_name|default:target_user.username|urlencode }},%20connecting%20from%20ProTrack" target="_blank" rel="noopener noreferrer" class="btn-whatsapp px-4 py-2 fs-6">
                     <i data-lucide="message-circle"></i> Start WhatsApp Chat
                 </a>
                 {% endif %}
                 {% if target_profile.github_url %}
-                <a href="{{ target_profile.github_url }}" target="_blank" class="btn-m3-outline text-decoration-none">
+                <a href="{{ target_profile.github_url }}" target="_blank" rel="noopener noreferrer" class="btn-m3-outline text-decoration-none">
                     <i data-lucide="github"></i> GitHub Profile
                 </a>
                 {% endif %}
                 {% if target_profile.youtube_url %}
-                <a href="{{ target_profile.youtube_url }}" target="_blank" class="btn-m3-outline text-decoration-none">
+                <a href="{{ target_profile.youtube_url }}" target="_blank" rel="noopener noreferrer" class="btn-m3-outline text-decoration-none">
                     <i data-lucide="youtube"></i> YouTube Channel
                 </a>
                 {% endif %}
                 {% if target_profile.instagram_url %}
-                <a href="{{ target_profile.instagram_url }}" target="_blank" class="btn-m3-outline text-decoration-none">
+                <a href="{{ target_profile.instagram_url }}" target="_blank" rel="noopener noreferrer" class="btn-m3-outline text-decoration-none">
                     <i data-lucide="instagram"></i> Instagram
                 </a>
                 {% endif %}
@@ -96,13 +100,16 @@
                     </div>
                     {% if student_group %}
                     <div class="col-12 border-top pt-3 mt-3">
-                        <div class="small text-muted">Active Student Project Group</div>
+                        <div class="small text-muted">Active Student Project Team</div>
                         <div class="fw-bold">{{ student_group.name }} &bull; Proposal: {{ student_group.proposal.title|default:"In Progress" }}</div>
+                        {% if student_group.proposal and student_group.proposal.tech_stack %}
+                        <div class="small text-muted mt-1">Tech Stack: <strong>{{ student_group.proposal.tech_stack }}</strong></div>
+                        {% endif %}
                     </div>
                     {% endif %}
                     {% if guided_groups %}
                     <div class="col-12 border-top pt-3 mt-3">
-                        <div class="small text-muted mb-2">Mentored Project Groups ({{ guided_groups.count }})</div>
+                        <div class="small text-muted mb-2">Mentored Project Teams ({{ guided_groups.count }})</div>
                         <div class="d-flex flex-wrap gap-2">
                             {% for gg in guided_groups %}
                             <span class="m3-chip chip-tonal">{{ gg.name }}</span>
@@ -113,6 +120,38 @@
                 </div>
             </div>
         </div>
+
+        {% if target_profile.role == 'STUDENT' %}
+        <!-- STUDENT PROJECT & TEAM HISTORY ON PUBLIC PROFILE -->
+        <div class="m3-card">
+            <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="history" style="color:var(--m3-primary);"></i> Previous Teams & Project History
+            </h4>
+            <div class="row g-3">
+                {% for h in student_histories %}
+                <div class="col-md-6">
+                    <div class="m3-card-tonal p-4 h-100 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="m3-chip chip-tonal py-1 px-3"><i data-lucide="users" style="width:14px;height:14px;"></i> {{ h.team_name }}</span>
+                                <span class="small text-muted">{{ h.created_at|date:"M Y" }}</span>
+                            </div>
+                            <h5 class="fw-bold mb-2">{{ h.project_idea }}</h5>
+                            <p class="text-muted small mb-3">{{ h.brief_description }}</p>
+                        </div>
+                        <div class="pt-2 border-top">
+                            <span class="m3-chip chip-neutral py-1 px-3 small"><i data-lucide="code-2" style="width:14px;height:14px;"></i> Tech Stack: <strong>{{ h.tech_stack }}</strong></span>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12 text-center py-4 text-muted">
+                    No previous team or project history entries listed yet.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

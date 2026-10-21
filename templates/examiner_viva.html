@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -19,7 +20,7 @@
 <div class="row g-4 mb-4">
     <div class="col-md-3 col-6">
         <div class="m3-card p-4">
-            <div class="text-muted small mb-1">Department Groups</div>
+            <div class="text-muted small mb-1">Department Teams</div>
             <div class="display-5 fw-bold" style="color:var(--m3-primary);">{{ groups.count }}</div>
         </div>
     </div>
@@ -127,11 +128,18 @@
                 {% endif %}
             </div>
             <h3 class="fw-bold mb-2">{{ g.proposal.title|default:"Proposal Pending Submission" }}</h3>
+            {% if g.proposal and g.proposal.tech_stack %}
+            <div class="small fw-bold mb-2" style="color:var(--m3-primary);">Tech Stack: {{ g.proposal.tech_stack }}</div>
+            {% endif %}
             <p class="text-muted mb-3">{{ g.proposal.abstract|default:"No abstract submitted yet." }}</p>
             <div class="mb-3">
                 <strong>Examinees:</strong>
                 {% for s in g.students.all %}
-                <a href="{% url 'public_profile' s.username %}" class="m3-chip chip-neutral py-1 px-3 me-1 mb-1 text-decoration-none text-dark">{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})</a>
+                <span class="m3-chip chip-neutral py-1 px-3 me-1 mb-1">
+                    <a href="{% url 'public_profile' s.username %}" class="text-decoration-none text-dark fw-bold">{{ s.get_full_name|default:s.username }}</a> (Roll: {{ s.profile.identifier }})
+                    {% if s.email %}<a href="mailto:{{ s.email }}" class="text-primary ms-1" title="Email {{ s.email }}"><i data-lucide="mail" style="width:14px;height:14px;"></i></a>{% endif %}
+                    {% if s.profile.clean_whatsapp %}<a href="https://wa.me/{{ s.profile.clean_whatsapp }}" target="_blank" rel="noopener noreferrer" class="text-success ms-1" title="WhatsApp {{ s.profile.whatsapp_number }}"><i data-lucide="message-circle" style="width:14px;height:14px;"></i></a>{% endif %}
+                </span>
                 {% endfor %}
             </div>
             {% if g.proposal and g.proposal.report_file %}

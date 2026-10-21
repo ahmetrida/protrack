@@ -1,3 +1,4 @@
+# Force Launch - ProTrack v1.07 Enterprise Edition
 import os
 import sys
 import subprocess
@@ -9,17 +10,40 @@ def write_file(path, content):
     print(f"  [OK] Updated {path}")
 
 # ==============================================================================
-# 1. REQUIREMENTS.TXT & MANAGE.PY
+# 1. REQUIREMENTS.TXT, .GITIGNORE & MANAGE.PY
 # ==============================================================================
 REQUIREMENTS_TXT = """
+# Force Launch - ProTrack v1.07 Enterprise Edition
 Django>=4.2,<5.2
 scikit-learn>=1.3.0
 pandas>=2.0.0
 Pillow>=10.0.0
 """
 
+GITIGNORE_TXT = """
+# Force Launch - ProTrack v1.07 Enterprise Edition
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+env/
+.venv/
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+media/*
+!media/Success.mp3
+!media/Wait a Minute Who Are You.mp3
+.vscode/
+.DS_Store
+Thumbs.db
+*.log
+"""
+
 MANAGE_PY = """
 #!/usr/bin/env python
+# Force Launch - ProTrack v1.07 Enterprise Edition
 import os
 import sys
 
@@ -39,11 +63,12 @@ if __name__ == '__main__':
 # 2. GLOBAL CONFIGURATION (protrack_config)
 # ==============================================================================
 SETTINGS_PY = """
+# Force Launch - ProTrack v1.07 Enterprise Edition
 import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = 'django-insecure-protrack-v105-royal-violet-enterprise-edition'
+SECRET_KEY = 'django-insecure-protrack-v107-royal-violet-enterprise-edition'
 DEBUG = True
 ALLOWED_HOSTS = ['*']
 
@@ -117,6 +142,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 """
 
 CONFIG_URLS_PY = """
+# Force Launch - ProTrack v1.07 Enterprise Edition
 from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
@@ -130,6 +156,7 @@ urlpatterns = [
 """
 
 WSGI_PY = """
+# Force Launch - ProTrack v1.07 Enterprise Edition
 import os
 from django.core.wsgi import get_wsgi_application
 
@@ -141,6 +168,7 @@ application = get_wsgi_application()
 # 3. DATABASE MODELS & VALIDATORS (portal/models.py)
 # ==============================================================================
 MODELS_PY = """
+# Force Launch - ProTrack v1.07 Enterprise Edition
 import re
 import random
 import string
@@ -175,6 +203,30 @@ def format_social_url(handle_or_url, base_domain):
         return val
     val = val.lstrip('@').strip('/')
     return f"https://{base_domain}/{val}"
+
+def validate_role_identifier(role, identifier):
+    \"\"\"
+    Validates role-specific IDs without hyphens or dashes and without reformatting:
+    - STUDENT: 3 chars -> 1 letter + 2 digits (e.g., A12)
+    - GUIDE:   4 chars -> 2 letters + 2 digits (e.g., AB12)
+    - ADMIN:   6 chars -> 4 letters + 2 digits (e.g., ABCD12)
+    \"\"\"
+    if not identifier:
+        return False, "ID / Roll Number is required."
+    if '-' in identifier or ' ' in identifier:
+        return False, "No hyphens, dashes, or spaces are allowed in Roll Numbers or IDs."
+
+    role = (role or 'STUDENT').upper()
+    if role == 'STUDENT':
+        if not re.match(r'^[A-Za-z][0-9]{2}$', identifier):
+            return False, "Student Roll Number must be 3 characters: 1 letter followed by 2 digits (e.g., A12)."
+    elif role == 'GUIDE':
+        if not re.match(r'^[A-Za-z]{2}[0-9]{2}$', identifier):
+            return False, "Faculty ID must be 4 characters: 2 letters followed by 2 digits (e.g., AB12)."
+    elif role == 'ADMIN':
+        if not re.match(r'^[A-Za-z]{4}[0-9]{2}$', identifier):
+            return False, "Admin ID must be 6 characters: 4 letters followed by 2 digits (e.g., ABCD12)."
+    return True, ""
 
 class University(models.Model):
     name = models.CharField(max_length=200, unique=True)
@@ -231,7 +283,7 @@ class UserProfile(models.Model):
         related_name='registered_students'
     )
 
-    identifier = models.CharField(max_length=60, blank=True, help_text="Roll Call, Faculty ID, or Admin ID")
+    identifier = models.CharField(max_length=60, blank=True, help_text="Roll Call (A12), Faculty ID (AB12), or Admin ID (ABCD12)")
     class_division = models.CharField(max_length=60, blank=True, default="Class-A")
 
     id_proof_front = models.FileField(upload_to='admin_proofs/', null=True, blank=True)
@@ -294,10 +346,19 @@ class UserProfile(models.Model):
         return f"{self.user.get_full_name() or self.user.username} ({self.get_role_display()})"
 
 class ProjectGroup(models.Model):
+    GUIDE_STATUS_CHOICES = [
+        ('NONE', 'No Guide Requested'),
+        ('PENDING', 'Pending Faculty Guide Acceptance'),
+        ('ACCEPTED', 'Guide Assigned'),
+        ('DECLINED', 'Guide Request Declined'),
+    ]
     name = models.CharField(max_length=120)
     join_code = models.CharField(max_length=12, unique=True, default=generate_join_code)
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='groups')
+    creator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_groups')
     guide = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='guided_groups')
+    requested_guide = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='requested_guide_groups')
+    guide_status = models.CharField(max_length=20, choices=GUIDE_STATUS_CHOICES, default='NONE')
     students = models.ManyToManyField(User, related_name='student_groups', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -307,6 +368,8 @@ class ProjectGroup(models.Model):
     def save(self, *args, **kwargs):
         if not self.join_code or len(self.join_code) != 5 or ProjectGroup.objects.filter(join_code=self.join_code).exclude(pk=self.pk).exists():
             self.join_code = generate_join_code()
+        if self.guide_id and self.guide_status != 'ACCEPTED':
+            self.guide_status = 'ACCEPTED'
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -321,6 +384,7 @@ class ProjectProposal(models.Model):
     group = models.OneToOneField(ProjectGroup, on_delete=models.CASCADE, related_name='proposal')
     title = models.CharField(max_length=250)
     domain = models.CharField(max_length=120)
+    tech_stack = models.CharField(max_length=250, blank=True, default='')
     abstract = models.TextField()
     similarity_score = models.FloatField(default=0.0)
     closest_match_title = models.CharField(max_length=250, blank=True, default='None')
@@ -331,6 +395,20 @@ class ProjectProposal(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.get_status_display()})"
+
+class StudentProjectHistory(models.Model):
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_histories')
+    team_name = models.CharField(max_length=150)
+    project_idea = models.CharField(max_length=250)
+    brief_description = models.TextField()
+    tech_stack = models.CharField(max_length=250)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.student.username} - {self.team_name}: {self.project_idea}"
 
 class WeeklyLog(models.Model):
     group = models.ForeignKey(ProjectGroup, on_delete=models.CASCADE, related_name='logs')
@@ -400,6 +478,7 @@ class Notification(models.Model):
 # 4. HYBRID AI TF-IDF SIMILARITY ENGINE (portal/similarity.py)
 # ==============================================================================
 SIMILARITY_PY = """
+# Force Launch - ProTrack v1.07 Enterprise Edition
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -521,6 +600,7 @@ def check_abstract_similarity(new_title, new_abstract, department=None, exclude_
 # 5. VIEWS, ACCESS CONTROL & CONTROLLERS (portal/views.py)
 # ==============================================================================
 VIEWS_PY = """
+# Force Launch - ProTrack v1.07 Enterprise Edition
 import re
 import csv
 import json
@@ -529,20 +609,32 @@ from django.contrib.auth import authenticate, login, logout, update_session_auth
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from django.views.decorators.cache import never_cache
 from django.db.models import Q
 from .models import (
     University, College, Department, UserProfile,
-    ProjectGroup, ProjectProposal, WeeklyLog,
+    ProjectGroup, ProjectProposal, StudentProjectHistory, WeeklyLog,
     VivaEvaluation, PastProjectArchive, Notification,
-    generate_join_code
+    generate_join_code, validate_role_identifier
 )
 from .similarity import check_abstract_similarity, FALLBACK_CORPUS
 
 ALLOWED_PROOF_EXT = ('.jpg', '.jpeg', '.png', '.webp', '.pdf')
 ALLOWED_AVATAR_EXT = ('.jpg', '.jpeg', '.png', '.webp')
 ALLOWED_REPORT_EXT = ('.pdf', '.docx', '.doc', '.png', '.jpg', '.jpeg')
+EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$')
+
+def is_valid_email_address(email):
+    if not email or not EMAIL_REGEX.match(email):
+        return False
+    try:
+        validate_email(email)
+        return True
+    except ValidationError:
+        return False
 
 def notify_users(users, message):
     for u in users:
@@ -554,11 +646,21 @@ def validate_file_ext(uploaded_file, allowed_tuple):
         return False
     return uploaded_file.name.lower().endswith(allowed_tuple)
 
+def archive_group_to_student_history(student_user, group):
+    \"\"\"Records a student's team and project details into StudentProjectHistory when leaving or removed.\"\"\"
+    prop = getattr(group, 'proposal', None)
+    idea = prop.title if prop and prop.title else f"Project under {group.name}"
+    desc = prop.abstract if prop and prop.abstract else f"Collaborated as a member of team {group.name} in {group.department.name}."
+    stack = (prop.tech_stack if prop and prop.tech_stack else (prop.domain if prop and prop.domain else "Python, Django, Web Technologies"))
+    StudentProjectHistory.objects.create(
+        student=student_user,
+        team_name=group.name,
+        project_idea=idea,
+        brief_description=desc,
+        tech_stack=stack
+    )
+
 def get_authorized_profile_ids(viewer_user):
-    \"\"\"
-    Enforces strict hierarchical role-based visibility for directories and public profiles.
-    Superusers are NEVER included in regular user querysets.
-    \"\"\"
     base_qs = UserProfile.objects.filter(user__is_superuser=False)
     if viewer_user.is_superuser:
         return list(base_qs.values_list('id', flat=True))
@@ -594,6 +696,8 @@ def get_authorized_profile_ids(viewer_user):
                 allowed_user_ids.add(member.id)
             if grp.guide_id:
                 allowed_user_ids.add(grp.guide_id)
+            if grp.requested_guide_id:
+                allowed_user_ids.add(grp.requested_guide_id)
             if hasattr(grp, 'viva') and grp.viva and grp.viva.examiner_id:
                 allowed_user_ids.add(grp.viva.examiner_id)
 
@@ -612,6 +716,10 @@ def can_view_profile(viewer_user, target_profile):
     if target_profile.user.is_superuser:
         return viewer_user.is_superuser
     if viewer_user.is_superuser or viewer_user.id == target_profile.user_id:
+        return True
+    # Allow shared public profile links to be viewed by authenticated ProTrack users
+    # while keeping superadmin isolated
+    if viewer_user.is_authenticated:
         return True
     allowed_ids = get_authorized_profile_ids(viewer_user)
     return target_profile.id in allowed_ids
@@ -639,7 +747,6 @@ def api_hierarchy(request):
     })
 
 def api_check_username(request):
-    \"\"\"Checks if a username is taken and returns guaranteed non-duplicate suggestions.\"\"\"
     username = request.GET.get('username', '').strip().lower()
     full_name = request.GET.get('full_name', '').strip().lower()
     identifier = request.GET.get('identifier', '').strip().lower()
@@ -681,7 +788,11 @@ def api_check_username(request):
 
 @login_required
 def api_search_classmates(request):
-    \"\"\"Interactive classmate search restricted strictly to the student's department.\"\"\"
+    \"\"\"
+    Interactive classmate search restricted strictly to the student's department.
+    Includes the team creator (current user) marked with is_self=True so they appear
+    in the dropdown but cannot add themselves.
+    \"\"\"
     if request.user.is_superuser:
         return JsonResponse({'results': []})
     profile = getattr(request.user, 'profile', None)
@@ -692,9 +803,10 @@ def api_search_classmates(request):
     qs = UserProfile.objects.filter(
         department=profile.department,
         role='STUDENT',
-        user__is_superuser=False,
-        user__student_groups__isnull=True
-    ).exclude(user=request.user).select_related('user', 'department')
+        user__is_superuser=False
+    ).filter(
+        Q(user__student_groups__isnull=True) | Q(user=request.user)
+    ).select_related('user', 'department').distinct()
 
     if q:
         qs = qs.filter(
@@ -705,7 +817,8 @@ def api_search_classmates(request):
         )
 
     results = []
-    for p in qs[:20]:
+    # Put creator first if matching
+    for p in qs[:25]:
         results.append({
             'user_id': p.user.id,
             'full_name': p.user.get_full_name() or p.user.username,
@@ -715,12 +828,13 @@ def api_search_classmates(request):
             'department': p.department.name if p.department else '',
             'avatar_url': p.avatar_url,
             'initials': p.initials,
+            'is_self': (p.user.id == request.user.id),
         })
+    results.sort(key=lambda x: (0 if x['is_self'] else 1, x['full_name'].lower()))
     return JsonResponse({'results': results})
 
 @login_required
 def api_sync_drafts(request):
-    \"\"\"Synchronizes unfinished form drafts with the authenticated user's account.\"\"\"
     if request.user.is_superuser:
         return JsonResponse({'status': 'isolated'})
 
@@ -736,7 +850,6 @@ def api_sync_drafts(request):
                 if clear:
                     current_drafts.pop(form_key, None)
                 else:
-                    # Never store sensitive secrets
                     safe_fields = {
                         k: v for k, v in fields.items()
                         if 'password' not in k.lower() and 'csrf' not in k.lower() and 'token' not in k.lower()
@@ -755,7 +868,7 @@ def api_sync_drafts(request):
     return JsonResponse({'status': 'ok', 'drafts': data})
 
 # ==============================================================================
-# AUTHENTICATION & SESSION PERSISTENCE (REGULAR USERS VS SUPERADMIN ISOLATION)
+# AUTHENTICATION & SESSION PERSISTENCE
 # ==============================================================================
 @never_cache
 def login_view(request):
@@ -767,6 +880,11 @@ def login_view(request):
     if request.method == 'POST':
         u = request.POST.get('username', '').strip()
         p = request.POST.get('password', '').strip()
+        if not u:
+            request.session['play_who_are_you'] = True
+            messages.error(request, "Wait a minute! Please enter your Username to sign in.")
+            return redirect('login')
+
         user = authenticate(request, username=u, password=p)
         if user:
             if user.is_superuser:
@@ -802,16 +920,18 @@ def signup_view(request):
         email = request.POST.get('email', '').strip()
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '').strip()
+        # Preserve exact case/formatting of identifier as entered by the user
         identifier = request.POST.get('identifier', '').strip()
         class_division = request.POST.get('class_division', 'Class-A').strip()
         whatsapp_number = request.POST.get('whatsapp_number', '').strip()
 
-        if len(full_name) < 2:
-            messages.error(request, "Full Name is required (minimum 2 characters).")
+        if len(full_name) < 2 or not username:
+            request.session['play_who_are_you'] = True
+            messages.error(request, "Wait a minute! Both Full Name and Username are required.")
             return redirect('signup')
 
-        if not email or '@' not in email:
-            messages.error(request, "A valid Email Address is required.")
+        if not is_valid_email_address(email):
+            messages.error(request, "A valid Email Address (e.g., johndoe@example.com) is mandatory.")
             return redirect('signup')
 
         if not re.match(r'^[a-zA-Z0-9_.-]{3,30}$', username):
@@ -826,8 +946,10 @@ def signup_view(request):
             messages.error(request, "Password is required and must be at least 6 characters long.")
             return redirect('signup')
 
-        if not identifier:
-            messages.error(request, "Roll Call, Faculty ID, or Admin ID is required.")
+        # Strict Role-Based Roll Number / ID Validation (no hyphens/dashes, exact length & format)
+        is_valid_id, id_err_msg = validate_role_identifier(role, identifier)
+        if not is_valid_id:
+            messages.error(request, id_err_msg)
             return redirect('signup')
 
         uni_id = request.POST.get('university_id', '').strip()
@@ -938,7 +1060,7 @@ def signup_view(request):
         dept_admins = User.objects.filter(is_superuser=False, profile__department=department, profile__role='ADMIN').exclude(id=user.id)
         notify_users(dept_admins, f"New {role.title()} registered in {department.name}: {full_name} ({identifier}).")
         if preferred_guide_user:
-            notify_users([preferred_guide_user], f"Student {full_name} ({identifier}) selected you as their Project Guide.")
+            notify_users([preferred_guide_user], f"Student {full_name} ({identifier}) selected you as their preferred Faculty Guide.")
 
         login(request, user)
         request.session['play_success_sound'] = True
@@ -981,7 +1103,7 @@ def mark_notifications_read(request):
     return redirect(request.META.get('HTTP_REFERER', 'dashboard_router'))
 
 # ==============================================================================
-# DEDICATED PRIVATE SUPERADMIN FLOW (/superadmin-access/ & /superadmin-console/)
+# DEDICATED PRIVATE SUPERADMIN FLOW
 # ==============================================================================
 @never_cache
 def superadmin_login_view(request):
@@ -993,9 +1115,13 @@ def superadmin_login_view(request):
     if request.method == 'POST':
         u = request.POST.get('username', '').strip()
         p = request.POST.get('password', '').strip()
+        if not u:
+            request.session['play_who_are_you'] = True
+            messages.error(request, "Wait a minute! Superadmin username is required.")
+            return redirect('superadmin_login')
+
         user = authenticate(request, username=u, password=p)
         if user and user.is_superuser:
-            # Ensure a superuser never has a regular student/guide/admin UserProfile
             UserProfile.objects.filter(user=user).delete()
             login(request, user)
             request.session['play_success_sound'] = True
@@ -1012,7 +1138,6 @@ def superadmin_dashboard_view(request):
     if not request.user.is_superuser:
         return HttpResponseForbidden("403 Forbidden: Restricted access.")
 
-    # Ensure superuser is never represented in regular UserProfile records
     UserProfile.objects.filter(user=request.user).delete()
 
     if request.method == 'POST':
@@ -1024,7 +1149,16 @@ def superadmin_dashboard_view(request):
             email = request.POST.get('email', '').strip()
             new_username = request.POST.get('username', '').strip()
 
-            if new_username and new_username != request.user.username:
+            if not new_username:
+                request.session['play_who_are_you'] = True
+                messages.error(request, "Wait a minute! Username cannot be empty.")
+                return redirect('superadmin_dashboard')
+
+            if not is_valid_email_address(email):
+                messages.error(request, "Please provide a valid email address.")
+                return redirect('superadmin_dashboard')
+
+            if new_username != request.user.username:
                 if User.objects.filter(username__iexact=new_username).exclude(id=request.user.id).exists():
                     messages.error(request, f"Username '{new_username}' is already in use.")
                     return redirect('superadmin_dashboard')
@@ -1088,17 +1222,19 @@ def public_profile_view(request, username):
     target_profile = get_object_or_404(UserProfile, user=target_user)
 
     if not can_view_profile(request.user, target_profile):
-        messages.error(request, "Access Denied: This profile is outside your authorized institutional or group scope.")
+        messages.error(request, "Access Denied: This profile is outside your authorized scope.")
         return redirect('dashboard_router')
 
     student_group = target_user.student_groups.first() if target_profile.role == 'STUDENT' else None
     guided_groups = ProjectGroup.objects.filter(guide=target_user) if target_profile.role == 'GUIDE' else []
+    student_histories = target_user.project_histories.all() if target_profile.role == 'STUDENT' else []
 
     return render(request, 'public_profile.html', {
         'target_user': target_user,
         'target_profile': target_profile,
         'student_group': student_group,
         'guided_groups': guided_groups,
+        'student_histories': student_histories,
         'active_tab': 'profile_settings',
         'notifications': [] if request.user.is_superuser else request.user.notifications.filter(is_read=False)[:6],
     })
@@ -1126,15 +1262,24 @@ def profile_settings_view(request):
             instagram = request.POST.get('instagram_handle', '').strip()
             avatar_file = request.FILES.get('avatar')
 
-            if not full_name or not identifier:
-                messages.error(request, "Full Name and ID/Roll Call are required fields.")
+            if not full_name:
+                request.session['play_who_are_you'] = True
+                messages.error(request, "Wait a minute! Full Name cannot be empty.")
+                return redirect('profile_settings')
+
+            if not is_valid_email_address(email):
+                messages.error(request, "A valid Email Address is mandatory.")
+                return redirect('profile_settings')
+
+            is_valid_id, id_err_msg = validate_role_identifier(profile.role, identifier)
+            if not is_valid_id:
+                messages.error(request, id_err_msg)
                 return redirect('profile_settings')
 
             parts = full_name.split(' ', 1)
             request.user.first_name = parts[0]
             request.user.last_name = parts[1] if len(parts) > 1 else ''
-            if email:
-                request.user.email = email
+            request.user.email = email
             request.user.save()
 
             profile.identifier = identifier
@@ -1167,7 +1312,33 @@ def profile_settings_view(request):
 
             profile.save()
             request.session['play_success_sound'] = True
-            messages.success(request, "Your profile, avatar, and contact handles have been saved!")
+            messages.success(request, "Your profile, email, avatar, and contact handles have been saved!")
+            return redirect('profile_settings')
+
+        elif action == 'add_history' and profile.role == 'STUDENT':
+            team_name = request.POST.get('team_name', '').strip()
+            project_idea = request.POST.get('project_idea', '').strip()
+            brief_description = request.POST.get('brief_description', '').strip()
+            tech_stack = request.POST.get('tech_stack', '').strip()
+            if team_name and project_idea and brief_description and tech_stack:
+                StudentProjectHistory.objects.create(
+                    student=request.user,
+                    team_name=team_name,
+                    project_idea=project_idea,
+                    brief_description=brief_description,
+                    tech_stack=tech_stack
+                )
+                request.session['play_success_sound'] = True
+                messages.success(request, f"Added '{project_idea}' ({team_name}) to your Student Project History.")
+            else:
+                messages.error(request, "Please complete all fields (Team Name, Project Idea, Brief Description, and Technology Stack).")
+            return redirect('profile_settings')
+
+        elif action == 'delete_history' and profile.role == 'STUDENT':
+            hid = request.POST.get('history_id', '')
+            if hid.isdigit():
+                StudentProjectHistory.objects.filter(id=int(hid), student=request.user).delete()
+                messages.info(request, "Project history entry removed.")
             return redirect('profile_settings')
 
         elif action == 'change_password':
@@ -1194,7 +1365,6 @@ def profile_settings_view(request):
                 messages.error(request, "Please type DELETE in uppercase to confirm account deletion.")
                 return redirect('profile_settings')
 
-    # Strict Role-Based & Institution-Scoped Contact Directory
     allowed_ids = get_authorized_profile_ids(request.user)
     directory_qs = UserProfile.objects.filter(
         id__in=allowed_ids,
@@ -1235,12 +1405,13 @@ def profile_settings_view(request):
         'search_q': search_q,
         'dept_guides': dept_guides,
         'college_admins': college_admins,
+        'student_histories': request.user.project_histories.all() if profile.role == 'STUDENT' else [],
         'active_tab': 'profile_settings',
         'notifications': request.user.notifications.filter(is_read=False)[:6],
     })
 
 # ==============================================================================
-# STUDENT WORKSPACE & 5-CHAR GROUP JOIN CODE VALIDATION
+# STUDENT WORKSPACE — TEAM MEMBERSHIP, GUIDE REQUESTS & PROJECT HISTORY
 # ==============================================================================
 @login_required
 def student_dashboard(request):
@@ -1253,69 +1424,98 @@ def student_dashboard(request):
 
     dept = profile.department
     group = request.user.student_groups.first()
+    if group and not group.creator_id:
+        first_member = group.students.first()
+        if first_member:
+            group.creator = first_member
+            group.save(update_fields=['creator'])
 
+    # Strictly display only Faculty Guides belonging to the student/team's department
     dept_guides = User.objects.filter(
         is_superuser=False,
         profile__department=dept,
         profile__role='GUIDE'
-    ).select_related('profile')
+    ).select_related('profile') if dept else User.objects.none()
+
+    # Include current user (creator) + unassigned students in the same department
     dept_students = User.objects.filter(
         is_superuser=False,
         profile__department=dept,
-        profile__role='STUDENT',
-        student_groups__isnull=True
-    ).exclude(id=request.user.id).select_related('profile')
+        profile__role='STUDENT'
+    ).filter(
+        Q(student_groups__isnull=True) | Q(id=request.user.id)
+    ).select_related('profile').distinct() if dept else User.objects.none()
 
     if request.method == 'POST':
         action = request.POST.get('action')
 
+        # 1. Create a New Team (Prevent self-addition & duplicate members; send Guide Request)
         if action == 'create_group' and not group:
             group_name = request.POST.get('group_name', '').strip()
             guide_id = request.POST.get('guide_id', '').strip()
-            teammate_ids = request.POST.getlist('teammate_ids')
+            raw_teammate_ids = request.POST.getlist('teammate_ids')
 
             if not group_name:
                 messages.error(request, "Project Group Name is required.")
                 return redirect('student_dashboard')
 
-            guide_user = None
+            requested_guide_user = None
             if guide_id.isdigit():
-                guide_user = User.objects.filter(
+                requested_guide_user = User.objects.filter(
                     id=int(guide_id),
                     is_superuser=False,
                     profile__department=dept,
                     profile__role='GUIDE'
                 ).first()
-            elif profile.preferred_guide:
-                guide_user = profile.preferred_guide
+            elif profile.preferred_guide and profile.preferred_guide.profile.department_id == (dept.id if dept else None):
+                requested_guide_user = profile.preferred_guide
 
             unique_code = generate_join_code()
             new_group = ProjectGroup.objects.create(
                 name=group_name,
                 join_code=unique_code,
                 department=dept,
-                guide=guide_user
+                creator=request.user,
+                guide=None,
+                requested_guide=requested_guide_user,
+                guide_status='PENDING' if requested_guide_user else 'NONE'
             )
             new_group.students.add(request.user)
 
-            for tid in teammate_ids:
+            # Deduplicate teammate IDs & prevent creator from adding themselves twice
+            seen_ids = {request.user.id}
+            added_names = []
+            for tid in raw_teammate_ids:
                 if str(tid).isdigit():
+                    uid = int(tid)
+                    if uid == request.user.id:
+                        continue
+                    if uid in seen_ids:
+                        continue
+                    seen_ids.add(uid)
                     tm = User.objects.filter(
-                        id=int(tid),
+                        id=uid,
                         is_superuser=False,
                         profile__department=dept,
                         profile__role='STUDENT'
                     ).first()
                     if tm and not tm.student_groups.exists():
                         new_group.students.add(tm)
-                        notify_users([tm], f"{request.user.get_full_name()} added you to project group '{new_group.name}'.")
+                        added_names.append(tm.get_full_name() or tm.username)
+                        notify_users([tm], f"{request.user.get_full_name() or request.user.username} added you to project team '{new_group.name}'.")
 
-            if guide_user:
-                notify_users([guide_user], f"Project group '{new_group.name}' is assigned under your mentorship.")
+            if requested_guide_user:
+                notify_users(
+                    [requested_guide_user],
+                    f"Team '{new_group.name}' ({dept.name}) requested you as their Faculty Guide. Please accept or decline in your Guide Console."
+                )
+
             request.session['play_success_sound'] = True
-            messages.success(request, f"Group '{new_group.name}' created! Share 5-character Join Code {new_group.join_code} with unregistered or eligible classmates.")
+            guide_msg = f" Mentorship request sent to {requested_guide_user.get_full_name() or requested_guide_user.username}." if requested_guide_user else ""
+            messages.success(request, f"Team '{new_group.name}' created! Share 5-character Join Code {new_group.join_code} with teammates.{guide_msg}")
             return redirect('student_dashboard')
 
+        # 2. Join Existing Team via 5-Char Code (Prevent duplicates)
         elif action == 'join_group' and not group:
             raw_code = request.POST.get('join_code', '').strip().upper()
             if not re.match(r'^[A-Z0-9]{5}$', raw_code):
@@ -1324,22 +1524,126 @@ def student_dashboard(request):
 
             target_group = ProjectGroup.objects.filter(join_code=raw_code, department=dept).first()
             if not target_group:
-                messages.error(request, f"No active group in {dept.name} matches the 5-character code '{raw_code}'.")
+                messages.error(request, f"No active team in {dept.name} matches the 5-character code '{raw_code}'.")
+            elif target_group.students.filter(id=request.user.id).exists():
+                messages.warning(request, f"You are already a member of '{target_group.name}'.")
             else:
                 target_group.students.add(request.user)
-                notify_users(target_group.students.exclude(id=request.user.id), f"{request.user.get_full_name()} joined {target_group.name}!")
+                notify_users(target_group.students.exclude(id=request.user.id), f"{request.user.get_full_name() or request.user.username} joined {target_group.name}!")
                 request.session['play_success_sound'] = True
                 messages.success(request, f"Successfully joined '{target_group.name}'!")
             return redirect('student_dashboard')
 
+        # 3. Invite / Add Eligible Classmate to Existing Team (Creator only, prevent duplicates & self)
+        elif action == 'add_member_to_group' and group:
+            if group.creator_id != request.user.id:
+                messages.error(request, "Only the Team Creator can add or remove members.")
+                return redirect('student_dashboard')
+            raw_ids = request.POST.getlist('teammate_ids')
+            added_count = 0
+            for tid in set(raw_ids):
+                if str(tid).isdigit():
+                    uid = int(tid)
+                    if uid == request.user.id or group.students.filter(id=uid).exists():
+                        continue
+                    tm = User.objects.filter(
+                        id=uid,
+                        is_superuser=False,
+                        profile__department=dept,
+                        profile__role='STUDENT'
+                    ).first()
+                    if tm and not tm.student_groups.exists():
+                        group.students.add(tm)
+                        added_count += 1
+                        notify_users([tm], f"{request.user.get_full_name() or request.user.username} added you to team '{group.name}'.")
+            if added_count > 0:
+                request.session['play_success_sound'] = True
+                messages.success(request, f"Added {added_count} classmate(s) to '{group.name}'.")
+            else:
+                messages.warning(request, "No new eligible classmates were selected or they are already in a team.")
+            return redirect('student_dashboard')
+
+        # 4. Team Creator Removes a Member (with confirmation & validation)
+        elif action == 'remove_member' and group:
+            if group.creator_id != request.user.id:
+                messages.error(request, "Only the Team Creator is authorized to remove team members.")
+                return redirect('student_dashboard')
+            member_id = request.POST.get('member_id', '').strip()
+            if not member_id.isdigit() or int(member_id) == request.user.id:
+                messages.error(request, "Invalid member removal request. Use 'Leave Team' if you wish to leave.")
+                return redirect('student_dashboard')
+
+            target_member = group.students.filter(id=int(member_id)).first()
+            if not target_member:
+                messages.error(request, "Selected user is not a member of this team.")
+            else:
+                archive_group_to_student_history(target_member, group)
+                group.students.remove(target_member)
+                notify_users([target_member], f"You have been removed from project team '{group.name}' by the team creator.")
+                request.session['play_success_sound'] = True
+                messages.success(request, f"Removed {target_member.get_full_name() or target_member.username} from {group.name}.")
+            return redirect('student_dashboard')
+
+        # 5. Member Leaves Team (with confirmation, validation & history archiving)
+        elif action == 'leave_group' and group:
+            confirm_leave = request.POST.get('confirm_leave', 'yes')
+            if confirm_leave != 'yes':
+                return redirect('student_dashboard')
+
+            group_name = group.name
+            archive_group_to_student_history(request.user, group)
+            group.students.remove(request.user)
+            remaining = list(group.students.all())
+            if remaining:
+                if group.creator_id == request.user.id:
+                    group.creator = remaining[0]
+                    group.save(update_fields=['creator'])
+                notify_users(remaining, f"{request.user.get_full_name() or request.user.username} left team '{group_name}'.")
+            else:
+                group.delete()
+
+            request.session['play_success_sound'] = True
+            messages.success(request, f"You have left team '{group_name}'. Your participation has been saved to your Student Project History.")
+            return redirect('student_dashboard')
+
+        # 6. Request a Faculty Guide from the Team's Department
+        elif action == 'request_guide' and group:
+            guide_id = request.POST.get('guide_id', '').strip()
+            if not guide_id.isdigit():
+                messages.error(request, "Please select a Faculty Guide from your department.")
+                return redirect('student_dashboard')
+
+            target_guide = User.objects.filter(
+                id=int(guide_id),
+                is_superuser=False,
+                profile__department=dept,
+                profile__role='GUIDE'
+            ).first()
+            if not target_guide:
+                messages.error(request, "Selected guide does not belong to your department.")
+                return redirect('student_dashboard')
+
+            group.requested_guide = target_guide
+            group.guide_status = 'PENDING'
+            group.save(update_fields=['requested_guide', 'guide_status'])
+            notify_users(
+                [target_guide],
+                f"Team '{group.name}' ({dept.name}) has requested you as their Faculty Guide. Please accept or decline in your Guide Console."
+            )
+            request.session['play_success_sound'] = True
+            messages.success(request, f"Guide request sent to {target_guide.get_full_name() or target_guide.username}! They will be assigned once they accept.")
+            return redirect('student_dashboard')
+
+        # 7. Submit / Update Project Proposal (includes Technology Stack)
         elif action == 'submit_proposal' and group:
             title = request.POST.get('title', '').strip()
             domain = request.POST.get('domain', '').strip()
+            tech_stack = request.POST.get('tech_stack', '').strip()
             abstract = request.POST.get('abstract', '').strip()
             report_file = request.FILES.get('report_file')
 
-            if len(title) < 5 or not domain or len(abstract.split()) < 6:
-                messages.error(request, "Project Title, Technical Domain, and a detailed Abstract (at least 6 words) are required.")
+            if len(title) < 5 or not domain or not tech_stack or len(abstract.split()) < 6:
+                messages.error(request, "Project Title, Technical Domain, Technology Stack, and a detailed Abstract (at least 6 words) are required.")
                 return redirect('student_dashboard')
 
             if report_file and not validate_file_ext(report_file, ALLOWED_REPORT_EXT):
@@ -1350,6 +1654,7 @@ def student_dashboard(request):
             proposal, _ = ProjectProposal.objects.get_or_create(group=group)
             proposal.title = title
             proposal.domain = domain
+            proposal.tech_stack = tech_stack
             proposal.abstract = abstract
             proposal.similarity_score = sim_res['score']
             proposal.closest_match_title = sim_res['closest_match']
@@ -1360,10 +1665,13 @@ def student_dashboard(request):
 
             if group.guide:
                 notify_users([group.guide], f"{group.name} submitted proposal '{title}' (Similarity: {sim_res['score']}%).")
+            elif group.requested_guide:
+                notify_users([group.requested_guide], f"{group.name} (pending your guide acceptance) prepared proposal '{title}'.")
             request.session['play_success_sound'] = True
-            messages.success(request, f"Proposal submitted to your guide! AI Similarity Score: {sim_res['score']}%.")
+            messages.success(request, f"Proposal saved! AI Similarity Score: {sim_res['score']}%.")
             return redirect('student_dashboard')
 
+        # 8. Submit Weekly Log
         elif action == 'submit_log' and group:
             week_num = request.POST.get('week_number', '1')
             tasks = request.POST.get('tasks_completed', '').strip()
@@ -1383,10 +1691,38 @@ def student_dashboard(request):
                 messages.error(request, "Tasks Completed and Next Week Target Plan are required.")
             return redirect('student_dashboard')
 
+        # 9. Add Previous Team / Project Idea to Student History directly from Dashboard
+        elif action == 'add_history':
+            team_name = request.POST.get('team_name', '').strip()
+            project_idea = request.POST.get('project_idea', '').strip()
+            brief_description = request.POST.get('brief_description', '').strip()
+            tech_stack = request.POST.get('tech_stack', '').strip()
+            if team_name and project_idea and brief_description and tech_stack:
+                StudentProjectHistory.objects.create(
+                    student=request.user,
+                    team_name=team_name,
+                    project_idea=project_idea,
+                    brief_description=brief_description,
+                    tech_stack=tech_stack
+                )
+                request.session['play_success_sound'] = True
+                messages.success(request, f"Added '{project_idea}' to your Student Project History.")
+            else:
+                messages.error(request, "All history fields (Team Name, Project Idea, Brief Description, and Technology Stack) are required.")
+            return redirect('student_dashboard')
+
+        elif action == 'delete_history':
+            hid = request.POST.get('history_id', '')
+            if hid.isdigit():
+                StudentProjectHistory.objects.filter(id=int(hid), student=request.user).delete()
+                messages.info(request, "History entry removed.")
+            return redirect('student_dashboard')
+
     proposal = getattr(group, 'proposal', None) if group else None
     logs = group.logs.all() if group else []
     viva = getattr(group, 'viva', None) if group else None
     next_week = (logs.count() + 1) if group else 1
+    student_histories = request.user.project_histories.all()
 
     return render(request, 'student_dashboard.html', {
         'group': group,
@@ -1396,6 +1732,7 @@ def student_dashboard(request):
         'next_week': next_week,
         'dept_guides': dept_guides,
         'dept_students': dept_students,
+        'student_histories': student_histories,
         'active_tab': 'student_dashboard',
         'notifications': request.user.notifications.filter(is_read=False)[:6],
     })
@@ -1414,7 +1751,7 @@ def api_check_similarity(request):
     return JsonResponse({'error': 'POST required'}, status=400)
 
 # ==============================================================================
-# FACULTY GUIDE WORKSPACE (SCOPED TO AUTHORIZED DEPARTMENT)
+# FACULTY GUIDE WORKSPACE — GUIDE REQUEST ACCEPTANCE & MENTORING
 # ==============================================================================
 @login_required
 def guide_dashboard(request):
@@ -1430,12 +1767,41 @@ def guide_dashboard(request):
     if request.method == 'POST':
         action = request.POST.get('action')
 
-        if action == 'claim_group':
+        # Accept a Team's Guide Request -> officially assigns the guide
+        if action == 'accept_guide_request':
             gid = request.POST.get('group_id')
             grp = get_object_or_404(ProjectGroup, id=gid, department=dept)
             grp.guide = request.user
+            grp.requested_guide = None
+            grp.guide_status = 'ACCEPTED'
             grp.save()
-            notify_users(grp.students.all(), f"Guide {request.user.get_full_name()} accepted mentorship of {grp.name}.")
+            notify_users(
+                grp.students.all(),
+                f"Faculty Guide {request.user.get_full_name() or request.user.username} accepted your guide request and is now assigned to '{grp.name}'!"
+            )
+            request.session['play_success_sound'] = True
+            messages.success(request, f"You have accepted the request and are now assigned as the Faculty Guide for '{grp.name}'.")
+
+        elif action == 'decline_guide_request':
+            gid = request.POST.get('group_id')
+            grp = get_object_or_404(ProjectGroup, id=gid, department=dept, requested_guide=request.user)
+            grp.requested_guide = None
+            grp.guide_status = 'DECLINED'
+            grp.save()
+            notify_users(
+                grp.students.all(),
+                f"Faculty Guide {request.user.get_full_name() or request.user.username} was unable to accept the guide request for '{grp.name}'. Please request another guide from {dept.name}."
+            )
+            messages.info(request, f"Declined guide request for '{grp.name}'.")
+
+        elif action == 'claim_group':
+            gid = request.POST.get('group_id')
+            grp = get_object_or_404(ProjectGroup, id=gid, department=dept)
+            grp.guide = request.user
+            grp.requested_guide = None
+            grp.guide_status = 'ACCEPTED'
+            grp.save()
+            notify_users(grp.students.all(), f"Guide {request.user.get_full_name() or request.user.username} accepted mentorship of {grp.name}.")
             request.session['play_success_sound'] = True
             messages.success(request, f"You are now guiding '{grp.name}'.")
 
@@ -1448,7 +1814,7 @@ def guide_dashboard(request):
             prop.guide_remarks = remarks
             prop.save()
             verb = "approved" if decision == 'APPROVED' else "requested changes on"
-            notify_users(prop.group.students.all(), f"Guide {request.user.get_full_name()} {verb} your proposal '{prop.title}'.")
+            notify_users(prop.group.students.all(), f"Guide {request.user.get_full_name() or request.user.username} {verb} your proposal '{prop.title}'.")
             request.session['play_success_sound'] = True
             messages.success(request, f"Saved review for {prop.group.name}.")
 
@@ -1459,14 +1825,22 @@ def guide_dashboard(request):
             log_item.is_verified = True
             log_item.guide_feedback = feedback or "Verified & signed off by Project Guide."
             log_item.save()
-            notify_users(log_item.group.students.all(), f"Week {log_item.week_number} log verified by {request.user.get_full_name()}.")
+            notify_users(log_item.group.students.all(), f"Week {log_item.week_number} log verified by {request.user.get_full_name() or request.user.username}.")
             request.session['play_success_sound'] = True
             messages.success(request, f"Verified Week {log_item.week_number} for {log_item.group.name}.")
 
         return redirect('guide_dashboard')
 
     my_groups = ProjectGroup.objects.filter(guide=request.user, department=dept).prefetch_related('students__profile', 'logs')
-    unassigned_groups = ProjectGroup.objects.filter(department=dept, guide__isnull=True).prefetch_related('students__profile')
+    pending_requests = ProjectGroup.objects.filter(
+        department=dept,
+        requested_guide=request.user,
+        guide__isnull=True
+    ).prefetch_related('students__profile')
+    unassigned_groups = ProjectGroup.objects.filter(
+        department=dept,
+        guide__isnull=True
+    ).exclude(requested_guide=request.user).prefetch_related('students__profile')
     registered_mentees = UserProfile.objects.filter(preferred_guide=request.user, department=dept, user__is_superuser=False).select_related('user')
 
     pending_proposals = ProjectProposal.objects.filter(group__guide=request.user, group__department=dept, status='PENDING').count()
@@ -1474,6 +1848,7 @@ def guide_dashboard(request):
 
     return render(request, 'guide_dashboard.html', {
         'my_groups': my_groups,
+        'pending_requests': pending_requests,
         'unassigned_groups': unassigned_groups,
         'registered_mentees': registered_mentees,
         'pending_proposals': pending_proposals,
@@ -1483,7 +1858,7 @@ def guide_dashboard(request):
     })
 
 # ==============================================================================
-# EXAMINER & HOD ANALYTICS PORTAL (SCOPED TO AUTHORIZED DEPARTMENT)
+# EXAMINER & HOD ANALYTICS PORTAL
 # ==============================================================================
 @login_required
 def examiner_dashboard(request):
@@ -1571,7 +1946,7 @@ def examiner_dashboard(request):
     })
 
 # ==============================================================================
-# INSTITUTION ADMIN COMMAND CENTER (SCOPED TO AUTHORIZED COLLEGE & UNIVERSITY)
+# INSTITUTION ADMIN COMMAND CENTER — GUIDE ASSIGNMENT & GOVERNANCE
 # ==============================================================================
 @login_required
 def admin_dashboard(request):
@@ -1640,29 +2015,73 @@ def admin_dashboard(request):
             request.session['play_success_sound'] = True
             messages.success(request, f"{target_prof.user.get_full_name() or target_prof.user.username}: {state_str}.")
 
+        elif action == 'assign_guide':
+            gid = request.POST.get('group_id', '').strip()
+            guide_id = request.POST.get('guide_id', '').strip()
+            grp = get_object_or_404(ProjectGroup, id=gid)
+            if admin_col and grp.department.college_id != admin_col.id:
+                messages.error(request, "Unauthorized: You can only manage groups within your authorized College.")
+                return redirect('admin_dashboard')
+
+            if not guide_id.isdigit():
+                grp.guide = None
+                grp.requested_guide = None
+                grp.guide_status = 'NONE'
+                grp.save()
+                messages.info(request, f"Cleared guide assignment for '{grp.name}'.")
+                return redirect('admin_dashboard')
+
+            guide_user = get_object_or_404(
+                User,
+                id=int(guide_id),
+                is_superuser=False,
+                profile__role='GUIDE',
+                profile__department=grp.department
+            )
+            grp.guide = guide_user
+            grp.requested_guide = None
+            grp.guide_status = 'ACCEPTED'
+            grp.save()
+            notify_users(
+                grp.students.all(),
+                f"Admin assigned Faculty Guide {guide_user.get_full_name() or guide_user.username} to your project team '{grp.name}'."
+            )
+            notify_users(
+                [guide_user],
+                f"Admin assigned you as Faculty Guide for project team '{grp.name}' ({grp.department.name})."
+            )
+            request.session['play_success_sound'] = True
+            messages.success(request, f"Assigned {guide_user.get_full_name() or guide_user.username} to team '{grp.name}'.")
+
         return redirect('admin_dashboard')
 
     dept_filter = request.GET.get('dept_id', '').strip()
     search_q = request.GET.get('q', '').strip().lower()
 
-    # Enforce College / University boundary
     all_universities = University.objects.filter(id=admin_uni.id) if admin_uni else University.objects.all()
     all_colleges = College.objects.filter(id=admin_col.id).select_related('university') if admin_col else College.objects.select_related('university').all()
     all_departments = Department.objects.filter(college=admin_col).select_related('college__university') if admin_col else Department.objects.select_related('college__university').all()
 
     guides_qs = UserProfile.objects.filter(role='GUIDE', user__is_superuser=False).select_related('user', 'department', 'college', 'university')
     students_qs = UserProfile.objects.filter(role='STUDENT', user__is_superuser=False).select_related('user', 'department', 'college', 'preferred_guide')
+    groups_qs = ProjectGroup.objects.select_related('department__college', 'guide', 'requested_guide', 'creator').prefetch_related('students__profile')
 
     if admin_col:
         guides_qs = guides_qs.filter(college=admin_col)
         students_qs = students_qs.filter(college=admin_col)
+        groups_qs = groups_qs.filter(department__college=admin_col)
     elif admin_uni:
         guides_qs = guides_qs.filter(university=admin_uni)
         students_qs = students_qs.filter(university=admin_uni)
+        groups_qs = groups_qs.filter(department__college__university=admin_uni)
+
+    # Keep a full department-scoped guide list for the group assignment dropdowns
+    college_guides_all = list(guides_qs)
 
     if dept_filter.isdigit():
         guides_qs = guides_qs.filter(department_id=int(dept_filter))
         students_qs = students_qs.filter(department_id=int(dept_filter))
+        groups_qs = groups_qs.filter(department_id=int(dept_filter))
 
     if search_q:
         guides_qs = [g for g in guides_qs if search_q in (g.user.get_full_name() or g.user.username).lower() or search_q in g.identifier.lower()]
@@ -1679,7 +2098,9 @@ def admin_dashboard(request):
         'all_colleges': all_colleges,
         'all_departments': all_departments,
         'guides_qs': guides_qs,
+        'college_guides_all': college_guides_all,
         'students_qs': students_qs,
+        'groups_qs': groups_qs,
         'dept_filter': dept_filter,
         'search_q': search_q,
         'examiners_count': examiners_count,
@@ -1706,10 +2127,10 @@ def export_department_csv(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="ProTrack_{dept_label}_Master_Report.csv"'
     writer = csv.writer(response)
-    writer.writerow(['Group Name', 'Join Code', 'Department', 'Students', 'Project Guide', 'Proposal Title', 'Status', 'AI Similarity (%)', 'Verified Logs', 'Viva Score (/100)', 'Grade'])
+    writer.writerow(['Group Name', 'Join Code', 'Department', 'Students', 'Project Guide', 'Proposal Title', 'Technology Stack', 'Status', 'AI Similarity (%)', 'Verified Logs', 'Viva Score (/100)', 'Grade'])
 
     for g in groups:
-        students_str = ", ".join([s.get_full_name() or s.username for s in g.students.filter(is_superuser=False)])
+        students_str = ", ".join([f"{s.get_full_name() or s.username} ({s.profile.identifier})" for s in g.students.filter(is_superuser=False)])
         guide_str = g.guide.get_full_name() if g.guide else "Unassigned"
         prop = getattr(g, 'proposal', None)
         viva = getattr(g, 'viva', None)
@@ -1721,6 +2142,7 @@ def export_department_csv(request):
             students_str,
             guide_str,
             prop.title if prop else "Not Submitted",
+            prop.tech_stack if prop else "—",
             prop.get_status_display() if prop else "No Proposal",
             f"{prop.similarity_score}%" if prop else "0%",
             verified_logs,
@@ -1734,6 +2156,7 @@ def export_department_csv(request):
 # 6. URL ROUTING & ADMIN REGISTRATION (portal/urls.py & portal/admin.py)
 # ==============================================================================
 PORTAL_URLS_PY = """
+# Force Launch - ProTrack v1.07 Enterprise Edition
 from django.urls import path
 from . import views
 
@@ -1763,10 +2186,11 @@ urlpatterns = [
 """
 
 ADMIN_PY = """
+# Force Launch - ProTrack v1.07 Enterprise Edition
 from django.contrib import admin
 from .models import (
     University, College, Department, UserProfile,
-    ProjectGroup, ProjectProposal, WeeklyLog,
+    ProjectGroup, ProjectProposal, StudentProjectHistory, WeeklyLog,
     VivaEvaluation, PastProjectArchive, Notification
 )
 
@@ -1776,6 +2200,7 @@ admin.site.register(Department)
 admin.site.register(UserProfile)
 admin.site.register(ProjectGroup)
 admin.site.register(ProjectProposal)
+admin.site.register(StudentProjectHistory)
 admin.site.register(WeeklyLog)
 admin.site.register(VivaEvaluation)
 admin.site.register(PastProjectArchive)
@@ -1783,10 +2208,11 @@ admin.site.register(Notification)
 """
 
 # ==============================================================================
-# 7. BASE TEMPLATE — ACTIVE TABS, AUTO-SAVE ENGINE, REQUIRED LEGEND, AUDIO CHIME
+# 7. BASE TEMPLATE — SHARE PROFILE HELPER, AUDIO ENGINE & AUTO-SAVE
 # ==============================================================================
 BASE_HTML = """
 <!DOCTYPE html>
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -1950,7 +2376,6 @@ BASE_HTML = """
             box-shadow: 0 0 0 4px rgba(94, 53, 177, 0.16);
         }
 
-        /* Active-State Dashboard Navigation Tabs */
         .nav-tab-m3 {
             border-radius: var(--radius-pill);
             min-height: 46px;
@@ -2065,6 +2490,27 @@ BASE_HTML = """
             background-color: #25D366;
             color: #FFFFFF;
             border-color: #25D366;
+        }
+
+        .btn-email-pill {
+            background-color: #EEF4FF;
+            color: #0B57D0;
+            border: 1px solid #C2D7FF;
+            border-radius: var(--radius-pill);
+            padding: 7px 16px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-email-pill:hover {
+            background-color: #0B57D0;
+            color: #FFFFFF;
+            border-color: #0B57D0;
         }
 
         .m3-chip {
@@ -2199,6 +2645,10 @@ BASE_HTML = """
                     <i data-lucide="settings"></i> <span class="d-none d-md-inline">Profile & Directory</span>
                 </a>
 
+                <button type="button" class="btn-m3-outline py-2 px-3" style="min-height:46px;" onclick="sharePublicProfile('{% url 'public_profile' user.username %}', '{{ user.get_full_name|default:user.username|escapejs }}')" title="Share My Public Profile Link">
+                    <i data-lucide="share-2"></i> <span class="d-none d-xl-inline">Share Profile</span>
+                </button>
+
                 <!-- Notifications Bell -->
                 <div class="dropdown">
                     <button class="btn-m3-outline position-relative py-2 px-3" style="min-height:46px;" data-bs-toggle="dropdown" aria-expanded="false">
@@ -2281,16 +2731,16 @@ BASE_HTML = """
         </div>
     </main>
 
-    {% if messages %}
     <div class="toast-stack" id="toastStack">
+        {% if messages %}
         {% for message in messages %}
         <div class="m3-snackbar" data-tags="{{ message.tags }}">
             <i data-lucide="sparkles" class="text-warning flex-shrink-0"></i>
             <div class="flex-grow-1">{{ message }}</div>
         </div>
         {% endfor %}
+        {% endif %}
     </div>
-    {% endif %}
 
     <footer class="py-4 border-top bg-white mt-auto">
         <div class="container-google d-flex flex-wrap justify-content-between align-items-center text-muted">
@@ -2303,27 +2753,105 @@ BASE_HTML = """
     <script>
         lucide.createIcons();
 
-        // Celebratory Audio Chime using the uploaded Success.mp3 file
+        // Share Public Profile Link Utility
+        function showFloatingToast(msgText) {
+            let stack = document.getElementById('toastStack');
+            if (!stack) return;
+            stack.style.display = 'flex';
+            const item = document.createElement('div');
+            item.className = 'm3-snackbar';
+            item.innerHTML = `<i data-lucide="check-circle-2" class="text-info flex-shrink-0"></i><div class="flex-grow-1">${msgText}</div>`;
+            stack.appendChild(item);
+            lucide.createIcons();
+            setTimeout(() => { item.remove(); }, 4500);
+        }
+
+        function sharePublicProfile(relativePath, userName) {
+            const fullUrl = window.location.origin + relativePath;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(fullUrl).then(() => {
+                    showFloatingToast(`Copied ${userName}'s public profile link: ${fullUrl}`);
+                }).catch(() => {
+                    prompt("Copy Public Profile Link:", fullUrl);
+                });
+            } else {
+                const temp = document.createElement('input');
+                temp.value = fullUrl;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                temp.remove();
+                showFloatingToast(`Copied ${userName}'s public profile link: ${fullUrl}`);
+            }
+        }
+
+        // 1. Celebratory Audio on Successful Actions (/media/Success.mp3)
         function playSuccessChime() {
-           try {
-               const audio = new Audio('/media/Success.mp3');
-               audio.play().catch(e => console.log("Audio blocked by browser auto-play policy."));
+            try {
+                const audio = new Audio('/media/Success.mp3');
+                audio.play().catch(e => console.log("Audio blocked by browser auto-play policy."));
+            } catch (e) {}
+        }
+
+        // 2. "Wait a Minute Who Are You.mp3" ONLY when user forgets/skips Name or Username
+        let whoAreYouCooldown = false;
+        function playWhoAreYouAudio() {
+            if (whoAreYouCooldown) return;
+            whoAreYouCooldown = true;
+            setTimeout(() => { whoAreYouCooldown = false; }, 3800);
+            try {
+                const audio = new Audio(encodeURI('/media/Wait a Minute Who Are You.mp3'));
+                audio.play().catch(e => console.log("Audio blocked by browser auto-play policy."));
             } catch (e) {}
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // 1. Trigger Success Sound if a success message is present
             const successToast = document.querySelector('.m3-snackbar[data-tags*="success"]');
             if (successToast) {
                 playSuccessChime();
             }
 
+            // Trigger Wait a Minute Who Are You.mp3 if user skips Full Name or Username:
+            document.addEventListener('invalid', (e) => {
+                const fieldName = (e.target && e.target.name) ? e.target.name.toLowerCase() : '';
+                if ((fieldName === 'full_name' || fieldName === 'username') && !e.target.value.trim()) {
+                    playWhoAreYouAudio();
+                }
+            }, true);
+
+            document.querySelectorAll('input[name="full_name"], input[name="username"]').forEach(input => {
+                input.addEventListener('blur', () => {
+                    if (!input.value.trim()) {
+                        playWhoAreYouAudio();
+                    }
+                });
+            });
+
+            document.querySelectorAll('form').forEach(form => {
+                const nameInput = form.querySelector('input[name="full_name"]');
+                const userInput = form.querySelector('input[name="username"]');
+                if (!nameInput && !userInput) return;
+
+                form.querySelectorAll('input, select, textarea').forEach(el => {
+                    if (el.name === 'full_name' || el.name === 'username' || el.type === 'hidden' || el.type === 'radio') return;
+                    el.addEventListener('focus', () => {
+                        const missingName = nameInput && !nameInput.value.trim();
+                        const missingUser = userInput && !userInput.value.trim();
+                        if (missingName || missingUser) {
+                            playWhoAreYouAudio();
+                        }
+                    });
+                });
+            });
+
             setTimeout(() => {
                 const stack = document.getElementById('toastStack');
-                if (stack) stack.style.display = 'none';
+                if (stack && stack.children.length > 0) {
+                    Array.from(stack.children).forEach(c => c.remove());
+                }
             }, 5500);
 
-            // 2. Automatically append red asterisk (*) to required fields & inject legend
+            // 3. Automatically append red asterisk (*) to required fields & inject legend
             document.querySelectorAll('form').forEach(form => {
                 const reqInputs = form.querySelectorAll('input[required], select[required], textarea[required]');
                 if (reqInputs.length > 0 && !form.querySelector('.req-legend') && !form.classList.contains('no-legend')) {
@@ -2347,7 +2875,7 @@ BASE_HTML = """
                 });
             });
 
-            // 3. Automatic Form Saving & Persistence Engine (Local + Account Sync)
+            // 4. Automatic Form Saving & Persistence Engine
             const statusPill = document.getElementById('globalAutosaveStatus');
             const statusText = document.getElementById('autosaveText');
             const isAuthRegular = {{ user.is_authenticated|yesno:"true,false" }} && !{{ user.is_superuser|yesno:"true,false" }};
@@ -2392,7 +2920,6 @@ BASE_HTML = """
                 const formKey = form.getAttribute('data-autosave');
                 const storageKey = userKeyPrefix + formKey;
 
-                // Restore from localStorage if field is currently empty
                 try {
                     const savedRaw = localStorage.getItem(storageKey);
                     if (savedRaw) {
@@ -2441,6 +2968,7 @@ BASE_HTML = """
 # ==============================================================================
 LOGIN_HTML = """
 {% extends 'base.html' %}
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 {% block content %}
 <div class="row justify-content-center align-items-center g-5 py-4">
     <div class="col-xl-6 col-lg-6">
@@ -2523,6 +3051,7 @@ LOGIN_HTML = """
 
 SIGNUP_HTML = """
 {% extends 'base.html' %}
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 {% block content %}
 <style>
     .role-tab-btn {
@@ -2563,7 +3092,7 @@ SIGNUP_HTML = """
                     <div class="brand-icon-box"><i data-lucide="user-plus"></i></div>
                     <div>
                         <h2 class="mb-0 fw-bold">Create Your ProTrack Account</h2>
-                        <div class="text-muted">Role-tailored onboarding with live duplicate checks & draft auto-saving</div>
+                        <div class="text-muted">Role-tailored onboarding with strict Roll Number / ID validation & draft auto-saving</div>
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
@@ -2590,7 +3119,7 @@ SIGNUP_HTML = """
                                 <i data-lucide="graduation-cap" style="color:var(--m3-primary);"></i>
                             </div>
                             <h5 class="fw-bold mb-1">Student</h5>
-                            <div class="small text-muted">Select your Admin-registered University, College, Department & Project Guide.</div>
+                            <div class="small text-muted">Roll Number format: 1 letter + 2 digits (e.g. A12). Select your Department & Faculty Guide.</div>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -2600,7 +3129,7 @@ SIGNUP_HTML = """
                                 <i data-lucide="book-open-check" style="color:var(--m3-primary);"></i>
                             </div>
                             <h5 class="fw-bold mb-1">Faculty Guide</h5>
-                            <div class="small text-muted">Join your Department to mentor students. Can be promoted to Examiner by Admin.</div>
+                            <div class="small text-muted">Faculty ID format: 2 letters + 2 digits (e.g. AB12). Mentor teams in your Department.</div>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -2610,7 +3139,7 @@ SIGNUP_HTML = """
                                 <i data-lucide="shield-check" style="color:var(--m3-primary);"></i>
                             </div>
                             <h5 class="fw-bold mb-1">Institution Admin</h5>
-                            <div class="small text-muted">Register Universities, Colleges & Departments. Requires Front & Back ID Proof.</div>
+                            <div class="small text-muted">Admin ID format: 4 letters + 2 digits (e.g. ABCD12). Requires Front & Back ID Proof.</div>
                         </div>
                     </div>
                 </div>
@@ -2630,8 +3159,9 @@ SIGNUP_HTML = """
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label" id="idFieldLabel" for="idFieldInput">Roll Call Number <span class="req-star">*</span></label>
-                        <input type="text" name="identifier" id="idFieldInput" class="form-control" placeholder="e.g. CS-2026-01" oninput="scheduleUsernameCheck()" required>
+                        <label class="form-label" id="idFieldLabel" for="idFieldInput">Student Roll Number (3 chars, e.g. A12) <span class="req-star">*</span></label>
+                        <input type="text" name="identifier" id="idFieldInput" class="form-control" placeholder="e.g. A12" minlength="3" maxlength="3" pattern="[A-Za-z][0-9]{2}" title="1 letter followed by 2 digits (e.g. A12). No hyphens or dashes." oninput="validateIdFormatLive(); scheduleUsernameCheck();" required>
+                        <div id="idFormatHint" class="small text-muted mt-1">Format: 1 letter + 2 digits (e.g., A12). No hyphens/dashes.</div>
                     </div>
 
                     <div class="col-md-4" id="studentClassWrap">
@@ -2641,7 +3171,7 @@ SIGNUP_HTML = """
 
                     <div class="col-md-4">
                         <label class="form-label" for="waInput">WhatsApp Number (Optional)</label>
-                        <input type="text" name="whatsapp_number" id="waInput" class="form-control" placeholder="e.g. +1 555 234 5678">
+                        <input type="text" name="whatsapp_number" id="waInput" class="form-control" placeholder="e.g. +91 98765 43210">
                     </div>
 
                     <div class="col-md-6">
@@ -2717,11 +3247,11 @@ SIGNUP_HTML = """
                         </div>
 
                         <div class="col-md-12" id="studentGuideWrap">
-                            <label class="form-label" for="guideSelect">Select Project Guide (Optional — Filtered by Department)</label>
+                            <label class="form-label" for="guideSelect">Select Preferred Faculty Guide (Strictly Filtered by Your Department)</label>
                             <select name="preferred_guide_id" id="guideSelect" class="form-select">
-                                <option value="">-- Select Your Faculty Project Guide (or assign later) --</option>
+                                <option value="">-- Select Faculty Guide in Your Department (or request later) --</option>
                                 {% for g in guides_list %}
-                                <option value="{{ g.user.id }}" data-dept="{{ g.department_id }}">
+                                <option value="{{ g.user.id }}" data-dept="{{ g.department_id }}" hidden>
                                     {{ g.user.get_full_name|default:g.user.username }} (ID: {{ g.identifier }} &bull; {{ g.department.name }})
                                 </option>
                                 {% endfor %}
@@ -2767,6 +3297,7 @@ function selectRole(role) {
 
     const idLabel = document.getElementById('idFieldLabel');
     const idInput = document.getElementById('idFieldInput');
+    const idHint = document.getElementById('idFormatHint');
     const studentClassWrap = document.getElementById('studentClassWrap');
     const classDivInput = document.getElementById('classDivInput');
     const studentGuideWrap = document.getElementById('studentGuideWrap');
@@ -2778,8 +3309,13 @@ function selectRole(role) {
     const adminNewDeptWrap = document.getElementById('adminNewDeptWrap');
 
     if (role === 'STUDENT') {
-        idLabel.innerHTML = 'Roll Call Number <span class="req-star">*</span>';
-        idInput.placeholder = 'e.g. CS-2026-01';
+        idLabel.innerHTML = 'Student Roll Number (3 chars, e.g. A12) <span class="req-star">*</span>';
+        idInput.placeholder = 'e.g. A12';
+        idInput.minLength = 3;
+        idInput.maxLength = 3;
+        idInput.pattern = '[A-Za-z][0-9]{2}';
+        idInput.title = '1 alphabetic character followed by 2 digits (e.g., A12). No hyphens or dashes.';
+        idHint.innerText = 'Format: 1 letter + 2 digits (e.g., A12). No hyphens/dashes.';
         studentClassWrap.classList.remove('d-none');
         classDivInput.required = true;
         studentGuideWrap.classList.remove('d-none');
@@ -2790,8 +3326,13 @@ function selectRole(role) {
         adminNewColWrap.classList.add('d-none');
         adminNewDeptWrap.classList.add('d-none');
     } else if (role === 'GUIDE') {
-        idLabel.innerHTML = 'Faculty / Department ID <span class="req-star">*</span>';
-        idInput.placeholder = 'e.g. FAC-101';
+        idLabel.innerHTML = 'Faculty ID (4 chars, e.g. AB12) <span class="req-star">*</span>';
+        idInput.placeholder = 'e.g. AB12';
+        idInput.minLength = 4;
+        idInput.maxLength = 4;
+        idInput.pattern = '[A-Za-z]{2}[0-9]{2}';
+        idInput.title = '2 alphabetic characters followed by 2 digits (e.g., AB12). No hyphens or dashes.';
+        idHint.innerText = 'Format: 2 letters + 2 digits (e.g., AB12). No hyphens/dashes.';
         studentClassWrap.classList.add('d-none');
         classDivInput.required = false;
         studentGuideWrap.classList.add('d-none');
@@ -2802,8 +3343,13 @@ function selectRole(role) {
         adminNewColWrap.classList.add('d-none');
         adminNewDeptWrap.classList.add('d-none');
     } else if (role === 'ADMIN') {
-        idLabel.innerHTML = 'Official Admin ID <span class="req-star">*</span>';
-        idInput.placeholder = 'e.g. ADM-001';
+        idLabel.innerHTML = 'Admin ID (6 chars, e.g. ABCD12) <span class="req-star">*</span>';
+        idInput.placeholder = 'e.g. ABCD12';
+        idInput.minLength = 6;
+        idInput.maxLength = 6;
+        idInput.pattern = '[A-Za-z]{4}[0-9]{2}';
+        idInput.title = '4 alphabetic characters followed by 2 digits (e.g., ABCD12). No hyphens or dashes.';
+        idHint.innerText = 'Format: 4 letters + 2 digits (e.g., ABCD12). No hyphens/dashes.';
         studentClassWrap.classList.add('d-none');
         classDivInput.required = false;
         studentGuideWrap.classList.add('d-none');
@@ -2814,8 +3360,38 @@ function selectRole(role) {
         adminNewColWrap.classList.remove('d-none');
         adminNewDeptWrap.classList.remove('d-none');
     }
+    validateIdFormatLive();
     syncAdminRequired();
     scheduleUsernameCheck();
+}
+
+function validateIdFormatLive() {
+    const role = document.getElementById('selectedRole').value;
+    const idInput = document.getElementById('idFieldInput');
+    const hint = document.getElementById('idFormatHint');
+    const val = idInput.value;
+    if (!val) {
+        idInput.classList.remove('border-danger');
+        return;
+    }
+    let regex = /^[A-Za-z][0-9]{2}$/;
+    let expected = '1 letter + 2 digits (e.g., A12)';
+    if (role === 'GUIDE') {
+        regex = /^[A-Za-z]{2}[0-9]{2}$/;
+        expected = '2 letters + 2 digits (e.g., AB12)';
+    } else if (role === 'ADMIN') {
+        regex = /^[A-Za-z]{4}[0-9]{2}$/;
+        expected = '4 letters + 2 digits (e.g., ABCD12)';
+    }
+    if (!regex.test(val)) {
+        idInput.classList.add('border-danger');
+        hint.className = 'small text-danger fw-bold mt-1';
+        hint.innerText = `Must be ${expected} with no hyphens or spaces.`;
+    } else {
+        idInput.classList.remove('border-danger');
+        hint.className = 'small text-success fw-bold mt-1';
+        hint.innerText = `Valid format: ${val}`;
+    }
 }
 
 function syncAdminRequired() {
@@ -2886,7 +3462,7 @@ function filterColleges() {
     const colSelect = document.getElementById('colSelect');
     Array.from(colSelect.options).forEach(opt => {
         if (!opt.value) return;
-        opt.hidden = uniId && opt.getAttribute('data-uni') !== uniId;
+        opt.hidden = !uniId || opt.getAttribute('data-uni') !== uniId;
     });
     colSelect.value = '';
     filterDepartments();
@@ -2897,7 +3473,7 @@ function filterDepartments() {
     const deptSelect = document.getElementById('deptSelect');
     Array.from(deptSelect.options).forEach(opt => {
         if (!opt.value) return;
-        opt.hidden = colId && opt.getAttribute('data-col') !== colId;
+        opt.hidden = !colId || opt.getAttribute('data-col') !== colId;
     });
     deptSelect.value = '';
     filterGuides();
@@ -2909,7 +3485,7 @@ function filterGuides() {
     if (!guideSelect) return;
     Array.from(guideSelect.options).forEach(opt => {
         if (!opt.value) return;
-        opt.hidden = deptId && opt.getAttribute('data-dept') !== deptId;
+        opt.hidden = !deptId || opt.getAttribute('data-dept') !== deptId;
     });
     guideSelect.value = '';
 }
@@ -2922,100 +3498,114 @@ document.addEventListener('DOMContentLoaded', () => {
 """
 
 # ==============================================================================
-# 9. STUDENT DASHBOARD TEMPLATE (INTERACTIVE CLASSMATE SEARCH & 5-CHAR JOIN CODE)
+# 9. STUDENT DASHBOARD TEMPLATE (TEAM MEMBERSHIP, GUIDE REQUESTS & PROJECT HISTORY)
 # ==============================================================================
 STUDENT_DASHBOARD_HTML = """
 {% extends 'base.html' %}
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 {% block content %}
 
 {% if not group %}
 <div class="m3-card mb-4">
-    <div class="d-flex align-items-center gap-3 mb-4">
-        <div class="brand-icon-box"><i data-lucide="users"></i></div>
-        <div>
-            <h2 class="mb-0 fw-bold">Initialize Your Project Group</h2>
-            <div class="text-muted">{{ user.profile.university.name }} &bull; {{ user.profile.college.name }} &bull; <strong>{{ user.profile.department.name }}</strong></div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div class="d-flex align-items-center gap-3">
+            <div class="brand-icon-box"><i data-lucide="users"></i></div>
+            <div>
+                <h2 class="mb-0 fw-bold">Initialize Your Project Team</h2>
+                <div class="text-muted">{{ user.profile.university.name }} &bull; {{ user.profile.college.name }} &bull; <strong>{{ user.profile.department.name }}</strong> &bull; Roll: <strong>{{ user.profile.identifier }}</strong></div>
+            </div>
         </div>
+        <button type="button" class="btn-m3-outline" onclick="sharePublicProfile('{% url 'public_profile' user.username %}', '{{ user.get_full_name|default:user.username|escapejs }}')">
+            <i data-lucide="share-2"></i> Share My Public Profile
+        </button>
     </div>
 
     <div class="row g-4">
-        <!-- Option 1: Create Group with Interactive Classmate Search -->
+        <!-- Option 1: Create Team with Creator Shown (Disabled) & Duplicate Prevention -->
         <div class="col-lg-7">
             <div class="m3-card-tonal h-100">
                 <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                    <i data-lucide="plus-circle" style="color:var(--m3-primary);"></i> Option 1: Create New Project Group
+                    <i data-lucide="plus-circle" style="color:var(--m3-primary);"></i> Option 1: Create New Project Team
                 </h4>
                 <form method="POST" data-autosave="student_create_group">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="create_group">
                     <div class="mb-4">
-                        <label class="form-label" for="grpNameInput">Project Group Name</label>
-                        <input type="text" name="group_name" id="grpNameInput" class="form-control" placeholder="e.g. Group-01: Cloud Pioneers" required>
+                        <label class="form-label" for="grpNameInput">Project Team Name</label>
+                        <input type="text" name="group_name" id="grpNameInput" class="form-control" placeholder="e.g. Team-01: Cloud Pioneers" required>
                     </div>
                     <div class="mb-4">
-                        <label class="form-label" for="grpGuideSelect">Assigned Project Guide ({{ user.profile.department.name }})</label>
+                        <label class="form-label" for="grpGuideSelect">Request Faculty Guide ({{ user.profile.department.name }} Only)</label>
                         <select name="guide_id" id="grpGuideSelect" class="form-select">
-                            <option value="">-- Select Faculty Guide --</option>
+                            <option value="">-- Request a Faculty Guide in {{ user.profile.department.name }} (or request later) --</option>
                             {% for g in dept_guides %}
                             <option value="{{ g.id }}" {% if user.profile.preferred_guide_id == g.id %}selected{% endif %}>
-                                {{ g.get_full_name|default:g.username }} (ID: {{ g.profile.identifier }})
+                                {{ g.get_full_name|default:g.username }} (ID: {{ g.profile.identifier }} &bull; {{ user.profile.department.name }})
                             </option>
                             {% endfor %}
                         </select>
+                        <div class="small text-muted mt-1">
+                            Your selected Faculty Guide will receive a notification and will be officially assigned once they accept your request.
+                        </div>
                     </div>
 
-                    <!-- Interactive Classmate Search & Selection -->
+                    <!-- Interactive Classmate Dropdown/Search (Shows Creator as Disabled, Prevents Duplicates) -->
                     <div class="mb-4">
                         <label class="form-label" for="classmateSearchInput">
                             Add Classmates from {{ user.profile.department.name }} (Optional)
                         </label>
                         <div class="position-relative">
-                            <input type="text" id="classmateSearchInput" class="form-control" placeholder="Type a classmate's first name or Roll Call to search {{ user.profile.department.name }}..." autocomplete="off" oninput="searchClassmatesLive(this.value)">
-                            <div id="classmateDropdown" class="list-group shadow-lg mt-1 d-none" style="position:absolute; width:100%; z-index:1050; border-radius:18px; max-height:260px; overflow-y:auto;"></div>
+                            <input type="text" id="classmateSearchInput" class="form-control" placeholder="Click or type a classmate's name or Roll Number in {{ user.profile.department.name }}..." autocomplete="off" onfocus="searchClassmatesLive(this.value)" oninput="searchClassmatesLive(this.value)">
+                            <div id="classmateDropdown" class="list-group shadow-lg mt-1 d-none" style="position:absolute; width:100%; z-index:1050; border-radius:18px; max-height:280px; overflow-y:auto;"></div>
                         </div>
 
-                        <div id="selectedTeammatesBox" class="d-flex flex-wrap gap-2 mt-3"></div>
+                        <div id="selectedTeammatesBox" class="d-flex flex-wrap gap-2 mt-3">
+                            <span class="m3-chip chip-tonal py-2 px-3">
+                                <i data-lucide="crown" style="width:15px;height:15px;"></i>
+                                {{ user.get_full_name|default:user.username }} (Roll: {{ user.profile.identifier }}) &mdash; Team Creator
+                            </span>
+                        </div>
                         <div id="selectedTeammatesInputs"></div>
 
                         <div class="small text-muted mt-2 d-flex align-items-center gap-2">
                             <i data-lucide="info" style="width:16px;height:16px;flex-shrink:0;"></i>
-                            <span>Can't find your teammate yet? You can continue without selecting them—unregistered classmates can join anytime using your group's unique <strong>5-character Join Code</strong> generated right after creation.</span>
+                            <span>You are listed as the Team Creator and are automatically included. Unregistered classmates can join later using your team's unique <strong>5-character Join Code</strong>.</span>
                         </div>
                     </div>
 
                     <button type="submit" class="btn-m3-primary w-100">
-                        <i data-lucide="rocket"></i> Create Group & Generate 5-Character Join Code
+                        <i data-lucide="rocket"></i> Create Team & Send Guide Request
                     </button>
                 </form>
             </div>
         </div>
 
-        <!-- Option 2: Join Existing Group by 5-Character Code -->
+        <!-- Option 2: Join Existing Team by 5-Character Code -->
         <div class="col-lg-5">
             <div class="m3-card-tonal h-100 d-flex flex-column justify-content-between">
                 <div>
                     <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                        <i data-lucide="key-round" style="color:var(--m3-primary);"></i> Option 2: Join Teammate's Group
+                        <i data-lucide="key-round" style="color:var(--m3-primary);"></i> Option 2: Join Teammate's Team
                     </h4>
                     <p class="text-muted mb-4">
-                        Have an existing <strong>5-character alphanumeric Group Join Code</strong> from a classmate in <strong>{{ user.profile.department.name }}</strong>? Enter it below:
+                        Have an existing <strong>5-character alphanumeric Team Join Code</strong> from a classmate in <strong>{{ user.profile.department.name }}</strong>? Enter it below:
                     </p>
                     <form method="POST" data-autosave="student_join_group">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="join_group">
                         <div class="mb-4">
-                            <label class="form-label" for="joinCodeInput">5-Character Group Join Code</label>
+                            <label class="form-label" for="joinCodeInput">5-Character Team Join Code</label>
                             <input type="text" name="join_code" id="joinCodeInput" class="form-control text-uppercase fw-bold fs-4 text-center" style="letter-spacing: 0.2em;" maxlength="5" minlength="5" pattern="[A-Za-z0-9]{5}" placeholder="A8K2P" required>
                         </div>
                         <button type="submit" class="btn-m3-tonal w-100">
-                            <i data-lucide="user-check"></i> Validate Code & Join Group
+                            <i data-lucide="user-check"></i> Validate Code & Join Team
                         </button>
                     </form>
                 </div>
 
                 <div class="border-top pt-3 mt-4 small text-muted">
                     <i data-lucide="shield-check" style="width:15px;height:15px;"></i>
-                    Join codes are strictly validated on the backend and restricted to eligible students in <strong>{{ user.profile.department.name }}</strong>.
+                    Duplicate memberships are automatically prevented.
                 </div>
             </div>
         </div>
@@ -3024,37 +3614,73 @@ STUDENT_DASHBOARD_HTML = """
 
 <script>
 const selectedTeammates = new Map();
+const creatorUserId = {{ user.id }};
 
 function searchClassmatesLive(query) {
     const box = document.getElementById('classmateDropdown');
-    const q = query.trim();
-    if (!q) {
-        box.classList.add('d-none');
-        box.innerHTML = '';
-        return;
-    }
+    const q = (query || '').trim();
     fetch(`{% url 'api_search_classmates' %}?q=${encodeURIComponent(q)}`)
         .then(r => r.json())
         .then(data => {
-            const list = (data.results || []).filter(item => !selectedTeammates.has(item.user_id));
+            const list = data.results || [];
             box.classList.remove('d-none');
             if (list.length === 0) {
-                box.innerHTML = `<div class="list-group-item p-3 text-muted small">No matching unassigned student found in {{ user.profile.department.name }}. You can proceed and share your 5-character Group Join Code after creating the group!</div>`;
+                box.innerHTML = `<div class="list-group-item p-3 text-muted small">No matching unassigned student found in {{ user.profile.department.name }}.</div>`;
                 return;
             }
-            box.innerHTML = list.map(item => `
-                <button type="button" class="list-group-item list-group-item-action p-3 d-flex align-items-center justify-content-between" onclick="addTeammate(${item.user_id}, '${item.full_name.replace(/'/g, "\\'")}', '${item.identifier.replace(/'/g, "\\'")}')">
-                    <div>
-                        <div class="fw-bold text-dark">${item.full_name}</div>
-                        <div class="small text-muted">Roll Call: ${item.identifier} &bull; ${item.class_division}</div>
-                    </div>
-                    <span class="m3-chip chip-tonal py-1 px-3">+ Select</span>
-                </button>
-            `).join('');
+            box.innerHTML = list.map(item => {
+                if (item.is_self || item.user_id === creatorUserId) {
+                    return `
+                        <div class="list-group-item p-3 d-flex align-items-center justify-content-between bg-light text-muted" style="cursor:not-allowed;" onclick="showFloatingToast('You are the Team Creator and are already in this team.')">
+                            <div>
+                                <div class="fw-bold text-dark">${item.full_name} <span class="badge bg-secondary ms-1">You — Team Creator</span></div>
+                                <div class="small text-muted">Roll Number: ${item.identifier} &bull; ${item.class_division}</div>
+                            </div>
+                            <span class="m3-chip chip-neutral py-1 px-3">Creator (Cannot add self)</span>
+                        </div>
+                    `;
+                }
+                if (selectedTeammates.has(item.user_id)) {
+                    return `
+                        <div class="list-group-item p-3 d-flex align-items-center justify-content-between bg-light text-muted" style="cursor:not-allowed;">
+                            <div>
+                                <div class="fw-bold text-dark">${item.full_name}</div>
+                                <div class="small text-muted">Roll Number: ${item.identifier} &bull; ${item.class_division}</div>
+                            </div>
+                            <span class="m3-chip chip-success py-1 px-3">Already Selected</span>
+                        </div>
+                    `;
+                }
+                return `
+                    <button type="button" class="list-group-item list-group-item-action p-3 d-flex align-items-center justify-content-between" onclick="addTeammate(${item.user_id}, '${item.full_name.replace(/'/g, "\\'")}', '${item.identifier.replace(/'/g, "\\'")}')">
+                        <div>
+                            <div class="fw-bold text-dark">${item.full_name}</div>
+                            <div class="small text-muted">Roll Number: ${item.identifier} &bull; ${item.class_division}</div>
+                        </div>
+                        <span class="m3-chip chip-tonal py-1 px-3">+ Add Member</span>
+                    </button>
+                `;
+            }).join('');
         });
 }
 
+document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('classmateSearchInput');
+    const drop = document.getElementById('classmateDropdown');
+    if (wrap && drop && !wrap.contains(e.target) && !drop.contains(e.target)) {
+        drop.classList.add('d-none');
+    }
+});
+
 function addTeammate(uid, fullName, ident) {
+    if (uid === creatorUserId) {
+        showFloatingToast("You are the Team Creator and cannot add yourself.");
+        return;
+    }
+    if (selectedTeammates.has(uid)) {
+        showFloatingToast("This classmate is already added to your team list.");
+        return;
+    }
     selectedTeammates.set(uid, { fullName, ident });
     document.getElementById('classmateSearchInput').value = '';
     document.getElementById('classmateDropdown').classList.add('d-none');
@@ -3069,12 +3695,17 @@ function removeTeammate(uid) {
 function renderSelectedTeammates() {
     const chipBox = document.getElementById('selectedTeammatesBox');
     const inputBox = document.getElementById('selectedTeammatesInputs');
-    let chipsHtml = '';
+    let chipsHtml = `
+        <span class="m3-chip chip-tonal py-2 px-3">
+            <i data-lucide="crown" style="width:15px;height:15px;"></i>
+            {{ user.get_full_name|default:user.username|escapejs }} (Roll: {{ user.profile.identifier|escapejs }}) &mdash; Team Creator
+        </span>
+    `;
     let inputsHtml = '';
     selectedTeammates.forEach((info, uid) => {
         chipsHtml += `
             <span class="m3-chip chip-tonal py-2 px-3">
-                ${info.fullName} (${info.ident})
+                ${info.fullName} (Roll: ${info.ident})
                 <button type="button" class="btn-close ms-2" style="font-size:0.65rem;" onclick="removeTeammate(${uid})"></button>
             </span>
         `;
@@ -3082,6 +3713,7 @@ function renderSelectedTeammates() {
     });
     chipBox.innerHTML = chipsHtml;
     inputBox.innerHTML = inputsHtml;
+    lucide.createIcons();
 }
 </script>
 
@@ -3105,63 +3737,145 @@ function renderSelectedTeammates() {
                     {% endif %}
                 {% endif %}
             </div>
-            <h2 class="fw-bold mb-2">{{ proposal.title|default:"Project Proposal Not Submitted Yet" }}</h2>
+            <h2 class="fw-bold mb-3">{{ proposal.title|default:"Project Proposal Not Submitted Yet" }}</h2>
+
+            <!-- Team Roster with Creator Controls, Remove Member, Leave Team, and Fixed Email/WhatsApp Icons -->
+            <div class="mb-3">
+                <div class="text-muted fw-bold small mb-2">TEAM MEMBERS ({{ group.students.count }}):</div>
+                <div class="d-flex flex-column gap-2">
+                    {% for s in group.students.all %}
+                    <div class="p-3 border rounded-4 bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <div class="d-flex align-items-center gap-3">
+                            <a href="{% url 'public_profile' s.username %}" class="avatar-circle" style="width:42px;height:42px;font-size:0.95rem;">
+                                {% if s.profile.has_avatar %}
+                                <img src="{{ s.profile.avatar_url }}" alt="{{ s.get_full_name|default:s.username }}">
+                                {% else %}
+                                {{ s.profile.initials }}
+                                {% endif %}
+                            </a>
+                            <div>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <a href="{% url 'public_profile' s.username %}" class="text-dark text-decoration-none fw-bold">{{ s.get_full_name|default:s.username }}</a>
+                                    <span class="m3-chip chip-neutral py-0 px-2 small">Roll: {{ s.profile.identifier }}</span>
+                                    {% if group.creator_id == s.id %}
+                                    <span class="m3-chip chip-tonal py-0 px-2 small"><i data-lucide="crown" style="width:13px;height:13px;"></i> Team Creator</span>
+                                    {% endif %}
+                                </div>
+                                <div class="small text-muted">{{ s.email }}</div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            {% if s.email %}
+                            <a href="mailto:{{ s.email }}" class="btn-email-pill py-1 px-3" title="Send Email to {{ s.email }}">
+                                <i data-lucide="mail" style="width:15px;height:15px;"></i> Email
+                            </a>
+                            {% endif %}
+                            {% if s.profile.clean_whatsapp %}
+                            <a href="https://wa.me/{{ s.profile.clean_whatsapp }}?text=Hi%20{{ s.get_full_name|default:s.username|urlencode }},%20connecting%20from%20ProTrack" target="_blank" rel="noopener noreferrer" class="btn-whatsapp py-1 px-3" title="Open WhatsApp Chat with {{ s.profile.whatsapp_number }}">
+                                <i data-lucide="message-circle" style="width:15px;height:15px;"></i> WhatsApp
+                            </a>
+                            {% endif %}
+                            <button type="button" class="btn-m3-outline py-1 px-2" style="min-height:34px;" onclick="sharePublicProfile('{% url 'public_profile' s.username %}', '{{ s.get_full_name|default:s.username|escapejs }}')" title="Share Profile Link">
+                                <i data-lucide="share-2" style="width:15px;height:15px;"></i>
+                            </button>
+
+                            {% if group.creator_id == user.id and s.id != user.id %}
+                            <form method="POST" class="d-inline no-legend" onsubmit="return confirm('Are you sure you want to remove {{ s.get_full_name|default:s.username|escapejs }} (Roll: {{ s.profile.identifier|escapejs }}) from {{ group.name|escapejs }}?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="remove_member">
+                                <input type="hidden" name="member_id" value="{{ s.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold">
+                                    <i data-lucide="user-minus" style="width:14px;height:14px;"></i> Remove
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
             <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
-                <span class="text-muted fw-medium me-1">Team Members:</span>
-                {% for s in group.students.all %}
-                <span class="m3-chip chip-neutral py-1 px-3">
-                    <a href="{% url 'public_profile' s.username %}" class="text-dark text-decoration-none fw-bold">{{ s.get_full_name|default:s.username }}</a>
-                    <span class="text-muted">({{ s.profile.identifier }})</span>
-                    {% if s.email %}
-                    <a href="mailto:{{ s.email }}" class="text-primary ms-1" title="Email {{ s.email }}"><i data-lucide="mail" style="width:15px;height:15px;"></i></a>
-                    {% endif %}
-                    {% if s.profile.clean_whatsapp %}
-                    <a href="https://wa.me/{{ s.profile.clean_whatsapp }}?text=Hi%20{{ s.get_full_name|urlencode }},%20connecting%20from%20ProTrack" target="_blank" class="text-success ms-1" title="WhatsApp Chat"><i data-lucide="message-circle" style="width:15px;height:15px;"></i></a>
-                    {% endif %}
-                </span>
-                {% endfor %}
+                <form method="POST" class="d-inline no-legend" onsubmit="return confirm('Are you sure you want to leave {{ group.name|escapejs }}? Your team & project details will be archived in your Student Project History.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="leave_group">
+                    <input type="hidden" name="confirm_leave" value="yes">
+                    <button type="submit" class="btn btn-outline-danger rounded-pill px-4 py-2 fw-bold">
+                        <i data-lucide="log-out" style="width:16px;height:16px;"></i> Leave Team
+                    </button>
+                </form>
             </div>
         </div>
 
+        <!-- Right: Faculty Guide Status & Request Workflow -->
         <div class="col-lg-5">
             <div class="m3-card-tonal p-4">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div class="d-flex align-items-center gap-3">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div class="w-100">
+                        <div class="small text-muted fw-bold text-uppercase mb-2">Department Faculty Guide ({{ user.profile.department.name }})</div>
                         {% if group.guide %}
-                        <a href="{% url 'public_profile' group.guide.username %}" class="avatar-circle">
-                            {% if group.guide.profile.has_avatar %}
-                            <img src="{{ group.guide.profile.avatar_url }}" alt="Guide">
-                            {% else %}
-                            {{ group.guide.profile.initials }}
-                            {% endif %}
-                        </a>
-                        <div>
-                            <div class="small text-muted">Assigned Project Guide</div>
-                            <a href="{% url 'public_profile' group.guide.username %}" class="fw-bold fs-5 text-dark text-decoration-none">{{ group.guide.get_full_name|default:group.guide.username }}</a>
-                            <div class="d-flex flex-wrap gap-2 mt-2">
-                                {% if group.guide.email %}
-                                <a href="mailto:{{ group.guide.email }}" class="btn-m3-outline py-1 px-3 text-decoration-none" style="min-height:34px;font-size:0.85rem;">
-                                    <i data-lucide="mail" style="width:14px;height:14px;"></i> Email
-                                </a>
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <a href="{% url 'public_profile' group.guide.username %}" class="avatar-circle">
+                                {% if group.guide.profile.has_avatar %}
+                                <img src="{{ group.guide.profile.avatar_url }}" alt="Guide">
+                                {% else %}
+                                {{ group.guide.profile.initials }}
                                 {% endif %}
-                                {% if group.guide.profile.clean_whatsapp %}
-                                <a href="https://wa.me/{{ group.guide.profile.clean_whatsapp }}?text=Hello%20{{ group.guide.get_full_name|urlencode }},%20we%20are%20from%20{{ group.name|urlencode }}" target="_blank" class="btn-whatsapp py-1 px-3">
-                                    <i data-lucide="message-circle" style="width:14px;height:14px;"></i> WhatsApp
-                                </a>
-                                {% endif %}
+                            </a>
+                            <div>
+                                <a href="{% url 'public_profile' group.guide.username %}" class="fw-bold fs-5 text-dark text-decoration-none">{{ group.guide.get_full_name|default:group.guide.username }}</a>
+                                <div class="small text-muted">Faculty ID: {{ group.guide.profile.identifier }} &bull; <span class="text-success fw-bold">Assigned</span></div>
                             </div>
                         </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% if group.guide.email %}
+                            <a href="mailto:{{ group.guide.email }}" class="btn-email-pill py-1 px-3">
+                                <i data-lucide="mail" style="width:15px;height:15px;"></i> {{ group.guide.email }}
+                            </a>
+                            {% endif %}
+                            {% if group.guide.profile.clean_whatsapp %}
+                            <a href="https://wa.me/{{ group.guide.profile.clean_whatsapp }}?text=Hello%20{{ group.guide.get_full_name|default:group.guide.username|urlencode }},%20we%20are%20from%20{{ group.name|urlencode }}" target="_blank" rel="noopener noreferrer" class="btn-whatsapp py-1 px-3">
+                                <i data-lucide="message-circle" style="width:15px;height:15px;"></i> WhatsApp Guide
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% elif group.requested_guide and group.guide_status == 'PENDING' %}
+                        <div class="p-3 rounded-4 bg-white border mb-3">
+                            <span class="m3-chip chip-warning py-1 px-2 mb-2"><i data-lucide="clock" style="width:14px;height:14px;"></i> Pending Guide Acceptance</span>
+                            <div class="fw-bold">{{ group.requested_guide.get_full_name|default:group.requested_guide.username }} (ID: {{ group.requested_guide.profile.identifier }})</div>
+                            <div class="small text-muted">Notified in {{ user.profile.department.name }}. Guide will be assigned upon acceptance.</div>
+                        </div>
                         {% else %}
-                        <div>
-                            <div class="small text-muted">Project Guide</div>
-                            <div class="text-danger fw-bold">Unassigned</div>
+                        <div class="text-danger fw-bold mb-2">
+                            {% if group.guide_status == 'DECLINED' %}Previous Guide Request Declined — Please Request a Guide{% else %}No Faculty Guide Assigned Yet{% endif %}
                         </div>
                         {% endif %}
+
+                        {% if not group.guide %}
+                        <form method="POST" class="mt-3 pt-3 border-top no-legend">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="request_guide">
+                            <label class="form-label small">Request a Faculty Guide ({{ user.profile.department.name }} Only)</label>
+                            <div class="d-flex gap-2">
+                                <select name="guide_id" class="form-select" style="min-height:46px;padding:8px 14px;" required>
+                                    <option value="">-- Select Department Guide --</option>
+                                    {% for g in dept_guides %}
+                                    <option value="{{ g.id }}" {% if group.requested_guide_id == g.id %}selected{% endif %}>
+                                        {{ g.get_full_name|default:g.username }} (ID: {{ g.profile.identifier }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn-m3-primary py-2 px-3" style="min-height:46px;">Request</button>
+                            </div>
+                        </form>
+                        {% endif %}
                     </div>
+
                     {% if viva %}
-                    <div class="text-end">
-                        <div class="small text-muted">Final Viva Grade</div>
-                        <span class="m3-chip chip-success fs-5">{{ viva.total_score }}/100 &bull; {{ viva.grade_badge }}</span>
+                    <div class="w-100 mt-3 pt-3 border-top d-flex justify-content-between align-items-center">
+                        <span class="small text-muted fw-bold">Final Viva Evaluation</span>
+                        <span class="m3-chip chip-success fs-6">{{ viva.total_score }}/100 &bull; {{ viva.grade_badge }}</span>
                     </div>
                     {% endif %}
                 </div>
@@ -3170,7 +3884,7 @@ function renderSelectedTeammates() {
     </div>
 </div>
 
-<div class="row g-4">
+<div class="row g-4 mb-5">
     <!-- Proposal & TF-IDF Originality Scanner -->
     <div class="col-lg-7">
         <div class="m3-card h-100">
@@ -3201,9 +3915,15 @@ function renderSelectedTeammates() {
                     <label class="form-label" for="propTitle">Project Title</label>
                     <input type="text" name="title" id="propTitle" class="form-control" value="{{ proposal.title|default:'' }}" placeholder="e.g. Cloud-Native Academic Governance Platform" required>
                 </div>
-                <div class="mb-4">
-                    <label class="form-label" for="propDomain">Technical Domain</label>
-                    <input type="text" name="domain" id="propDomain" class="form-control" value="{{ proposal.domain|default:'' }}" placeholder="e.g. Artificial Intelligence, Distributed Systems, Cybersecurity" required>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label" for="propDomain">Technical Domain</label>
+                        <input type="text" name="domain" id="propDomain" class="form-control" value="{{ proposal.domain|default:'' }}" placeholder="e.g. AI, Distributed Systems" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="propTechStack">Technology Stack Used</label>
+                        <input type="text" name="tech_stack" id="propTechStack" class="form-control" value="{{ proposal.tech_stack|default:'' }}" placeholder="e.g. Python, Django, Scikit-Learn, Bootstrap 5" required>
+                    </div>
                 </div>
                 <div class="mb-4">
                     <label class="form-label" for="propAbstract">Detailed Abstract</label>
@@ -3338,31 +4058,151 @@ function runSimilarityCheck() {
 }
 </script>
 {% endif %}
+
+<!-- STUDENT PROFILE PROJECT & TEAM HISTORY SECTION -->
+<div class="m3-card mt-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                <i data-lucide="history" style="color:var(--m3-primary);"></i> Student Project & Team History
+            </h3>
+            <div class="text-muted">Record of your previous teams, project ideas, brief project descriptions, and technology stacks used (also visible on your public profile).</div>
+        </div>
+    </div>
+
+    <form method="POST" class="m3-card-tonal p-4 mb-4" data-autosave="student_history_add_form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_history">
+        <h5 class="fw-bold mb-3">Add Previous Team & Project Experience</h5>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label" for="histTeam">Previous Team Name</label>
+                <input type="text" name="team_name" id="histTeam" class="form-control" placeholder="e.g. Team Alpha" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="histIdea">Project Idea / Title</label>
+                <input type="text" name="project_idea" id="histIdea" class="form-control" placeholder="e.g. Smart Campus IoT Grid" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="histStack">Technology Stack Used</label>
+                <input type="text" name="tech_stack" id="histStack" class="form-control" placeholder="e.g. Python, Django, React, PostgreSQL" required>
+            </div>
+            <div class="col-md-10">
+                <label class="form-label" for="histDesc">Brief Project Description</label>
+                <input type="text" name="brief_description" id="histDesc" class="form-control" placeholder="Summarize what your team built, key features, and outcomes..." required>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn-m3-primary w-100">
+                    <i data-lucide="plus"></i> Save Entry
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <div class="row g-3">
+        {% for h in student_histories %}
+        <div class="col-md-6">
+            <div class="p-4 border rounded-4 bg-white h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                        <span class="m3-chip chip-tonal py-1 px-3"><i data-lucide="users" style="width:14px;height:14px;"></i> {{ h.team_name }}</span>
+                        <form method="POST" class="d-inline no-legend" onsubmit="return confirm('Delete this project history entry?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_history">
+                            <input type="hidden" name="history_id" value="{{ h.id }}">
+                            <button type="submit" class="btn btn-sm btn-link text-danger p-0 text-decoration-none">Remove</button>
+                        </form>
+                    </div>
+                    <h5 class="fw-bold mb-2">{{ h.project_idea }}</h5>
+                    <p class="text-muted small mb-3">{{ h.brief_description }}</p>
+                </div>
+                <div class="pt-2 border-top d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <span class="m3-chip chip-neutral py-1 px-3 small"><i data-lucide="code-2" style="width:14px;height:14px;"></i> Tech Stack: <strong>{{ h.tech_stack }}</strong></span>
+                    <span class="small text-muted">{{ h.created_at|date:"M d, Y" }}</span>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center py-4 text-muted">
+            No previous project history entries recorded yet. Add your past teams & projects above!
+        </div>
+        {% endfor %}
+    </div>
+</div>
 {% endblock %}
 """
 
 # ==============================================================================
-# 10. FACULTY GUIDE DASHBOARD TEMPLATE (guide_dashboard.html)
+# 10. FACULTY GUIDE DASHBOARD TEMPLATE (PENDING REQUEST ACCEPTANCE & MENTORING)
 # ==============================================================================
 GUIDE_DASHBOARD_HTML = """
 {% extends 'base.html' %}
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
         <h1 class="fw-bold mb-1">Faculty Guide Mentoring Console</h1>
-        <div class="text-muted">Review proposals, verify weekly logs, and connect with mentees in <strong>{{ user.profile.department.name }}</strong></div>
+        <div class="text-muted">Accept team mentorship requests, review proposals, and verify weekly logs in <strong>{{ user.profile.department.name }}</strong> (Faculty ID: <strong>{{ user.profile.identifier }}</strong>)</div>
     </div>
     <div class="d-flex flex-wrap gap-2">
-        <span class="m3-chip chip-tonal">Mentored Groups: {{ my_groups.count }}</span>
-        <span class="m3-chip chip-warning">Pending Proposals: {{ pending_proposals }}</span>
+        <span class="m3-chip chip-tonal">Mentored Teams: {{ my_groups.count }}</span>
+        <span class="m3-chip chip-warning">Guide Requests: {{ pending_requests.count }}</span>
         <span class="m3-chip chip-neutral">Unverified Logs: {{ unverified_logs }}</span>
     </div>
 </div>
 
+<!-- PENDING GUIDE MENTORSHIP REQUESTS FROM TEAMS IN THIS DEPARTMENT -->
+{% if pending_requests %}
+<div class="m3-card mb-4" style="border: 2px solid var(--m3-primary);">
+    <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+        <i data-lucide="bell-ring" style="color:var(--m3-primary);"></i> Pending Team Guide Requests in {{ user.profile.department.name }} ({{ pending_requests.count }})
+    </h4>
+    <p class="text-muted small mb-3">The following student teams in your department have requested you as their Faculty Guide. Click <strong>Accept & Assign</strong> to become their official guide.</p>
+    <div class="row g-3">
+        {% for req_grp in pending_requests %}
+        <div class="col-md-6">
+            <div class="m3-card-tonal p-4 d-flex flex-column justify-content-between h-100">
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold fs-5">{{ req_grp.name }}</span>
+                        <span class="m3-chip chip-warning py-1 px-3">Awaiting Your Acceptance</span>
+                    </div>
+                    <div class="small text-muted mb-3">
+                        <strong>Team Members:</strong>
+                        {% for s in req_grp.students.all %}
+                        <a href="{% url 'public_profile' s.username %}" class="text-dark fw-bold text-decoration-none">{{ s.get_full_name|default:s.username }}</a> (Roll: {{ s.profile.identifier }}){% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <form method="POST" class="no-legend flex-grow-1">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="accept_guide_request">
+                        <input type="hidden" name="group_id" value="{{ req_grp.id }}">
+                        <button type="submit" class="btn-m3-primary w-100 py-2">
+                            <i data-lucide="check-circle"></i> Accept & Assign Guide
+                        </button>
+                    </form>
+                    <form method="POST" class="no-legend">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="decline_guide_request">
+                        <input type="hidden" name="group_id" value="{{ req_grp.id }}">
+                        <button type="submit" class="btn-m3-outline text-danger border-danger py-2 px-3">
+                            Decline
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 {% if unassigned_groups %}
 <div class="m3-card-tonal mb-4">
     <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
-        <i data-lucide="user-plus" style="color:var(--m3-primary);"></i> Unassigned Student Groups in {{ user.profile.department.name }}
+        <i data-lucide="user-plus" style="color:var(--m3-primary);"></i> Other Unassigned Student Teams in {{ user.profile.department.name }}
     </h4>
     <div class="row g-3">
         {% for ug in unassigned_groups %}
@@ -3370,13 +4210,13 @@ GUIDE_DASHBOARD_HTML = """
             <div class="bg-white p-4 rounded-4 border d-flex justify-content-between align-items-center">
                 <div>
                     <div class="fw-bold fs-5">{{ ug.name }} <span class="text-muted small">(Code: {{ ug.join_code }})</span></div>
-                    <div class="small text-muted">Students: {% for s in ug.students.all %}<a href="{% url 'public_profile' s.username %}" class="text-dark fw-medium">{{ s.get_full_name|default:s.username }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+                    <div class="small text-muted">Students: {% for s in ug.students.all %}<a href="{% url 'public_profile' s.username %}" class="text-dark fw-medium">{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>
                 </div>
                 <form method="POST" class="no-legend">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="claim_group">
                     <input type="hidden" name="group_id" value="{{ ug.id }}">
-                    <button type="submit" class="btn-m3-tonal">Accept Group</button>
+                    <button type="submit" class="btn-m3-tonal">Accept Team</button>
                 </form>
             </div>
         </div>
@@ -3397,12 +4237,12 @@ GUIDE_DASHBOARD_HTML = """
                 <strong class="me-1">Students:</strong>
                 {% for s in g.students.all %}
                 <span class="m3-chip chip-neutral py-1 px-3">
-                    <a href="{% url 'public_profile' s.username %}" class="text-dark text-decoration-none fw-bold">{{ s.get_full_name|default:s.username }}</a> ({{ s.profile.identifier }})
+                    <a href="{% url 'public_profile' s.username %}" class="text-dark text-decoration-none fw-bold">{{ s.get_full_name|default:s.username }}</a> (Roll: {{ s.profile.identifier }})
                     {% if s.email %}
-                    <a href="mailto:{{ s.email }}" class="text-primary ms-1" title="Email Student"><i data-lucide="mail" style="width:15px;height:15px;"></i></a>
+                    <a href="mailto:{{ s.email }}" class="text-primary ms-1" title="Email {{ s.email }}"><i data-lucide="mail" style="width:15px;height:15px;"></i></a>
                     {% endif %}
                     {% if s.profile.clean_whatsapp %}
-                    <a href="https://wa.me/{{ s.profile.clean_whatsapp }}?text=Hello%20{{ s.get_full_name|urlencode }},%20regarding%20your%20project%20in%20ProTrack" target="_blank" class="text-success ms-1" title="WhatsApp Student"><i data-lucide="message-circle" style="width:16px;height:16px;"></i></a>
+                    <a href="https://wa.me/{{ s.profile.clean_whatsapp }}?text=Hello%20{{ s.get_full_name|default:s.username|urlencode }},%20regarding%20your%20project%20in%20ProTrack" target="_blank" rel="noopener noreferrer" class="text-success ms-1" title="WhatsApp {{ s.profile.whatsapp_number }}"><i data-lucide="message-circle" style="width:16px;height:16px;"></i></a>
                     {% endif %}
                 </span>
                 {% endfor %}
@@ -3429,9 +4269,10 @@ GUIDE_DASHBOARD_HTML = """
             {% if g.proposal %}
             <div class="m3-card-tonal p-4">
                 <h4 class="fw-bold mb-1">{{ g.proposal.title }}</h4>
-                <div class="small fw-bold mb-3" style="color:var(--m3-primary);">
-                    Domain: {{ g.proposal.domain }} &bull; Closest Match: {{ g.proposal.closest_match_title }}
+                <div class="small fw-bold mb-2" style="color:var(--m3-primary);">
+                    Domain: {{ g.proposal.domain }} &bull; Tech Stack: {{ g.proposal.tech_stack|default:"Not specified" }}
                 </div>
+                <div class="small text-muted mb-3">Closest Corpus Match: {{ g.proposal.closest_match_title }}</div>
                 <p class="mb-4">{{ g.proposal.abstract }}</p>
 
                 {% if g.proposal.report_file %}
@@ -3463,7 +4304,7 @@ GUIDE_DASHBOARD_HTML = """
             {% else %}
             <div class="m3-card-tonal text-center py-5 text-muted">
                 <i data-lucide="file-clock" class="mb-2" style="width:36px;height:36px;"></i>
-                <div>This group has not submitted their proposal yet.</div>
+                <div>This team has not submitted their proposal yet.</div>
             </div>
             {% endif %}
         </div>
@@ -3508,8 +4349,8 @@ GUIDE_DASHBOARD_HTML = """
 {% empty %}
 <div class="m3-card text-center py-5">
     <i data-lucide="users" style="width:48px;height:48px;color:var(--m3-primary);" class="mb-3"></i>
-    <h3 class="fw-bold">No Active Groups Under Your Mentorship Yet</h3>
-    <p class="text-muted mb-0">Students who selected you during registration ({{ registered_mentees.count }} students) will appear here as soon as they initialize their project group.</p>
+    <h3 class="fw-bold">No Active Teams Under Your Mentorship Yet</h3>
+    <p class="text-muted mb-0">When teams in <strong>{{ user.profile.department.name }}</strong> request you as their Faculty Guide, you can accept their request above to begin mentoring.</p>
 </div>
 {% endfor %}
 {% endblock %}
@@ -3520,6 +4361,7 @@ GUIDE_DASHBOARD_HTML = """
 # ==============================================================================
 EXAMINER_VIVA_HTML = """
 {% extends 'base.html' %}
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -3540,7 +4382,7 @@ EXAMINER_VIVA_HTML = """
 <div class="row g-4 mb-4">
     <div class="col-md-3 col-6">
         <div class="m3-card p-4">
-            <div class="text-muted small mb-1">Department Groups</div>
+            <div class="text-muted small mb-1">Department Teams</div>
             <div class="display-5 fw-bold" style="color:var(--m3-primary);">{{ groups.count }}</div>
         </div>
     </div>
@@ -3648,11 +4490,18 @@ EXAMINER_VIVA_HTML = """
                 {% endif %}
             </div>
             <h3 class="fw-bold mb-2">{{ g.proposal.title|default:"Proposal Pending Submission" }}</h3>
+            {% if g.proposal and g.proposal.tech_stack %}
+            <div class="small fw-bold mb-2" style="color:var(--m3-primary);">Tech Stack: {{ g.proposal.tech_stack }}</div>
+            {% endif %}
             <p class="text-muted mb-3">{{ g.proposal.abstract|default:"No abstract submitted yet." }}</p>
             <div class="mb-3">
                 <strong>Examinees:</strong>
                 {% for s in g.students.all %}
-                <a href="{% url 'public_profile' s.username %}" class="m3-chip chip-neutral py-1 px-3 me-1 mb-1 text-decoration-none text-dark">{{ s.get_full_name|default:s.username }} ({{ s.profile.identifier }})</a>
+                <span class="m3-chip chip-neutral py-1 px-3 me-1 mb-1">
+                    <a href="{% url 'public_profile' s.username %}" class="text-decoration-none text-dark fw-bold">{{ s.get_full_name|default:s.username }}</a> (Roll: {{ s.profile.identifier }})
+                    {% if s.email %}<a href="mailto:{{ s.email }}" class="text-primary ms-1" title="Email {{ s.email }}"><i data-lucide="mail" style="width:14px;height:14px;"></i></a>{% endif %}
+                    {% if s.profile.clean_whatsapp %}<a href="https://wa.me/{{ s.profile.clean_whatsapp }}" target="_blank" rel="noopener noreferrer" class="text-success ms-1" title="WhatsApp {{ s.profile.whatsapp_number }}"><i data-lucide="message-circle" style="width:14px;height:14px;"></i></a>{% endif %}
+                </span>
                 {% endfor %}
             </div>
             {% if g.proposal and g.proposal.report_file %}
@@ -3741,19 +4590,17 @@ function calcViva(gid) {
 
 # ==============================================================================
 # 12. REORDERED ADMIN DASHBOARD TEMPLATE (admin_dashboard.html)
-#     Order: 1. Faculty Guides & Examiner Role Assignment
-#            2. Enrolled Students Dataset
-#            3. Descending Hierarchy Engine (Very Last)
-#     (Verified Admin ID Proofs moved to Profile Settings)
+#     Includes Admin Assignment of Department Faculty Guides to Project Teams
 # ==============================================================================
 ADMIN_DASHBOARD_HTML = """
 {% extends 'base.html' %}
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
         <div class="m3-chip chip-tonal mb-2">
             <i data-lucide="shield-check" style="width:16px;height:16px;"></i>
-            Verified Institution Admin &bull; ID: {{ user.profile.identifier }}
+            Verified Institution Admin &bull; Admin ID: {{ user.profile.identifier }}
         </div>
         <h1 class="fw-bold mb-1">Institution Governance & Role Command Center</h1>
         <div class="text-muted">Authorized Scope: <strong>{{ user.profile.college.name }}</strong> ({{ user.profile.university.name }})</div>
@@ -3783,8 +4630,8 @@ ADMIN_DASHBOARD_HTML = """
             </select>
         </div>
         <div class="col-md-5">
-            <label class="form-label">Search by Name or ID</label>
-            <input type="text" name="q" class="form-control" value="{{ search_q }}" placeholder="e.g. John Doe, FAC-101, CS-2026-01...">
+            <label class="form-label">Search by Name or ID (e.g. A12, AB12)</label>
+            <input type="text" name="q" class="form-control" value="{{ search_q }}" placeholder="e.g. John Doe, AB12, A12...">
         </div>
         <div class="col-md-2">
             <button type="submit" class="btn-m3-primary w-100">
@@ -3794,19 +4641,19 @@ ADMIN_DASHBOARD_HTML = """
     </form>
 </div>
 
-<!-- SECTION 1 (HIGHEST PRIORITY): FACULTY GUIDES & EXAMINER ROLE ASSIGNMENT -->
+<!-- SECTION 1 (HIGHEST PRIORITY): FACULTY GUIDES, EXAMINER ROLE & TEAM GUIDE ASSIGNMENT -->
 <div class="m3-card mb-5">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
             <h3 class="fw-bold mb-1 d-flex align-items-center gap-2">
                 <i data-lucide="award" style="color:var(--m3-primary);"></i> 1. Faculty Guides & Examiner Role Assignment
             </h3>
-            <div class="text-muted">Promote any registered Faculty Guide in {{ user.profile.college.name }} to External Examiner or demote them in one click.</div>
+            <div class="text-muted">Promote any registered Faculty Guide in {{ user.profile.college.name }} to External Examiner or assign guides to project teams below.</div>
         </div>
         <span class="m3-chip chip-tonal">Active Examiners: {{ examiners_count }}</span>
     </div>
 
-    <div class="table-responsive">
+    <div class="table-responsive mb-5">
         <table class="table align-middle">
             <thead class="text-muted">
                 <tr>
@@ -3834,7 +4681,6 @@ ADMIN_DASHBOARD_HTML = """
                                 <a href="{% url 'public_profile' g.user.username %}" class="fw-bold text-dark text-decoration-none">{{ g.user.get_full_name|default:g.user.username }}</a>
                                 <div class="small text-muted">
                                     <a href="{% url 'public_profile' g.user.username %}" class="text-muted text-decoration-none">@{{ g.user.username }}</a>
-                                    {% if g.user.email %} &bull; <a href="mailto:{{ g.user.email }}" class="text-primary text-decoration-none">{{ g.user.email }}</a>{% endif %}
                                 </div>
                             </div>
                         </div>
@@ -3845,17 +4691,20 @@ ADMIN_DASHBOARD_HTML = """
                         <div class="small text-muted">{{ g.college.name }}</div>
                     </td>
                     <td>
-                        <div class="d-flex flex-wrap gap-1">
+                        <div class="d-flex flex-wrap gap-2">
+                            {% if g.user.email %}
+                            <a href="mailto:{{ g.user.email }}" class="btn-email-pill py-1 px-3" title="Email {{ g.user.email }}">
+                                <i data-lucide="mail" style="width:15px;height:15px;"></i> {{ g.user.email }}
+                            </a>
+                            {% endif %}
                             {% if g.clean_whatsapp %}
-                            <a href="https://wa.me/{{ g.clean_whatsapp }}" target="_blank" class="btn-whatsapp py-1 px-3">
+                            <a href="https://wa.me/{{ g.clean_whatsapp }}" target="_blank" rel="noopener noreferrer" class="btn-whatsapp py-1 px-3" title="WhatsApp {{ g.whatsapp_number }}">
                                 <i data-lucide="message-circle" style="width:15px;height:15px;"></i> WhatsApp
                             </a>
                             {% endif %}
-                            {% if g.whatsapp_number %}
-                            <a href="tel:{{ g.whatsapp_number }}" class="btn-m3-outline py-1 px-2 text-decoration-none" style="min-height:34px;" title="Call {{ g.whatsapp_number }}">
-                                <i data-lucide="phone" style="width:15px;height:15px;"></i>
-                            </a>
-                            {% endif %}
+                            <button type="button" class="btn-m3-outline py-1 px-2" style="min-height:34px;" onclick="sharePublicProfile('{% url 'public_profile' g.user.username %}', '{{ g.user.get_full_name|default:g.user.username|escapejs }}')" title="Share Public Profile">
+                                <i data-lucide="share-2" style="width:15px;height:15px;"></i>
+                            </button>
                         </div>
                     </td>
                     <td>
@@ -3890,6 +4739,82 @@ ADMIN_DASHBOARD_HTML = """
             </tbody>
         </table>
     </div>
+
+    <!-- Admin Faculty Guide Assignment to Project Teams & Groups -->
+    <div class="m3-card-tonal p-4">
+        <h4 class="fw-bold mb-2 d-flex align-items-center gap-2">
+            <i data-lucide="user-check" style="color:var(--m3-primary);"></i> Assign Available Department Faculty Guides to Project Teams
+        </h4>
+        <p class="text-muted small mb-3">Directly assign or update the Faculty Guide for any student team in your college. Only guides belonging to the team's department are listed.</p>
+
+        <div class="table-responsive">
+            <table class="table align-middle mb-0 bg-white rounded-4 overflow-hidden">
+                <thead class="text-muted">
+                    <tr>
+                        <th class="ps-3">Team Name & Code</th>
+                        <th>Department</th>
+                        <th>Members (Exact Roll No.)</th>
+                        <th>Current / Requested Guide</th>
+                        <th class="pe-3">Assign Department Faculty Guide</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for grp in groups_qs %}
+                    <tr>
+                        <td class="ps-3">
+                            <div class="fw-bold">{{ grp.name }}</div>
+                            <span class="m3-chip chip-neutral py-0 px-2 small">Code: {{ grp.join_code }}</span>
+                        </td>
+                        <td>{{ grp.department.name }}</td>
+                        <td>
+                            {% for m in grp.students.all %}
+                            <a href="{% url 'public_profile' m.username %}" class="m3-chip chip-neutral py-1 px-2 small text-dark text-decoration-none mb-1">
+                                {{ m.get_full_name|default:m.username }} ({{ m.profile.identifier }})
+                            </a>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if grp.guide %}
+                            <span class="m3-chip chip-success py-1 px-3">
+                                <i data-lucide="check-circle" style="width:14px;height:14px;"></i>
+                                {{ grp.guide.get_full_name|default:grp.guide.username }} ({{ grp.guide.profile.identifier }})
+                            </span>
+                            {% elif grp.requested_guide and grp.guide_status == 'PENDING' %}
+                            <span class="m3-chip chip-warning py-1 px-3">
+                                Requested: {{ grp.requested_guide.get_full_name|default:grp.requested_guide.username }}
+                            </span>
+                            {% else %}
+                            <span class="text-danger fw-bold small">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td class="pe-3">
+                            <form method="POST" class="d-flex gap-2 no-legend">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="assign_guide">
+                                <input type="hidden" name="group_id" value="{{ grp.id }}">
+                                <select name="guide_id" class="form-select py-1 px-3" style="min-height:42px;font-size:0.92rem;">
+                                    <option value="">-- Unassigned --</option>
+                                    {% for cg in college_guides_all %}
+                                        {% if cg.department_id == grp.department_id %}
+                                        <option value="{{ cg.user.id }}" {% if grp.guide_id == cg.user.id %}selected{% endif %}>
+                                            {{ cg.user.get_full_name|default:cg.user.username }} (ID: {{ cg.identifier }})
+                                        </option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn-m3-primary py-1 px-3" style="min-height:42px;font-size:0.9rem;">Assign</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">No project teams created in this scope yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <!-- SECTION 2 (PROMINENT): ENROLLED STUDENTS DATASET -->
@@ -3899,7 +4824,7 @@ ADMIN_DASHBOARD_HTML = """
             <h3 class="fw-bold mb-1 d-flex align-items-center gap-2">
                 <i data-lucide="graduation-cap" style="color:var(--m3-primary);"></i> 2. Enrolled Students Dataset
             </h3>
-            <div class="text-muted">All students registered under {{ user.profile.college.name }} and its departments.</div>
+            <div class="text-muted">All students registered under {{ user.profile.college.name }} and its departments (displaying exact Roll Numbers).</div>
         </div>
         <span class="m3-chip chip-neutral">Total Students: {{ students_qs|length }}</span>
     </div>
@@ -3908,10 +4833,10 @@ ADMIN_DASHBOARD_HTML = """
             <thead class="text-muted">
                 <tr>
                     <th>Student</th>
-                    <th>Roll Call & Class</th>
+                    <th>Roll Number & Class</th>
                     <th>Department</th>
-                    <th>Selected Guide</th>
-                    <th>Contact Actions</th>
+                    <th>Preferred Guide</th>
+                    <th>Contact & Share Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -3930,7 +4855,6 @@ ADMIN_DASHBOARD_HTML = """
                                 <a href="{% url 'public_profile' s.user.username %}" class="fw-bold text-dark text-decoration-none">{{ s.user.get_full_name|default:s.user.username }}</a>
                                 <div class="small text-muted">
                                     <a href="{% url 'public_profile' s.user.username %}" class="text-muted text-decoration-none">@{{ s.user.username }}</a>
-                                    {% if s.user.email %} &bull; <a href="mailto:{{ s.user.email }}" class="text-primary text-decoration-none">{{ s.user.email }}</a>{% endif %}
                                 </div>
                             </div>
                         </div>
@@ -3951,17 +4875,20 @@ ADMIN_DASHBOARD_HTML = """
                         {% endif %}
                     </td>
                     <td>
-                        <div class="d-flex flex-wrap gap-1">
+                        <div class="d-flex flex-wrap gap-2">
+                            {% if s.user.email %}
+                            <a href="mailto:{{ s.user.email }}" class="btn-email-pill py-1 px-3" title="Email {{ s.user.email }}">
+                                <i data-lucide="mail" style="width:15px;height:15px;"></i> {{ s.user.email }}
+                            </a>
+                            {% endif %}
                             {% if s.clean_whatsapp %}
-                            <a href="https://wa.me/{{ s.clean_whatsapp }}" target="_blank" class="btn-whatsapp py-1 px-2">
+                            <a href="https://wa.me/{{ s.clean_whatsapp }}" target="_blank" rel="noopener noreferrer" class="btn-whatsapp py-1 px-3" title="WhatsApp {{ s.whatsapp_number }}">
                                 <i data-lucide="message-circle" style="width:15px;height:15px;"></i> WhatsApp
                             </a>
                             {% endif %}
-                            {% if s.whatsapp_number %}
-                            <a href="tel:{{ s.whatsapp_number }}" class="btn-m3-outline py-1 px-2 text-decoration-none" style="min-height:34px;" title="Call {{ s.whatsapp_number }}">
-                                <i data-lucide="phone" style="width:15px;height:15px;"></i>
-                            </a>
-                            {% endif %}
+                            <button type="button" class="btn-m3-outline py-1 px-2" style="min-height:34px;" onclick="sharePublicProfile('{% url 'public_profile' s.user.username %}', '{{ s.user.get_full_name|default:s.user.username|escapejs }}')" title="Share Public Profile">
+                                <i data-lucide="share-2" style="width:15px;height:15px;"></i>
+                            </button>
                         </div>
                     </td>
                 </tr>
@@ -4055,20 +4982,23 @@ ADMIN_DASHBOARD_HTML = """
 """
 
 # ==============================================================================
-# 13. PROFILE SETTINGS & ROLE-SCOPED DIRECTORY (settings_profile.html)
-#     Includes Verified Admin ID Proofs inside Admin's Profile Settings
+# 13. PROFILE SETTINGS, STUDENT HISTORY & ROLE-SCOPED DIRECTORY (settings_profile.html)
 # ==============================================================================
 SETTINGS_PROFILE_HTML = """
 {% extends 'base.html' %}
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
         <h1 class="fw-bold mb-1">Profile Settings & Authorized Contact Directory</h1>
-        <div class="text-muted">Manage your avatar photo, credentials, clickable contact handles, and browse contacts within your authorized scope</div>
+        <div class="text-muted">Manage your avatar photo, mandatory email, exact Roll Number / ID, clickable contact links, and shareable public profile</div>
     </div>
-    <div class="d-flex gap-2">
-        <a href="{% url 'public_profile' user.username %}" class="btn-m3-tonal text-decoration-none">
-            <i data-lucide="external-link"></i> View My Public Profile
+    <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn-m3-tonal" onclick="sharePublicProfile('{% url 'public_profile' user.username %}', '{{ user.get_full_name|default:user.username|escapejs }}')">
+            <i data-lucide="share-2"></i> Share My Public Profile Link
+        </button>
+        <a href="{% url 'public_profile' user.username %}" class="btn-m3-outline text-decoration-none">
+            <i data-lucide="external-link"></i> View Public Profile
         </a>
         <a href="{% url 'dashboard_router' %}" class="btn-m3-outline text-decoration-none">
             <i data-lucide="arrow-left"></i> Back to Dashboard
@@ -4095,7 +5025,7 @@ SETTINGS_PROFILE_HTML = """
                         {% if user.profile.is_examiner %}
                         <span class="m3-chip chip-success py-1 px-3">Assigned Examiner</span>
                         {% endif %}
-                        <span class="m3-chip chip-neutral py-1 px-3">ID: {{ user.profile.identifier }}</span>
+                        <span class="m3-chip chip-neutral py-1 px-3">ID / Roll: {{ user.profile.identifier }}</span>
                     </div>
                 </div>
             </div>
@@ -4113,8 +5043,16 @@ SETTINGS_PROFILE_HTML = """
                         <input type="email" name="email" id="profEmail" class="form-control" value="{{ user.email }}" placeholder="e.g. johndoe@example.com" required>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label" for="profId">Roll Call / Faculty / Admin ID</label>
-                        <input type="text" name="identifier" id="profId" class="form-control" value="{{ user.profile.identifier }}" required>
+                        {% if user.profile.role == 'STUDENT' %}
+                        <label class="form-label" for="profId">Student Roll Number (3 chars, e.g. A12)</label>
+                        <input type="text" name="identifier" id="profId" class="form-control" value="{{ user.profile.identifier }}" minlength="3" maxlength="3" pattern="[A-Za-z][0-9]{2}" title="1 letter followed by 2 digits (e.g. A12). No hyphens." required>
+                        {% elif user.profile.role == 'GUIDE' %}
+                        <label class="form-label" for="profId">Faculty ID (4 chars, e.g. AB12)</label>
+                        <input type="text" name="identifier" id="profId" class="form-control" value="{{ user.profile.identifier }}" minlength="4" maxlength="4" pattern="[A-Za-z]{2}[0-9]{2}" title="2 letters followed by 2 digits (e.g. AB12). No hyphens." required>
+                        {% else %}
+                        <label class="form-label" for="profId">Admin ID (6 chars, e.g. ABCD12)</label>
+                        <input type="text" name="identifier" id="profId" class="form-control" value="{{ user.profile.identifier }}" minlength="6" maxlength="6" pattern="[A-Za-z]{4}[0-9]{2}" title="4 letters followed by 2 digits (e.g. ABCD12). No hyphens." required>
+                        {% endif %}
                     </div>
                     <div class="col-md-6">
                         <label class="form-label" for="profAvatar">Upload Profile Avatar Photo (JPG, PNG, WEBP)</label>
@@ -4126,9 +5064,9 @@ SETTINGS_PROFILE_HTML = """
                         <input type="text" name="class_division" id="profClass" class="form-control" value="{{ user.profile.class_division }}">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label" for="profGuide">Preferred Project Guide</label>
+                        <label class="form-label" for="profGuide">Preferred Project Guide ({{ user.profile.department.name }})</label>
                         <select name="preferred_guide_id" id="profGuide" class="form-select">
-                            <option value="">-- Select Guide --</option>
+                            <option value="">-- Select Guide in {{ user.profile.department.name }} --</option>
                             {% for g in dept_guides %}
                             <option value="{{ g.id }}" {% if user.profile.preferred_guide_id == g.id %}selected{% endif %}>
                                 {{ g.get_full_name|default:g.username }} ({{ g.profile.identifier }})
@@ -4175,9 +5113,14 @@ SETTINGS_PROFILE_HTML = """
     <!-- Right Column: Live Contact Card + Admin ID Proofs (Admin Only) + Password + Delete -->
     <div class="col-lg-5">
         <div class="m3-card mb-4">
-            <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                <i data-lucide="contact" style="color:var(--m3-primary);"></i> Your Live Public Profile Card
-            </h4>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="fw-bold mb-0 d-flex align-items-center gap-2">
+                    <i data-lucide="contact" style="color:var(--m3-primary);"></i> Your Live Public Profile Card
+                </h4>
+                <button type="button" class="btn-m3-outline py-1 px-3 small" style="min-height:36px;" onclick="sharePublicProfile('{% url 'public_profile' user.username %}', '{{ user.get_full_name|default:user.username|escapejs }}')">
+                    <i data-lucide="share-2" style="width:14px;height:14px;"></i> Share Link
+                </button>
+            </div>
             <div class="m3-card-tonal p-4">
                 <div class="d-flex align-items-center gap-3 mb-3">
                     <a href="{% url 'public_profile' user.username %}" class="avatar-circle" style="width:64px;height:64px;font-size:1.4rem;">
@@ -4189,7 +5132,7 @@ SETTINGS_PROFILE_HTML = """
                     </a>
                     <div>
                         <a href="{% url 'public_profile' user.username %}" class="fw-bold fs-5 text-dark text-decoration-none">{{ user.get_full_name|default:user.username }}</a>
-                        <div class="small text-muted">{{ user.profile.get_role_display }} &bull; {{ user.profile.department.name }}</div>
+                        <div class="small text-muted">{{ user.profile.get_role_display }} ({{ user.profile.identifier }}) &bull; {{ user.profile.department.name }}</div>
                     </div>
                 </div>
                 {% if user.profile.bio %}
@@ -4197,7 +5140,7 @@ SETTINGS_PROFILE_HTML = """
                 {% endif %}
                 <div class="d-flex flex-wrap gap-2">
                     {% if user.email %}
-                    <a href="mailto:{{ user.email }}" class="btn-m3-outline py-1 px-3 text-decoration-none" style="min-height:38px;">
+                    <a href="mailto:{{ user.email }}" class="btn-email-pill py-1 px-3">
                         <i data-lucide="mail" style="width:16px;height:16px;"></i> {{ user.email }}
                     </a>
                     {% endif %}
@@ -4207,22 +5150,22 @@ SETTINGS_PROFILE_HTML = """
                     </a>
                     {% endif %}
                     {% if user.profile.clean_whatsapp %}
-                    <a href="https://wa.me/{{ user.profile.clean_whatsapp }}?text=Hi%20{{ user.get_full_name|urlencode }},%20connecting%20via%20ProTrack" target="_blank" class="btn-whatsapp">
+                    <a href="https://wa.me/{{ user.profile.clean_whatsapp }}?text=Hi%20{{ user.get_full_name|default:user.username|urlencode }},%20connecting%20via%20ProTrack" target="_blank" rel="noopener noreferrer" class="btn-whatsapp">
                         <i data-lucide="message-circle" style="width:16px;height:16px;"></i> WhatsApp
                     </a>
                     {% endif %}
                     {% if user.profile.github_url %}
-                    <a href="{{ user.profile.github_url }}" target="_blank" class="btn-m3-outline py-1 px-3 text-decoration-none" style="min-height:38px;">
+                    <a href="{{ user.profile.github_url }}" target="_blank" rel="noopener noreferrer" class="btn-m3-outline py-1 px-3 text-decoration-none" style="min-height:38px;">
                         <i data-lucide="github" style="width:16px;height:16px;"></i> GitHub
                     </a>
                     {% endif %}
                     {% if user.profile.youtube_url %}
-                    <a href="{{ user.profile.youtube_url }}" target="_blank" class="btn-m3-outline py-1 px-3 text-decoration-none" style="min-height:38px;">
+                    <a href="{{ user.profile.youtube_url }}" target="_blank" rel="noopener noreferrer" class="btn-m3-outline py-1 px-3 text-decoration-none" style="min-height:38px;">
                         <i data-lucide="youtube" style="width:16px;height:16px;"></i> YouTube
                     </a>
                     {% endif %}
                     {% if user.profile.instagram_url %}
-                    <a href="{{ user.profile.instagram_url }}" target="_blank" class="btn-m3-outline py-1 px-3 text-decoration-none" style="min-height:38px;">
+                    <a href="{{ user.profile.instagram_url }}" target="_blank" rel="noopener noreferrer" class="btn-m3-outline py-1 px-3 text-decoration-none" style="min-height:38px;">
                         <i data-lucide="instagram" style="width:16px;height:16px;"></i> Instagram
                     </a>
                     {% endif %}
@@ -4231,7 +5174,7 @@ SETTINGS_PROFILE_HTML = """
         </div>
 
         {% if user.profile.role == 'ADMIN' %}
-        <!-- VERIFIED ADMIN ID PROOFS (MOVED TO ADMIN PROFILE SETTINGS) -->
+        <!-- VERIFIED ADMIN ID PROOFS (INSIDE ADMIN PROFILE SETTINGS) -->
         <div class="m3-card mb-4" id="admin-id-proofs">
             <h4 class="fw-bold mb-2 d-flex align-items-center gap-2">
                 <i data-lucide="shield-check" style="color:var(--m3-primary);"></i> Verified Admin ID Proofs
@@ -4293,6 +5236,79 @@ SETTINGS_PROFILE_HTML = """
     </div>
 </div>
 
+{% if user.profile.role == 'STUDENT' %}
+<!-- STUDENT PROJECT & TEAM HISTORY SECTION IN PROFILE SETTINGS -->
+<div class="m3-card mb-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                <i data-lucide="history" style="color:var(--m3-primary);"></i> Student Project & Team History
+            </h3>
+            <div class="text-muted">Manage your previous teams, project ideas, brief project descriptions, and technology stacks used.</div>
+        </div>
+    </div>
+
+    <form method="POST" class="m3-card-tonal p-4 mb-4" data-autosave="profile_history_add_form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_history">
+        <h5 class="fw-bold mb-3">Add Previous Team & Project Record</h5>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Previous Team Name</label>
+                <input type="text" name="team_name" class="form-control" placeholder="e.g. Team Horizon" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Project Idea / Title</label>
+                <input type="text" name="project_idea" class="form-control" placeholder="e.g. AI Resume Analyzer" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Technology Stack Used</label>
+                <input type="text" name="tech_stack" class="form-control" placeholder="e.g. Python, Django, Scikit-Learn" required>
+            </div>
+            <div class="col-md-10">
+                <label class="form-label">Brief Project Description</label>
+                <input type="text" name="brief_description" class="form-control" placeholder="Briefly describe the project problem, architecture, and outcome..." required>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn-m3-primary w-100">
+                    <i data-lucide="plus"></i> Add History
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <div class="row g-3">
+        {% for h in student_histories %}
+        <div class="col-md-6">
+            <div class="p-4 border rounded-4 bg-white h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                        <span class="m3-chip chip-tonal py-1 px-3"><i data-lucide="users" style="width:14px;height:14px;"></i> {{ h.team_name }}</span>
+                        <form method="POST" class="d-inline no-legend" onsubmit="return confirm('Delete this project history entry?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_history">
+                            <input type="hidden" name="history_id" value="{{ h.id }}">
+                            <button type="submit" class="btn btn-sm btn-link text-danger p-0 text-decoration-none">Remove</button>
+                        </form>
+                    </div>
+                    <h5 class="fw-bold mb-2">{{ h.project_idea }}</h5>
+                    <p class="text-muted small mb-3">{{ h.brief_description }}</p>
+                </div>
+                <div class="pt-2 border-top d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <span class="m3-chip chip-neutral py-1 px-3 small"><i data-lucide="code-2" style="width:14px;height:14px;"></i> Tech Stack: <strong>{{ h.tech_stack }}</strong></span>
+                    <span class="small text-muted">{{ h.created_at|date:"M d, Y" }}</span>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center py-4 text-muted">
+            No previous teams or projects recorded yet.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <!-- ROLE-FILTERED DEPARTMENT CONTACT & WHATSAPP DIRECTORY -->
 <div class="m3-card">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
@@ -4306,7 +5322,7 @@ SETTINGS_PROFILE_HTML = """
                 {% elif user.profile.role == 'GUIDE' %}
                 Showing students and faculty colleagues within <strong>{{ user.profile.department.name }}</strong>.
                 {% else %}
-                Showing your assigned Project Group members, Faculty Guide, and Department Examiner.
+                Showing your assigned Project Team members, Faculty Guide, and Department Examiner.
                 {% endif %}
             </div>
         </div>
@@ -4356,7 +5372,7 @@ SETTINGS_PROFILE_HTML = """
                         <i data-lucide="building-2" style="width:14px;height:14px;"></i> {{ p.department.name }} &bull; {{ p.college.name }}
                         {% if p.user.email %}
                         <div class="mt-1">
-                            <a href="mailto:{{ p.user.email }}" class="text-primary text-decoration-none">
+                            <a href="mailto:{{ p.user.email }}" class="text-primary fw-medium text-decoration-none">
                                 <i data-lucide="mail" style="width:14px;height:14px;"></i> {{ p.user.email }}
                             </a>
                         </div>
@@ -4368,31 +5384,19 @@ SETTINGS_PROFILE_HTML = """
                     <a href="{% url 'public_profile' p.user.username %}" class="btn-m3-outline py-1 px-3 text-decoration-none" style="min-height:36px;font-size:0.88rem;">
                         <i data-lucide="user" style="width:15px;height:15px;"></i> Profile
                     </a>
+                    {% if p.user.email %}
+                    <a href="mailto:{{ p.user.email }}" class="btn-email-pill py-1 px-3" title="Email {{ p.user.email }}">
+                        <i data-lucide="mail" style="width:15px;height:15px;"></i> Email
+                    </a>
+                    {% endif %}
                     {% if p.clean_whatsapp %}
-                    <a href="https://wa.me/{{ p.clean_whatsapp }}?text=Hello%20{{ p.user.get_full_name|urlencode }},%20connecting%20from%20ProTrack" target="_blank" class="btn-whatsapp">
+                    <a href="https://wa.me/{{ p.clean_whatsapp }}?text=Hello%20{{ p.user.get_full_name|default:p.user.username|urlencode }},%20connecting%20from%20ProTrack" target="_blank" rel="noopener noreferrer" class="btn-whatsapp" title="WhatsApp {{ p.whatsapp_number }}">
                         <i data-lucide="message-circle" style="width:15px;height:15px;"></i> WhatsApp
                     </a>
                     {% endif %}
-                    {% if p.whatsapp_number %}
-                    <a href="tel:{{ p.whatsapp_number }}" class="btn-m3-outline py-1 px-2 text-decoration-none" style="min-height:36px;" title="Call {{ p.whatsapp_number }}">
-                        <i data-lucide="phone" style="width:15px;height:15px;"></i>
-                    </a>
-                    {% endif %}
-                    {% if p.github_url %}
-                    <a href="{{ p.github_url }}" target="_blank" class="btn-m3-outline py-1 px-2 text-decoration-none" style="min-height:36px;" title="GitHub">
-                        <i data-lucide="github" style="width:15px;height:15px;"></i>
-                    </a>
-                    {% endif %}
-                    {% if p.youtube_url %}
-                    <a href="{{ p.youtube_url }}" target="_blank" class="btn-m3-outline py-1 px-2 text-decoration-none" style="min-height:36px;" title="YouTube">
-                        <i data-lucide="youtube" style="width:15px;height:15px;"></i>
-                    </a>
-                    {% endif %}
-                    {% if p.instagram_url %}
-                    <a href="{{ p.instagram_url }}" target="_blank" class="btn-m3-outline py-1 px-2 text-decoration-none" style="min-height:36px;" title="Instagram">
-                        <i data-lucide="instagram" style="width:15px;height:15px;"></i>
-                    </a>
-                    {% endif %}
+                    <button type="button" class="btn-m3-outline py-1 px-2" style="min-height:36px;" onclick="sharePublicProfile('{% url 'public_profile' p.user.username %}', '{{ p.user.get_full_name|default:p.user.username|escapejs }}')" title="Share Public Profile Link">
+                        <i data-lucide="share-2" style="width:15px;height:15px;"></i>
+                    </button>
                 </div>
             </div>
         </div>
@@ -4409,13 +5413,15 @@ SETTINGS_PROFILE_HTML = """
 
 # ==============================================================================
 # 14. PUBLIC PROFILE VIEW TEMPLATE (public_profile.html)
+#     Includes Share Profile Link Button & Student Project History Section
 # ==============================================================================
 PUBLIC_PROFILE_HTML = """
 {% extends 'base.html' %}
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-xl-9">
-        <div class="m3-card">
+        <div class="m3-card mb-4">
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-4 pb-4 mb-4 border-bottom">
                 <div class="d-flex flex-wrap align-items-center gap-4">
                     <div class="avatar-circle" style="width: 108px; height: 108px; font-size: 2.4rem;">
@@ -4431,7 +5437,7 @@ PUBLIC_PROFILE_HTML = """
                             {% if target_profile.is_examiner %}
                             <span class="m3-chip chip-success"><i data-lucide="award" style="width:15px;height:15px;"></i> External Examiner</span>
                             {% endif %}
-                            <span class="m3-chip chip-neutral">ID: {{ target_profile.identifier }}</span>
+                            <span class="m3-chip chip-neutral">{% if target_profile.role == 'STUDENT' %}Roll Number:{% else %}ID:{% endif %} {{ target_profile.identifier }}</span>
                         </div>
                         <h2 class="fw-bold mb-1">{{ target_user.get_full_name|default:target_user.username }}</h2>
                         <div class="text-muted">@{{ target_user.username }} &bull; {{ target_profile.department.name }} ({{ target_profile.college.name }})</div>
@@ -4441,7 +5447,10 @@ PUBLIC_PROFILE_HTML = """
                     </div>
                 </div>
 
-                <div class="d-flex gap-2">
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn-m3-tonal" onclick="sharePublicProfile('{% url 'public_profile' target_user.username %}', '{{ target_user.get_full_name|default:target_user.username|escapejs }}')">
+                        <i data-lucide="share-2"></i> Share Public Profile Link
+                    </button>
                     {% if user.id == target_user.id %}
                     <a href="{% url 'profile_settings' %}" class="btn-m3-primary text-decoration-none">
                         <i data-lucide="edit-3"></i> Edit My Profile
@@ -4460,7 +5469,7 @@ PUBLIC_PROFILE_HTML = """
             </h5>
             <div class="d-flex flex-wrap gap-3 mb-4">
                 {% if target_user.email %}
-                <a href="mailto:{{ target_user.email }}" class="btn-m3-tonal text-decoration-none">
+                <a href="mailto:{{ target_user.email }}" class="btn-email-pill px-4 py-2 fs-6">
                     <i data-lucide="mail"></i> {{ target_user.email }}
                 </a>
                 {% endif %}
@@ -4470,22 +5479,22 @@ PUBLIC_PROFILE_HTML = """
                 </a>
                 {% endif %}
                 {% if target_profile.clean_whatsapp %}
-                <a href="https://wa.me/{{ target_profile.clean_whatsapp }}?text=Hello%20{{ target_user.get_full_name|urlencode }},%20connecting%20from%20ProTrack" target="_blank" class="btn-whatsapp px-4 py-2 fs-6">
+                <a href="https://wa.me/{{ target_profile.clean_whatsapp }}?text=Hello%20{{ target_user.get_full_name|default:target_user.username|urlencode }},%20connecting%20from%20ProTrack" target="_blank" rel="noopener noreferrer" class="btn-whatsapp px-4 py-2 fs-6">
                     <i data-lucide="message-circle"></i> Start WhatsApp Chat
                 </a>
                 {% endif %}
                 {% if target_profile.github_url %}
-                <a href="{{ target_profile.github_url }}" target="_blank" class="btn-m3-outline text-decoration-none">
+                <a href="{{ target_profile.github_url }}" target="_blank" rel="noopener noreferrer" class="btn-m3-outline text-decoration-none">
                     <i data-lucide="github"></i> GitHub Profile
                 </a>
                 {% endif %}
                 {% if target_profile.youtube_url %}
-                <a href="{{ target_profile.youtube_url }}" target="_blank" class="btn-m3-outline text-decoration-none">
+                <a href="{{ target_profile.youtube_url }}" target="_blank" rel="noopener noreferrer" class="btn-m3-outline text-decoration-none">
                     <i data-lucide="youtube"></i> YouTube Channel
                 </a>
                 {% endif %}
                 {% if target_profile.instagram_url %}
-                <a href="{{ target_profile.instagram_url }}" target="_blank" class="btn-m3-outline text-decoration-none">
+                <a href="{{ target_profile.instagram_url }}" target="_blank" rel="noopener noreferrer" class="btn-m3-outline text-decoration-none">
                     <i data-lucide="instagram"></i> Instagram
                 </a>
                 {% endif %}
@@ -4509,13 +5518,16 @@ PUBLIC_PROFILE_HTML = """
                     </div>
                     {% if student_group %}
                     <div class="col-12 border-top pt-3 mt-3">
-                        <div class="small text-muted">Active Student Project Group</div>
+                        <div class="small text-muted">Active Student Project Team</div>
                         <div class="fw-bold">{{ student_group.name }} &bull; Proposal: {{ student_group.proposal.title|default:"In Progress" }}</div>
+                        {% if student_group.proposal and student_group.proposal.tech_stack %}
+                        <div class="small text-muted mt-1">Tech Stack: <strong>{{ student_group.proposal.tech_stack }}</strong></div>
+                        {% endif %}
                     </div>
                     {% endif %}
                     {% if guided_groups %}
                     <div class="col-12 border-top pt-3 mt-3">
-                        <div class="small text-muted mb-2">Mentored Project Groups ({{ guided_groups.count }})</div>
+                        <div class="small text-muted mb-2">Mentored Project Teams ({{ guided_groups.count }})</div>
                         <div class="d-flex flex-wrap gap-2">
                             {% for gg in guided_groups %}
                             <span class="m3-chip chip-tonal">{{ gg.name }}</span>
@@ -4526,6 +5538,38 @@ PUBLIC_PROFILE_HTML = """
                 </div>
             </div>
         </div>
+
+        {% if target_profile.role == 'STUDENT' %}
+        <!-- STUDENT PROJECT & TEAM HISTORY ON PUBLIC PROFILE -->
+        <div class="m3-card">
+            <h4 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="history" style="color:var(--m3-primary);"></i> Previous Teams & Project History
+            </h4>
+            <div class="row g-3">
+                {% for h in student_histories %}
+                <div class="col-md-6">
+                    <div class="m3-card-tonal p-4 h-100 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="m3-chip chip-tonal py-1 px-3"><i data-lucide="users" style="width:14px;height:14px;"></i> {{ h.team_name }}</span>
+                                <span class="small text-muted">{{ h.created_at|date:"M Y" }}</span>
+                            </div>
+                            <h5 class="fw-bold mb-2">{{ h.project_idea }}</h5>
+                            <p class="text-muted small mb-3">{{ h.brief_description }}</p>
+                        </div>
+                        <div class="pt-2 border-top">
+                            <span class="m3-chip chip-neutral py-1 px-3 small"><i data-lucide="code-2" style="width:14px;height:14px;"></i> Tech Stack: <strong>{{ h.tech_stack }}</strong></span>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12 text-center py-4 text-muted">
+                    No previous team or project history entries listed yet.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -4536,6 +5580,7 @@ PUBLIC_PROFILE_HTML = """
 # ==============================================================================
 SUPERADMIN_LOGIN_HTML = """
 {% extends 'base.html' %}
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 {% block content %}
 <div class="row justify-content-center py-5">
     <div class="col-lg-5">
@@ -4570,6 +5615,7 @@ SUPERADMIN_LOGIN_HTML = """
 
 SUPERADMIN_DASHBOARD_HTML = """
 {% extends 'base.html' %}
+<!-- Force Launch - ProTrack v1.07 Enterprise Edition -->
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
@@ -4673,7 +5719,7 @@ SUPERADMIN_DASHBOARD_HTML = """
                 <tr>
                     <th>User</th>
                     <th>Role</th>
-                    <th>ID</th>
+                    <th>Exact ID / Roll</th>
                     <th>University &rarr; College &rarr; Department</th>
                     <th class="text-end">Action</th>
                 </tr>
@@ -4696,7 +5742,7 @@ SUPERADMIN_DASHBOARD_HTML = """
                         <span class="m3-chip chip-tonal py-1 px-2">{{ p.get_role_display }}</span>
                         {% if p.is_examiner %}<span class="m3-chip chip-success py-1 px-2">Examiner</span>{% endif %}
                     </td>
-                    <td>{{ p.identifier }}</td>
+                    <td><span class="m3-chip chip-neutral py-1 px-2">{{ p.identifier }}</span></td>
                     <td>{{ p.university.name }} &bull; {{ p.college.name }} &bull; <strong>{{ p.department.name }}</strong></td>
                     <td class="text-end">
                         <form method="POST" class="d-inline no-legend">
@@ -4721,14 +5767,15 @@ SUPERADMIN_DASHBOARD_HTML = """
 # 16. SEED COMMAND (portal/management/commands/seed_data.py)
 # ==============================================================================
 SEED_DATA_PY = """
+# Force Launch - ProTrack v1.07 Enterprise Edition
 from django.core.management.base import BaseCommand
 
 class Command(BaseCommand):
-    help = 'ProTrack Cloud v1.05 operates dynamically while preserving existing records.'
+    help = 'ProTrack Cloud v1.05 (Build v1.07) operates dynamically while preserving existing records.'
 
     def handle(self, *args, **kwargs):
         self.stdout.write(self.style.SUCCESS(
-            "ProTrack Cloud v1.05 is active! Existing database records are preserved."
+            "ProTrack Cloud v1.05 (Build v1.07) is active! Existing database records are preserved."
         ))
 """
 
@@ -4737,31 +5784,40 @@ class Command(BaseCommand):
 # ==============================================================================
 def build():
     print("=================================================================")
-    print("  Upgrading to ProTrack Cloud v1.05 (Preserving Existing Data)")
+    print("  Force Launch - ProTrack v1.07 Enterprise Edition (Preserving DB)")
     print("=================================================================")
 
     write_file('requirements.txt', REQUIREMENTS_TXT)
+    write_file('.gitignore', GITIGNORE_TXT)
     write_file('manage.py', MANAGE_PY)
 
+    # Touch LICENSE if present so Git updates its commit tagline too
+    if os.path.exists('LICENSE'):
+        with open('LICENSE', 'r', encoding='utf-8') as f:
+            lic = f.read().rstrip()
+        with open('LICENSE', 'w', encoding='utf-8') as f:
+            f.write(lic + '\n\n')
+        print("  [OK] Refreshed LICENSE for v1.07 commit sync")
+
     # Config package
-    write_file('protrack_config/__init__.py', '')
+    write_file('protrack_config/__init__.py', '# Force Launch - ProTrack v1.07 Enterprise Edition')
     write_file('protrack_config/settings.py', SETTINGS_PY)
     write_file('protrack_config/urls.py', CONFIG_URLS_PY)
     write_file('protrack_config/wsgi.py', WSGI_PY)
 
     # Portal package
-    write_file('portal/__init__.py', '')
+    write_file('portal/__init__.py', '# Force Launch - ProTrack v1.07 Enterprise Edition')
     write_file('portal/models.py', MODELS_PY)
     write_file('portal/similarity.py', SIMILARITY_PY)
     write_file('portal/views.py', VIEWS_PY)
     write_file('portal/urls.py', PORTAL_URLS_PY)
     write_file('portal/admin.py', ADMIN_PY)
-    write_file('portal/management/__init__.py', '')
-    write_file('portal/management/commands/__init__.py', '')
+    write_file('portal/management/__init__.py', '# Force Launch - ProTrack v1.07 Enterprise Edition')
+    write_file('portal/management/commands/__init__.py', '# Force Launch - ProTrack v1.07 Enterprise Edition')
     write_file('portal/management/commands/seed_data.py', SEED_DATA_PY)
     os.makedirs('portal/migrations', exist_ok=True)
     if not os.path.exists('portal/migrations/__init__.py'):
-        write_file('portal/migrations/__init__.py', '')
+        write_file('portal/migrations/__init__.py', '# Force Launch - ProTrack v1.07 Enterprise Edition')
 
     # Templates
     write_file('templates/base.html', BASE_HTML)
@@ -4790,7 +5846,7 @@ def build():
     subprocess.run([sys.executable, '-c', cleanup_code], check=True)
 
     print("\n=================================================================")
-    print("  ProTrack Cloud v1.05 Built Successfully! (Data Preserved)")
+    print("  Force Launch - ProTrack v1.07 Enterprise Edition Complete!")
     print("=================================================================")
 
 if __name__ == '__main__':
