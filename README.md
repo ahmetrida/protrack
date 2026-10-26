@@ -3,14 +3,14 @@
 # 🎓 ProTrack: Web-Based Academic Project Portal
 ### Enterprise Academic Project & Viva Voce Governance Platform
 
-[![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/HTML)
-[![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/CSS)
-[![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![Django](https://img.shields.io/badge/Django-4.2%2B-092E20?style=for-the-badge&logo=django&logoColor=white)](https://djangoproject.com)
-[![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-TF--IDF%20AI-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)](https://scikit-learn.org)
-[![UI Design](https://img.shields.io/badge/UI-Google%20Material%203-5E35B1?style=for-the-badge&logo=materialdesign&logoColor=white)](https://m3.material.io)
-[![License: MIT](https://img.shields.io/badge/License-MIT-137333?style=for-the-badge)](LICENSE)
+![HTML5](https://img.shields.io/badge/HTML-5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS-3-1572B6?style=for-the-badge&logo=css&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JAVASCRIPT-ES6-F7DF1E?style=for-the-badge&logo=javascript&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Django](https://img.shields.io/badge/Django-4.2%2B-092E20?style=for-the-badge&logo=django&logoColor=white)
+![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-TF--IDF%20AI-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)
+![UI Design](https://img.shields.io/badge/UI-Google%20Material%203-5E35B1?style=for-the-badge&logo=materialdesign&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-137333?style=for-the-badge)
 
 **A role-verified, multi-tenant cloud workspace for Universities, Colleges, and Departments to manage academic project lifecycles, AI-powered abstract originality checks, weekly mentor sign-offs, and 100-point Viva Voce evaluations.**
 
